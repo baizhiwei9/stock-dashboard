@@ -338,7 +338,12 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
         if not merged:
             ctx.warn("没有产出任何指标", ["emit 阶段拿到 0 条 points",
                                           "检查任务是否把结果交回 ctx.emit / 返回 list"], "warn")
-        return {"name": name, "ok": True, "rc": 0, "sec": round(time.time() - t0, 1),
+        # publish.py 返回非零时 emit 必须跟着失败：否则 runner 退出 0 → 调度器记 ok
+        # → health 连败清零，落库失败被吞成成功。跳过落库（--no-publish / dry-run）
+        # 时 out 里没有 rc 键，不算失败。
+        prc = out.get("rc")
+        ok = prc in (None, 0)
+        return {"name": name, "ok": ok, "rc": int(prc or 0), "sec": round(time.time() - t0, 1),
                 "detail": detail, "result": out}
 
     # fetch / render / dispatch：钩子优先，其次 stages 里的 cmd
