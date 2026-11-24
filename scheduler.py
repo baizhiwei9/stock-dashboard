@@ -778,6 +778,18 @@ def _finish(key, rc, status, st):
         _health_async(key, rc, rec.get("mod") or {})
 
 
+def _datahub_dir():
+    """DataHub 根目录 —— 两个环境变量名都认。
+
+    scheduler 原来只读 DATAHUB_DIR，build.py 读的是 DATA_HUB_PATH；默认值
+    相同所以平时不出问题，但用户只设其中一个时两边会指向不同目录，health
+    记账和看板读数就分叉了。先 DATAHUB_DIR 再 DATA_HUB_PATH，都没有才用默认。
+    """
+    return (os.environ.get("DATAHUB_DIR")
+            or os.environ.get("DATA_HUB_PATH")
+            or "/opt/coze/.fuse_drive/dataHub_三级体系")
+
+
 def _health_preload():
     """启动时预热 data_hub.tech.health 的 import。
 
@@ -788,8 +800,7 @@ def _health_preload():
     """
     def _warm():
         try:
-            dh = os.environ.get("DATAHUB_DIR",
-                                "/opt/coze/.fuse_drive/dataHub_三级体系")
+            dh = _datahub_dir()
             if dh not in sys.path:
                 sys.path.insert(0, dh)
             t0 = time.time()
@@ -832,8 +843,7 @@ def _health_record(key, rc, m, err=None):
     if "health_run" in (m.get("cmd") or ""):
         return
     try:
-        dh = os.environ.get("DATAHUB_DIR",
-                            "/opt/coze/.fuse_drive/dataHub_三级体系")
+        dh = _datahub_dir()
         if dh not in sys.path:
             sys.path.insert(0, dh)
         from data_hub.tech.health import record
