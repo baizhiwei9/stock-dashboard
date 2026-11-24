@@ -1,0 +1,35 @@
+{
+  "key": "structural_factor",
+  "title": "结构因子每日报告",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "18:45",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_structural_report.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 12,
+  "requires": [
+    "pylibs"
+  ],
+  "root": "{WS}/ses_gffe5ffa4f3c81ffeC0bm2DCboP3Oex",
+  "entry": "daily_structural_report.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
+  "import_note": "含动态 import，按入口目录模块集兜底；外部依赖：pylibs"
+}

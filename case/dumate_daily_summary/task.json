@@ -1,0 +1,33 @@
+{
+  "key": "dumate_daily_summary",
+  "title": "DoMate每日总结-飞书推送",
+  "desc": "",
+  "section": "modules",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "20:30",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u send_daily_summary.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 1,
+  "requires": [],
+  "root": "{WS}/ses_gffe5fa2c1f5f0ffeiyA67rdy4kYveK",
+  "entry": "send_daily_summary.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
+  "import_note": "含动态 import，按入口目录模块集兜底"
+}
