@@ -1,0 +1,28 @@
+{
+  "key": "pmi_export",
+  "title": "pmi 出口 月度展望报告推送",
+  "desc": "",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "monthly",
+    "at": "21:00",
+    "days": [
+      28
+    ]
+  },
+  "cmd": "python3 -u run_monthly.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 17,
+  "requires": [],
+  "root": "{WS}/macro_monthly_report",
+  "entry": "run_monthly.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py"
+}

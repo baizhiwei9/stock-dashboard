@@ -1,0 +1,28 @@
+{
+  "key": "realestate_daily",
+  "title": "土狗付鹏地产日报",
+  "desc": "",
+  "section": "realestate",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "18:00",
+    "weekdays": [
+      6
+    ]
+  },
+  "cmd": "python3 -u daily_canghai_fupeng.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 4,
+  "requires": [],
+  "root": "{WS}/ses_gffe5f6009a25effeIVcE0g6hYL3p22",
+  "entry": "daily_canghai_fupeng.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py"
+}
