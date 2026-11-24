@@ -96,7 +96,9 @@ _STOP = threading.Event()
 # case 任务配置错误只在「首次发现」或「错误内容变了」时告警一次：
 # _case_modules() 每个 tick（15s）和每次 /api/state 都会调，逐次告警会把
 # task_health 刷成连败 5 次、几分钟内发一堆邮件，正好违反「单次失败静默」。
-_CONFIG_ALERTED = {}   # key -> 已经告过警的错误文本
+# 落盘一份：调度器重启后不会把同一个老错误再告一遍。
+CFG_ALERT_PATH = os.path.join(HERE, "state_config_alerts.json")
+_CONFIG_ALERTED = None   # key -> 已经告过警的错误文本（懒加载）
 _CONFIG_CLEARED = set()  # 已经报过「配置恢复正常」的 key，避免反复清零
 
 
@@ -321,14 +323,19 @@ def _config_alert(key, errs):
     不是「任务失败」，必须立刻说话。
 
     去重：同一个 key 同一段错误只告一次；错误文本变了（改了但还没改对）
-    再告一次；恢复正常时记一次 ok=True 把计数清零。
+    再告一次；恢复正常时记一次 ok=True 把计数清零。去重表落盘一份，
+    调度器重启不会把老错误再告一遍。
     """
+    global _CONFIG_ALERTED
     if not key:
         return
     msg = "；".join(errs or [])
     # tick 线程和 HTTP 线程都会走到这里，去重表必须在锁里改，否则同一个错误
     # 可能被两个线程各记一次（连败 +2）。
     with LOCK:
+        if _CONFIG_ALERTED is None:
+            loaded = _read_json(CFG_ALERT_PATH, {})
+            _CONFIG_ALERTED = loaded if isinstance(loaded, dict) else {}
         if msg:
             if _CONFIG_ALERTED.get(key) == msg:
                 return
@@ -341,10 +348,12 @@ def _config_alert(key, errs):
                 return
             _CONFIG_ALERTED.pop(key, None)
             if key in _CONFIG_CLEARED:
+                _save_cfg_alerts()
                 return
             _CONFIG_CLEARED.add(key)
             log("case 任务 %s 配置恢复正常，健康计数清零" % key)
             ok, threshold, err = True, 1, None
+        _save_cfg_alerts()
 
     def _run():
         # record() 在触发阈值时会同步发 SMTP（最坏 60s），不能卡住 tick。
@@ -364,6 +373,14 @@ def _config_alert(key, errs):
             log("case 任务 %s 配置错误告警记录失败: %s: %s"
                 % (key, type(e).__name__, e))
     threading.Thread(target=_run, daemon=True).start()
+
+
+def _save_cfg_alerts():
+    """把去重表落盘。写不进去只打日志 —— 最多下次重启多告一次，不能影响调度。"""
+    try:
+        _write_json(CFG_ALERT_PATH, _CONFIG_ALERTED or {})
+    except Exception as e:                                  # noqa: BLE001
+        log("配置错误告警去重表写入失败: %s: %s" % (type(e).__name__, e))
 
 
 def all_modules():
