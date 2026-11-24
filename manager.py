@@ -70,6 +70,35 @@ def get_mod(cfg: Dict, key: str) -> Dict:
 
 
 # ── crontab ─────────────────────────────────────────────────────────
+
+def sched_text(m) -> str:
+    """把 modules.json 的 sched 结构格式化成可读文本。
+
+    调度已统一由 scheduler.py 管理，不再有 crontab 表达式字段。
+    """
+    s = m.get("sched") or {}
+    mode = s.get("mode")
+    if mode == "daily":
+        wd = s.get("weekdays") or list(range(1, 7))
+        if sorted(wd) == [1, 2, 3, 4, 5]:
+            wd_txt = "工作日"
+        elif len(wd) == 7:
+            wd_txt = "每天"
+        else:
+            wd_txt = "周" + ",".join(str(x) for x in sorted(wd))
+        return "每日 %s %s" % (s.get("at", "?"), wd_txt)
+    if mode == "interval":
+        return "每 %s 分钟" % s.get("every", "?")
+    if mode == "cron":
+        return s.get("expr", "?")
+    return "未配置" if not s else str(s)
+
+
+def live_keys() -> set:
+    """被调度器纳入的模块 key（enabled 即视为在跑，scheduler 热加载 modules.json）。"""
+    cfg = load_cfg()
+    return {m["key"] for m in cfg["modules"] if m.get("enabled", True)}
+
 def crontab_read() -> List[str]:
     r = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
     if r.returncode != 0:
@@ -168,12 +197,11 @@ def last_run(domains: List[str]) -> Optional[str]:
 # ── 命令 ─────────────────────────────────────────────────────────────
 def cmd_list() -> int:
     cfg = load_cfg()
-    marker = cfg.get("marker", "stock-dashboard-modules")
-    live = set(installed_keys(marker))
+    live = live_keys()
 
     print("\n%s看板模块清单%s  （配置 %s）\n" % (YEL, RST, CFG))
-    hdr = "  %-11s %-22s %-16s %-8s %-9s %s" % (
-        "KEY", "模块", "cron", "状态", "已装cron", "数据")
+    hdr = "  %-11s %-22s %-18s %-8s %-8s %s" % (
+        "KEY", "模块", "调度", "状态", "已纳入", "数据")
     print(DIM + hdr + RST)
     print(DIM + "  " + "─" * 104 + RST)
 
@@ -208,26 +236,25 @@ def cmd_list() -> int:
                         pass
                     parts.append("%s %s %s" % (x["domain"], x["latest"], age))
             d_txt = " | ".join(parts)
-        print("  %-11s %-22s %-16s %-8s %-9s %s"
-              % (key, m["title"][:20], m["cron"], st, inst, d_txt))
+        print("  %-11s %-22s %-18s %-8s %-8s %s"
+              % (key, m["title"][:20], sched_text(m), st, inst, d_txt))
 
     n_on = sum(1 for m in cfg["modules"] if m.get("enabled", True))
-    print("\n  %d 个模块，启用 %d 个，crontab 已装 %d 个\n"
-          % (len(cfg["modules"]), n_on, len(live & {m["key"] for m in cfg["modules"]})))
+    print("\n  %d 个模块，启用 %d 个，调度器已纳入 %d 个\n"
+          % (len(cfg["modules"]), n_on, len(live)))
     return 0
 
 
 def cmd_status() -> int:
     cfg = load_cfg()
-    marker = cfg.get("marker", "stock-dashboard-modules")
-    live = set(installed_keys(marker))
+    live = live_keys()
     print("\n%s模块体检%s\n" % (YEL, RST))
     for m in cfg["modules"]:
         key = m["key"]
         print("%s[%s] %s%s" % (YEL, key, m["title"], RST))
         print("  说明   %s" % m["desc"])
-        print("  cron   %s   %s" % (m["cron"],
-              (GRN + "已装" + RST) if key in live else (RED + "未装" + RST)))
+        print("  调度   %s   %s" % (sched_text(m),
+              (GRN + "启用" + RST) if key in live else (RED + "停用" + RST)))
         print("  命令   cd %s && %s" % (m["cwd"], m["cmd"]))
         for x in data_state(m.get("domains") or []):
             if x.get("error"):
@@ -274,55 +301,23 @@ def cmd_toggle(key: str, on: bool) -> int:
     save_cfg(cfg)
     print("%s %s（%s）→ %s" % ("启用" if on else "停用", key, m["title"],
                               "enabled=true" if on else "enabled=false"))
-    print("执行 python3 manager.py install 让它生效到 crontab")
+    print("scheduler.py 会热加载 modules.json，无需 install")
     return 0
 
 
 def cmd_install() -> int:
-    cfg = load_cfg()
-    marker = cfg.get("marker", "stock-dashboard-modules")
-    lines = strip_block(crontab_read(), marker)
-
-    block = ["# >>> %s >>>" % marker,
-             "SHELL=/bin/bash",
-             "# 由 manager.py install 生成，块内勿手改（改了会被覆盖）"]
-    n = 0
-    for m in cfg["modules"]:
-        if not m.get("enabled", True):
-            continue
-        log = os.path.join(LOG_DIR, "%s.log" % m["key"])
-        # 整条命令包进 subshell，重定向才能覆盖 cd / mkdir / cmd 全部输出
-        block.append(
-            "%s ( cd %s && mkdir -p %s && %s ) >> %s 2>&1 # sd:%s"
-            % (m["cron"], m["cwd"], LOG_DIR, m["cmd"], log, m["key"]))
-        n += 1
-    block.append("# <<< %s <<<" % marker)
-
-    crontab_write(lines + block)
-    print("crontab 已更新：装 %d 个模块（标记块 %s）" % (n, marker))
-    for m in cfg["modules"]:
-        if m.get("enabled", True):
-            print("  %-16s %s" % (m["cron"], m["key"]))
-    return 0
+    print("%sinstall 已停用%s" % (RED, RST))
+    print("  调度已统一由 scheduler.py 管理（modules.json 的 sched 字段）。")
+    print("  再往 crontab 写模块会和 scheduler 双跑，所以这里直接拒绝。")
+    print("  要启用/停用模块： python3 manager.py enable|disable <key>")
+    return 1
 
 
 def cmd_uninstall() -> int:
-    cfg = load_cfg()
-    marker = cfg.get("marker", "stock-dashboard-modules")
-    lines = crontab_read()
-    before = len(lines)
-    lines = strip_block(lines, marker)
-    crontab_write(lines)
-    print("已移除标记块 %s（删 %d 行）" % (marker, before - len(lines)))
-    return 0
-
-
-SEC_CFG = os.path.join(HERE, "sections.json")
-
-
-def _sec_load() -> Dict:
-    with open(SEC_CFG, encoding="utf-8") as f:
-        return json.load(f)
+    print("%suninstall 已停用%s" % (RED, RST))
+    print("  crontab 里已无本看板的模块块；如需清理历史残留：")
+    print("  crontab -l | grep -v 'sd:' | crontab -")
+    return 1
 
 
 def cmd_sections(argv: List[str]) -> int:
@@ -413,7 +408,7 @@ def main(argv: List[str]) -> int:
         return cmd_sections(argv[1:])
     if c == "log":
         return cmd_log(argv[1])
-    raise SystemExit("未知命令: %s（list/status/run/enable/disable/install/uninstall/log）" % c)
+    raise SystemExit("未知命令: %s（list/status/run/enable/disable/log）" % c)
 
 
 if __name__ == "__main__":
