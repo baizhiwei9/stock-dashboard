@@ -771,6 +771,39 @@ def _finish(key, rc, status, st):
         })
         save_state(st)
     log("模块结束 %s status=%s exit=%s 耗时 %.1fs" % (key, status, rc, dur))
+    _health_record(key, rc, rec.get("mod") or {})
+
+
+def _health_record(key, rc, m):
+    """把模块结果记进 task_health，与 crontab 侧的 health_run 共用同一张表。
+
+    scheduler 是 modules.json + registry.json + case/ 三类任务的统一执行者，
+    在这里收口比给每条 cmd 套 health_run 外壳更彻底：一处覆盖全部模块，
+    手动 run / HTTP 触发也不会漏，case/ 的 task.json 契约也不用动。
+
+    两条边界：
+      ① cmd 里已经带 health_run 的跳过 —— 否则同一次执行会记两遍，
+         fails 双倍计数，连败 5 天的阈值等于被砍半。
+      ② 记不了健康度绝不能影响调度本身，异常只打日志。
+    """
+    if "health_run" in (m.get("cmd") or ""):
+        return
+    try:
+        dh = os.environ.get("DATAHUB_DIR",
+                            "/opt/coze/.fuse_drive/dataHub_三级体系")
+        if dh not in sys.path:
+            sys.path.insert(0, dh)
+        from data_hub.tech.health import record
+        r = record(key, ok=(rc == 0),
+                   error=None if rc == 0 else "退出码 %s" % rc)
+        if rc == 0:
+            log("健康度 %s 成功，失败计数清零" % key)
+        else:
+            log("健康度 %s 失败，连败 %s/%s%s" % (
+                key, r.get("fails"), r.get("threshold"),
+                "，已发提醒邮件" if r.get("alerted") else "，未到提醒阈值"))
+    except Exception as e:
+        log("健康度记录失败 %s: %s: %s" % (key, type(e).__name__, e))
 
 
 def spawn(key, m, slot, st, pulled=False):
@@ -816,7 +849,8 @@ def spawn(key, m, slot, st, pulled=False):
             save_state(st)
             log("启动失败 %s: %s" % (key, e))
             return False
-        PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f}
+        PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f,
+                      "mod": m}             # mod 供 _finish 记账时判断模块定义
         ORPHANS.pop(key, None)          # 该任务已由本进程接管，孤儿登记作废
         ms = st["modules"].setdefault(key, {})
         ms.pop("queued", None)          # 起跑即退出排队

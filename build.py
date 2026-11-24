@@ -86,6 +86,11 @@ RISK_VIRT_KEYS = ["risk.daily_composite", "risk.gsratio_cross",
 # 股债性价比（ERP）：沪深300 口径
 ERP_KEYS = ["stock.erp_300", "stock.ey_300", "stock.pe_300", "stock.erp_300_pct"]
 
+# 环流日报 · 告警汇总（a_circulation 转录，security 用空串虚拟标的）
+# 这几个 key 必须进白名单，否则 load_all() 静默不装载，看板拿不到值。
+FLOW_KEYS = ["flow.alert_count", "flow.warn_count",
+             "flow.tighten_score", "flow.top_contrib"]
+
 ALLA_SEC = "881001.WI"        # 万得全 A：全市场口径
 RISK_IDX_SEC = "000852.SH"    # 中证1000：多数结构指标落这个标的
 RISK_HS3_SEC = "000300.SH"    # 沪深300：风险释放走这个标的
@@ -153,6 +158,9 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
 
     # 股债性价比（ERP）：沪深300 口径，卡片挂在股票栏
     latest.update(read_latest(ERP_KEYS, [ERP_SEC], asof=asof))
+
+    # 环流日报告警汇总：任务侧已判完阈值，这里只转录展示
+    latest.update(read_latest(FLOW_KEYS, [""], asof=asof))
 
     series: Dict[Tuple[str, str], List[Dict]] = {}
     for sid in INDEX_ORDER:
@@ -1928,6 +1936,26 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
                          num(v(latest, k, MARGIN_SEC), d, u))
                       for n, k, d, u, note in mg)
 
+    # 环流日报告警汇总：报警/警告计数 + 流动性收紧评分 + 首位嫌疑贡献。
+    # 阈值全由任务侧 alert_book 判完，这里只转录，不重算、不降级。
+    flow_rows = [
+        ("环流报警", "flow.alert_count", 0, " 项", "任务侧判定需处置"),
+        ("环流警告", "flow.warn_count", 0, " 项", "数据缺失 / 关注项"),
+        ("流动性收紧评分", "flow.tighten_score", 1, " /10", "越低越紧"),
+    ]
+    flow_html = ""
+    if any_val(latest, [(k, "") for _n, k, _d, _u, _x in flow_rows]
+                          + [("flow.top_contrib", "")]):
+        flow_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
+                                num(v(latest, k, ""), d, u))
+                            for n, k, d, u, note in flow_rows)
+        _tn = t(latest, "flow.top_contrib", "") or "—"
+        _tv = v(latest, "flow.top_contrib", "")
+        flow_html += kvh("首位嫌疑 <span class=\"sm\">流动性收紧主因</span>",
+                         "<span>%s %s</span>" % (html.escape(_tn), num(_tv, 0, " 分")))
+        flow_html = ('<div class="blk"><h4>环流告警（日报判定）</h4>'
+                     '<div class="kvs">%s</div></div>' % flow_html)
+
     charts = [
         ("lq_dr", ("liquidity.dr001", LIQ_SEC), "DR001", "#4a9eff", "%", 3),
         ("lq_us", ("liquidity.spread_cn_us", LIQ_SEC), "中美10Y利差", "#e0a33e", "bp", 1),
@@ -1957,7 +1985,8 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
             '<div class="blk"><h4>两融与杠杆（两市账户口径）</h4><div class="kvs">%s</div>'
             '<p class="note">两融用 <code>margin_account.db</code> 两市合计口径，'
             '不用只有沪市的 <code>margin_history.db</code>。</p></div>'
-            '%s</div></section>' % (rate_html, sp_html, mg_html, ch_html)), charts
+            '%s%s</div></section>' % (rate_html, sp_html, mg_html,
+                                      flow_html, ch_html)), charts
 
 
 def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple:
