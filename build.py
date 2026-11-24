@@ -2462,8 +2462,9 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
     ch_html = "".join(
         '<div class="blk"><h4>%s</h4><div class="chart" id="%s"></div></div>' % (nm, cid)
         for cid, _k, nm, _c, _u, _d in charts)
-    meta = ('<span class="sm">注册 Worker %s · %s</span>'
-            % (html.escape(str(w.get("app_id") or "")),
+    kind = "case 任务" if w.get("source") == "case" else "注册 Worker"
+    meta = ('<span class="sm">%s %s · %s</span>'
+            % (kind, html.escape(str(w.get("app_id") or "")),
                html.escape(_sched_txt(w.get("sched")))))
     head = ('<div class="blk"><h4>%s %s</h4>'
             '<p class="note">%s</p><div class="kvs">%s</div></div>'
@@ -2473,10 +2474,13 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
 
 
 def _sched_txt(sched: Optional[Dict]) -> str:
-    """{"at":"21:00","weekdays":[1..5]} → 工作日 21:00"""
+    """{"at":"21:00","weekdays":[1..5]} → 工作日 21:00；monthly 用 days。"""
     if not sched:
         return "—"
     at = str(sched.get("at") or "").strip() or "—"
+    if sched.get("mode") == "monthly":
+        days = sorted(int(x) for x in (sched.get("days") or []) if str(x).isdigit())
+        return "每月 %s 日 %s" % ("/".join(str(x) for x in days) or "?", at)
     wd = sorted(int(x) for x in (sched.get("weekdays") or []) if str(x).isdigit())
     if not wd or len(wd) == 7:
         d = "每天"
@@ -2630,7 +2634,7 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
         if m.get("_config_error"):
             st_cls, st_txt = "down", "配置错误"
         dur = ("%ss" % ms["duration"]) if ms.get("duration") else "—"
-        src = "注册" if m.get("source") == "registered" else "内置"
+        src = {"case": "case", "registered": "注册"}.get(m.get("source"), "内置")
         rows.append(
             '<tr><td><code>%s</code></td><td>%s</td>'
             '<td class="nw"><span class="sm">%s</span></td>'
@@ -2839,7 +2843,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     for _w in _rws:
         _h, _cs = render_registered_model(_w, latest, series)
         reg_charts.extend(_cs)
-        _tab = _w.get("tab") or ""
+        _tab = _w.get("tab") or ""     # case 任务的 tab 由 as_workers 按 section 填好
         if _tab in KNOWN_TABS:
             reg_in[_tab].append(_h)
         else:

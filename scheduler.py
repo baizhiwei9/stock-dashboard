@@ -695,9 +695,14 @@ def _day_ok(sched, day):
 
 
 def _span(sched, back=False):
-    """回看 / 前瞻的天数：monthly 最多跨一个月。"""
+    """回看 / 前瞻的天数。
+
+    monthly 的前瞻不能按 31 天算：例如 days=[31]，4 月 1 日往后找，
+    下一个 31 号是 5 月 31 日（60 天后）。40 天会让 compute_next 直接返回
+    None，管理页的「下次」永远是 —。回看 40 天足够覆盖上一个月的 31 号。
+    """
     if (sched or {}).get("mode") == "monthly":
-        return 40
+        return 40 if back else 62
     return 9 if back else 10
 
 

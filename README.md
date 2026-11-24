@@ -11,13 +11,14 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | 文件 | 作用 |
 |---|---|
 | `build.py` | 生成 `index.html`（唯一渲染入口，纯 Python，无前端框架） |
-| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑，**不用 crontab** |
+| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` + `case/*/task.json` 里每个 task 的启停时间跑；**业务任务不写 crontab**，只用一条 cron 巡检本进程存活（见「调度与守护」） |
+| `sd_watchdog.sh` | scheduler 看门狗：cron 每分钟调一次，按心跳判定存活，未运行/僵死则拉起、重启，连续失败才告警 |
 | `manager.py` | 命令行运维：模块清单 / 体检 / 手动跑 / 启停 / 板块显隐 |
 | `modules.json` | 模块与调度配置（**不含任何口令**；口令/密钥见 `config/secrets.json`） |
 | `sections.json` | Tab 与子类结构 |
 | `registry.json` | 已注册 Worker 清单 |
 | `publish.sh` | 发布到 Coze Pages |
-| `run_daily.sh` | 一次性全量刷新 |
+| `run_daily.sh` | 旧版一次性全量刷新（仍跑 3 个旧 producer，不覆盖 case 任务；dumate 分支建议用 scheduler） |
 
 ## 快速开始
 
@@ -94,15 +95,17 @@ case 任务跑完 → out/latest.json → case/_lib/publish.py → data_hub.tech
 常用命令：
 
 ```bash
-python3 case/_lib/case_registry.py          # 列 case 任务与校验结果
-python3 case/_tools/import_task.py --dry-run  # 预览从 _seed/tasks.json 导入
-python3 case/_lib/publish.py --all -n        # 校验产出（--dry-run 写法见 case/README.md）
+python3 case/_lib/case_registry.py           # 列 case 任务与校验结果
+python3 case/_tools/import_py.py --dry-run   # 预览从 _seed/tasks.json 导入
+python3 case/_lib/publish.py --all -n        # 校验产出（缺 out/latest.json 时退出码非零）
 python3 scheduler.py fg                      # 调度：内置 + case 一体
 python3 manager.py list                      # 清单里 case 任务标 case
 ```
 
 打包到其他服务器：整目录拷过去，`PYTHONPATH` 指到 DataHub 根，`python3 scheduler.py fg` 即可。
-`cwd` 全部相对，不绑死本机绝对路径。细节见 [case/README.md](case/README.md)。
+任务入口的 `cwd` 已相对化；但部分历史脚本仍引用迁移前 workspace 的绝对路径
+（`/home/work/dumate/...`，含少量数据/字体/配置文件），换机首跑前需按实际路径改造或用
+`BOND_STRATEGIES_DIR` 之类的环境变量覆盖。细节见 [case/README.md](case/README.md)。
 
 ## 调度
 
