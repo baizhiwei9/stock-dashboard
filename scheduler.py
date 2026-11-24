@@ -93,6 +93,12 @@ LOCK = threading.RLock()
 PROCS = {}             # key -> {proc, started, slot, logf}
 _STOP = threading.Event()
 
+# case 任务配置错误只在「首次发现」或「错误内容变了」时告警一次：
+# _case_modules() 每个 tick（15s）和每次 /api/state 都会调，逐次告警会把
+# task_health 刷成连败 5 次、几分钟内发一堆邮件，正好违反「单次失败静默」。
+_CONFIG_ALERTED = {}   # key -> 已经告过警的错误文本
+_CONFIG_CLEARED = set()  # 已经报过「配置恢复正常」的 key，避免反复清零
+
 
 def _queue_conf():
     """读 modules.json 的 queue 配置。
@@ -298,13 +304,63 @@ def _case_modules():
                 m = dict(m)
                 m["enabled"] = False
                 m["_config_error"] = "；".join(errs)
-                log("case 任务 %s 配置错误，已停用（不是静默跳过）：%s"
-                    % (m.get("key"), m["_config_error"]))
+            _config_alert(m.get("key"), errs)
             mods.append(m)
         return mods
     except Exception as e:                                  # noqa: BLE001
         log("装载 case 任务失败：%s" % e)
         return []
+
+
+def _config_alert(key, errs):
+    """case 任务配置错误的告警：首次发现就响，改好后把计数清零。
+
+    走 data_hub.tech.health，跟其他任务共用一张 task_health 表、同一套
+    提醒通道（不另建 crontab 检查）。这里用 threshold=1：配置错误的任务
+    根本不会跑，等不到「连败 5 次」，而且任务从调度里消失是「任务没了」，
+    不是「任务失败」，必须立刻说话。
+
+    去重：同一个 key 同一段错误只告一次；错误文本变了（改了但还没改对）
+    再告一次；恢复正常时记一次 ok=True 把计数清零。
+    """
+    if not key:
+        return
+    msg = "；".join(errs or [])
+    if msg:
+        if _CONFIG_ALERTED.get(key) == msg:
+            return
+        _CONFIG_ALERTED[key] = msg
+        _CONFIG_CLEARED.discard(key)
+        log("case 任务 %s 配置错误，已停用（不是静默跳过）：%s" % (key, msg))
+        ok, threshold, err = False, 1, "配置错误: %s" % msg
+    else:
+        if key not in _CONFIG_ALERTED:
+            return
+        _CONFIG_ALERTED.pop(key, None)
+        if key in _CONFIG_CLEARED:
+            return
+        _CONFIG_CLEARED.add(key)
+        log("case 任务 %s 配置恢复正常，健康计数清零" % key)
+        ok, threshold, err = True, 1, None
+
+    def _run():
+        # record() 在触发阈值时会同步发 SMTP（最坏 60s），不能卡住 tick。
+        try:
+            dh = (os.environ.get("DATAHUB_DIR")
+                  or os.environ.get("DATA_HUB_PATH")
+                  or "/opt/coze/.fuse_drive/dataHub_三级体系")
+            if dh not in sys.path:
+                sys.path.insert(0, dh)
+            from data_hub.tech.health import record
+            r = record(key, ok=ok, error=err, threshold=threshold)
+            if not ok:
+                log("case 任务 %s 配置错误已记入 task_health（连败 %s，%s）"
+                    % (key, r.get("fails"),
+                       "已发提醒" if r.get("alerted") else "未发提醒"))
+        except Exception as e:                              # noqa: BLE001
+            log("case 任务 %s 配置错误告警记录失败: %s: %s"
+                % (key, type(e).__name__, e))
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def all_modules():

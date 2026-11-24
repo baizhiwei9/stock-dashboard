@@ -69,7 +69,7 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `visibility` | `public` | `public`：上牌面；`private`：只落库不展示（旧值 `internal` 已废弃，会被判非法） |
+| `visibility` | `public` | `public`：上牌面；`private`：只落库不展示（旧值 `internal` 是 `private` 的别名，过渡期内照常认，但新任务不要再写） |
 | `section` | 空 | `visibility=public` 时必填，取值见下；`private` 时必须为空或不写 |
 | `depends_on` | `[]` | 上游任务 key 列表；`fetch` 前检查上游产物是否够新，不满足则报警退出 |
 
@@ -214,7 +214,8 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 
 - `private` 任务的指标仍可被其他任务通过 `depends_on` 使用，只是不渲染。
 - 面板只渲染 `visibility=public` 且 `section` 合法的任务；`private` 任务在模块管理页可见（带 private 标记），便于排障。
-- **未知 visibility 不会被当成 public**：`validate_task` 记一条错误，调度器把该任务以「停用 + 配置错误」留在清单里并在调度台标出来 —— 任务可以跑失败，但不能从调度里悄悄消失。
+- **未知 visibility 不会被当成 public**：`validate_task` 记一条错误，调度器把该任务以「停用 + 配置错误」留在清单里、在调度台标出来，并在**首次发现时**发一封告警邮件（同一个错误只告一次，改好后自动清零）—— 任务可以跑失败，但不能从调度里悄悄消失。
+- `internal` 是 `private` 的**旧别名**（过渡期兼容），不产生错误；等 `precious-task` 的 17 个 `task.json` 全部改成 `private` 后删掉别名。
 - 想让私有任务的**部分数据**公开：把那个指标单独拆成一个小 `public` 任务，或在私有任务里再挂一个只 `emit` 该指标的 `public` 任务。不要整包公开。
 
 ---

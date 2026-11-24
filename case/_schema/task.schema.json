@@ -32,7 +32,7 @@
         "private"
       ],
       "default": "public",
-      "description": "public：跑完写指标仓并按 section 上牌面；private：跑完只写指标仓，不展示（私有任务用）。旧值 internal 已废弃，写了会被判为非法"
+      "description": "public：跑完写指标仓并按 section 上牌面；private：跑完只写指标仓，不展示（私有任务用）。旧值 internal 是 private 的别名，过渡期内照常认，但不要再新写"
     },
     "depends_on": {
       "type": "array",

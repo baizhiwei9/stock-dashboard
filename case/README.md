@@ -213,7 +213,9 @@ python3 case/_tools/make_pipeline.py --only tech_consensus --force
 | `private` | ✓ | ✓ | ✗ | 选行业/选股/中间算法这类只自己用的 |
 
 `private` 任务必须把 `section` 留空（原标签挪到 `section_domain` 备查）。枚举只有 `public`/`private`，
-旧的 `internal` 已废弃：写了会判非法，任务以「配置错误 + 停用」出现在调度台，不会静默消失。
+旧的 `internal` 保留为 `private` 的别名（过渡期，`precious-task` 改完后删），写了不报错。
+真正非法的值不会被当成 `public`：任务以「配置错误 + 停用」留在调度台，首次发现时发一封告警邮件，
+不会静默消失。
 看板通过 `case_registry.as_workers()` 拿数据，它只返回 `public` 且 `section` 非空的；
 索引与调度走 `as_modules()`，两种可见性都在，只是 `private` 在模块管理页带标记。
 

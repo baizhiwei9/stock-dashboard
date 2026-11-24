@@ -3,8 +3,12 @@
 `public` 上牌面（按 section 归 Tab），`private` 只跑与落库、不上牌面。
 改可见性只改 `task.json` 的 `visibility`（private 时 `section` 必须为空）。
 
-> 2026-11-25 起枚举只有 `public` / `private` 两个值，旧的 `internal` **已废弃**：
-> 写了 `internal` 会被判为非法，任务以「配置错误 + 停用」出现在调度台，不会静默消失。
+> 2026-11-25 起枚举只有 `public` / `private` 两个值。旧的 `internal` **保留为
+> `private` 的别名**（过渡期）：写了不报错、按 `private` 处理，但不要再新写。
+> 等 `precious-task` 里 17 个 `task.json` 全改成 `private` 之后删掉别名。
+>
+> 真正非法的值（如 `visiblity: pub`）不会被当成 `public`：任务以「配置错误 + 停用」
+> 留在调度台，并在首次发现时发一封告警邮件，不会静默消失。
 
 ## public（12）
 

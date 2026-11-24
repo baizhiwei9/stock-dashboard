@@ -35,6 +35,9 @@ SESSION_DIR_RE = re.compile(r"^ses_[0-9a-f]{6,}$")
 # 框架生命周期：有 pipeline 的任务由 case/_lib/runner.py 按这几个阶段驱动
 PIPELINE_STAGES = ("fetch", "check", "render", "emit", "dispatch")
 VISIBILITIES = ("public", "private")
+# 别名过渡期：老任务写的是 internal，语义等同 private。等 precious-task 里
+# 17 个 task.json 全部改成 private 之后再删掉这张表（见 case/_seed/visibility.md）。
+VISIBILITY_ALIASES = {"internal": "private"}
 RUNNER = os.path.join(HERE, "runner.py")
 
 
@@ -49,10 +52,12 @@ def _read_json(path: str, default):
 def visibility_of(t: Dict) -> str:
     """任务的可见性：public 上牌面，private 只跑与落库。缺省按 public。
 
-    未知值**原样返回**、不悄悄当 public：这种任务由 validate_task 记一条错误、
-    在调度里以「停用 + 配置错误」的形式露出来，绝不静默消失。
+    旧值 internal 归一成 private（别名过渡期），不产生错误、不悄悄当 public。
+    未知值**原样返回**：这种任务由 validate_task 记一条错误、在调度里以
+    「停用 + 配置错误」的形式露出来，绝不静默消失。
     """
-    return str(t.get("visibility") or "public").strip().lower()
+    v = str(t.get("visibility") or "public").strip().lower()
+    return VISIBILITY_ALIASES.get(v, v)
 
 
 def task_dirs(base: Optional[str] = None) -> List[str]:
@@ -121,8 +126,11 @@ def validate_task(t: Dict, dir_key: Optional[str] = None,
     if not str(t.get("title") or "").strip():
         errs.append("缺 title")
     vis = str(t.get("visibility") or "public").strip().lower()
+    # internal 是 private 的旧名，过渡期内直接认，不算错误（否则 precious-task
+    # 里 17 个旧值会让任务带着 _errors 静默停跑）。
+    vis = VISIBILITY_ALIASES.get(vis, vis)
     if vis not in VISIBILITIES:
-        errs.append("visibility 非法：%r（可选 %s；旧值 internal 已废弃，改 private）"
+        errs.append("visibility 非法：%r（可选 %s；internal 是 private 的旧别名）"
                     % (t.get("visibility"), "/".join(VISIBILITIES)))
     sec = t.get("section")
     if vis == "public":
