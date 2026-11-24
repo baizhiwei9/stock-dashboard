@@ -82,9 +82,13 @@ RISK_VIRT_KEYS = ["risk.daily_composite", "risk.gsratio_cross",
                   "style.drift_z", "style.drift_state", "style.drift_advice",
                   "midline.gex_alert", "midline.kurt_alert"]
 
+# 股债性价比（ERP）：沪深300 口径
+ERP_KEYS = ["stock.erp_300", "stock.ey_300", "stock.pe_300", "stock.erp_300_pct"]
+
 ALLA_SEC = "881001.WI"        # 万得全 A：全市场口径
 RISK_IDX_SEC = "000852.SH"    # 中证1000：多数结构指标落这个标的
 RISK_HS3_SEC = "000300.SH"    # 沪深300：风险释放走这个标的
+ERP_SEC = "000300.SH"         # 沪深300：股债性价比口径
 
 BOND_SEC = "CN.BOND"
 
@@ -136,6 +140,9 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
     latest.update(read_latest(RISK_HS3_KEYS, [RISK_HS3_SEC], asof=asof))
     latest.update(read_latest(RISK_VIRT_KEYS, [""], asof=asof))
 
+    # 股债性价比（ERP）：沪深300 口径，卡片挂在股票栏
+    latest.update(read_latest(ERP_KEYS, [ERP_SEC], asof=asof))
+
     series: Dict[Tuple[str, str], List[Dict]] = {}
     for sid in INDEX_ORDER:
         for k in ("chanlun.bull_score", "rmt.ar5", "rmt.outlier_energy",
@@ -159,7 +166,8 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
                  ("option.pcr_oi", "000300.SH"), ("vol.iv_pctile", "000300.SH"),
                  ("risk.score_all_a", ALLA_SEC), ("risk.cdi", ALLA_SEC),
                  ("risk.struct_score", ALLA_SEC),
-                 ("risk.release_composite", RISK_HS3_SEC)):
+                 ("risk.release_composite", RISK_HS3_SEC),
+                 ("stock.erp_300", ERP_SEC)):
         try:
             series[(k, s)] = read_series(k, s)
         except Exception:                                 # noqa: BLE001
@@ -333,7 +341,12 @@ def _kv_smart(label, note, latest, key, sid, dec=0, unit=""):
 
 
 def risk_bar(score: Optional[float]) -> str:
-    """风险综合分的进度条：分越高越危险（跟缠论评分的语义相反）。"""
+    """风险综合分的进度条：分越高越危险（跟缠论评分的语义相反）。
+
+    仅适用于 0~100 分口径（如 risk.daily_composite）；
+    risk.score_all_a / struct_score / volume_score / extreme_score 是
+    -1~1 的小数分，不能直接用本函数，否则永远显示「低风险」。
+    """
     if score is None:
         return '<div class="bar-wrap">%s</div>' % DASH
     p = max(0.0, min(100.0, float(score)))
