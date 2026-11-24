@@ -97,15 +97,27 @@ python3 manager.py list                      # 清单里 case 任务标 case
 
 弃用 crontab。`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
 
-| 模块 | 时间 |
-|---|---|
-| macro | 21:00 |
-| liquidity | 21:20 |
-| option | 18:10 |
-| rmt | 22:10 |
-| chanlun | 22:25 |
-| dfa | 22:28 |
-| build | 22:40 |
+| 模块 | 时间 | 说明 |
+|---|---|---|
+| option | 18:10 | 期权日频落库 |
+| bond | 18:40 | 债券 · 理财 |
+| macro | 21:00 | 宏观与美元环流 |
+| liquidity | 21:20 | 流动性与两融 |
+| risk | 21:50 | 风险 · 结构 |
+| rmt | 22:10 | RMT 随机矩阵 |
+| task_tags | 22:20 | 任务结论转录成带标签指标 |
+| chanlun | 22:25 | 缠论 + 趋势 |
+| dfa | 22:28 | DFA / Hurst |
+| task_tags_notify | 22:35 | 读标签发飞书（alert 另发邮件） |
+| build | 22:40 | 生成 index.html + 发布 |
+| five_strategy | 08:30 | 五策略综合日报（产出由 task_tags 转录） |
+| factor_daily | 08:30 | 资金面因子日报 |
+| limit_up_morning | 09:00 | 涨停预测 · 早盘 |
+| limit_up_noon | 12:00 | 涨停预测 · 午盘（每日一次） |
+
+后 4 个原来是 crontab 里的独立行，现在归 scheduler 管，统一包一层
+`data_hub.tech.health_run`：单次失败静默、连败 5 次才发一封邮件、成功一次清零，
+不需要额外的巡检 crontab。
 
 ## 注册机制
 
