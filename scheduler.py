@@ -981,8 +981,32 @@ def main(argv):
     if cmd == "fg":
         return cmd_fg()
     if cmd == "serve":
+        # 网页服务即任务管理器：serve 起来就把调度循环一起带上。
+        # 不再依赖 cron / 独立守护进程 —— 页面在跑，任务就在跑。
         os.makedirs(LOG_DIR, exist_ok=True)
-        serve_thread()
+        with open(PID_PATH, "w", encoding="utf-8") as f:
+            f.write(str(os.getpid()))
+
+        def _bye(signum, frame):                             # noqa: ARG001
+            _STOP.set()
+
+        signal.signal(signal.SIGTERM, _bye)
+        signal.signal(signal.SIGINT, _bye)
+
+        threading.Thread(target=loop, daemon=True).start()
+        try:
+            serve_thread()
+        finally:
+            _STOP.set()
+            for k in list(PROCS.keys()):
+                try:
+                    _kill_tree(PROCS[k]["proc"])
+                except OSError:
+                    pass
+            try:
+                os.unlink(PID_PATH)
+            except OSError:
+                pass
         return 0
     if cmd == "run":
         if len(argv) < 3:
