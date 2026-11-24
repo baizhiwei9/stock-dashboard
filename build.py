@@ -1952,8 +1952,33 @@ def _load_workers(only_approved: bool = True) -> list:
     return ws
 
 
+def _case_workers() -> list:
+    """case/*/task.json 的任务（dumate 分支）：metrics 回填后当 worker 渲染。"""
+    lib = os.path.join(HERE, "case", "_lib")
+    try:
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        import case_registry
+        return case_registry.as_workers(os.path.join(HERE, "case"))
+    except Exception:                                         # noqa: BLE001
+        return []
+
+
+def _case_modules() -> list:
+    """case 任务清单（含 metrics 还没回填的），用于模块管理页。"""
+    lib = os.path.join(HERE, "case", "_lib")
+    try:
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        import case_registry
+        return [m for m in case_registry.as_modules(os.path.join(HERE, "case"))
+                if not m.get("_errors")]
+    except Exception:                                         # noqa: BLE001
+        return []
+
+
 def _all_modules(cfg: Dict) -> list:
-    """内置 + 已批准的注册 Worker，key 唯一，内置优先。"""
+    """内置 + 已批准的注册 Worker + case 任务，key 唯一，内置优先。"""
     mods, seen = [], set()
     for m in (cfg.get("modules") or []):
         if m.get("key") and m["key"] not in seen:
@@ -1966,6 +1991,14 @@ def _all_modules(cfg: Dict) -> list:
         if k and k not in seen:
             w = dict(w)
             w["source"] = "registered"
+            mods.append(w)
+            seen.add(k)
+    for w in _case_modules():
+        k = w.get("key")
+        if k and k not in seen:
+            w = dict(w)
+            w["source"] = "case"
+            w["metrics"] = w.get("metrics") or []
             mods.append(w)
             seen.add(k)
     return mods
@@ -1993,10 +2026,17 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
     api_port = (cfg.get("api") or {}).get("port") or 8767
     console_url = "http://&lt;主机&gt;:%s/" % api_port
 
-    def _fresh(doms):
+    def _fresh(m):
+        """数据新鲜度：case 任务用自己申报的 metrics，内置/注册按 domain 反查。"""
+        doms = m.get("domains") or []
+        own = ([it.get("key") for it in (m.get("metrics") or []) if it.get("key")]
+               if m.get("source") == "case" else None)
+        if own is not None and not doms:
+            doms = ["case"]
         cells = []
         for d in doms:
-            keys = [k for k, vv in _reg.REGISTRY.items() if vv.domain == d]
+            keys = own if own is not None else \
+                [k for k, vv in _reg.REGISTRY.items() if vv.domain == d]
             latest = None
             if conn is not None and keys:
                 q = ",".join("?" * len(keys))
@@ -2041,7 +2081,7 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
                html.escape(str(ms.get("next_run") or "—")),
                html.escape(str(ms.get("last_run") or "—")),
                st_cls, st_txt, dur,
-               _fresh(m.get("domains") or [])))
+               _fresh(m)))
 
     # 大类 → 子类 model 树
     try:
@@ -2208,7 +2248,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     reg_in = {t: [] for t in KNOWN_TABS}
     reg_new = []
     reg_charts = []
-    _rws = _load_workers(True)
+    _rws = _load_workers(True) + _case_workers()
     for _w in _rws:
         _need = {}
         for _it in (_w.get("metrics") or []):

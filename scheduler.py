@@ -49,6 +49,8 @@ LOG_DIR = os.path.join(HERE, "logs")
 PID_PATH = os.path.join(HERE, "scheduler.pid")
 SELF_LOG = os.path.join(LOG_DIR, "scheduler.log")
 INDEX_PATH = os.path.join(HERE, "index.html")
+CASE_DIR = os.path.join(HERE, "case")
+CASE_LIB = os.path.join(CASE_DIR, "_lib")
 
 TICK_SEC = 15          # 调度轮询间隔
 GRACE_SEC = 6 * 3600   # 错过超过 6 小时就不补跑
@@ -129,8 +131,20 @@ def save_registry(r):
     _write_json(REG_PATH, r)
 
 
+def _case_modules():
+    """case/*/task.json 的任务（dumate 分支的任务壳）。坏配置跳过并记日志。"""
+    try:
+        if CASE_LIB not in sys.path:
+            sys.path.insert(0, CASE_LIB)
+        import case_registry
+        return [m for m in case_registry.as_modules(CASE_DIR) if not m.get("_errors")]
+    except Exception as e:                                  # noqa: BLE001
+        log("装载 case 任务失败：%s" % e)
+        return []
+
+
 def all_modules():
-    """内置 modules.json + 外部注册 registry.json。key 唯一，内置优先。"""
+    """内置 modules.json + 外部注册 registry.json + case 任务。key 唯一，内置优先。"""
     mods = []
     seen = set()
     for m in (load_cfg().get("modules") or []):
@@ -147,6 +161,11 @@ def all_modules():
             w = dict(w)
             w["source"] = "registered"
             mods.append(w)
+            seen.add(k)
+    for m in _case_modules():
+        k = m.get("key")
+        if k and k not in seen:
+            mods.append(m)
             seen.add(k)
     return mods
 
@@ -326,14 +345,31 @@ def _weekdays(sched):
     return set(w) if w else {1, 2, 3, 4, 5}
 
 
+def _day_ok(sched, day):
+    """这一天是否该跑：monthly 看每月日期，其余看 ISO 星期。"""
+    if (sched or {}).get("mode") == "monthly":
+        ds = sched.get("days") or []
+        try:
+            return day.day in {int(x) for x in ds}
+        except (TypeError, ValueError):
+            return False
+    return day.isoweekday() in _weekdays(sched or {})
+
+
+def _span(sched, back=False):
+    """回看 / 前瞻的天数：monthly 最多跨一个月。"""
+    if (sched or {}).get("mode") == "monthly":
+        return 40
+    return 9 if back else 10
+
+
 def compute_slot(sched, now):
     """now 之前（含）最近一个应跑时间点；没有就 None。"""
     if not sched.get("at"):
         return None
-    wds = _weekdays(sched)
-    for d in range(0, 9):
+    for d in range(0, _span(sched, back=True)):
         day = (now - timedelta(days=d)).date()
-        if day.isoweekday() not in wds:
+        if not _day_ok(sched, day):
             continue
         cand = _at_time(sched, day)
         if cand and cand <= now:
@@ -345,10 +381,9 @@ def compute_next(sched, now):
     """严格晚于 now 的下一个应跑时间点。"""
     if not sched.get("at"):
         return None
-    wds = _weekdays(sched)
-    for d in range(0, 10):
+    for d in range(0, _span(sched)):
         day = (now + timedelta(days=d)).date()
-        if day.isoweekday() not in wds:
+        if not _day_ok(sched, day):
             continue
         cand = _at_time(sched, day)
         if cand and cand > now:
@@ -709,7 +744,7 @@ class Handler(BaseHTTPRequestHandler):
                 n = 0
                 for mod in all_modules():
                     k = mod.get("key")
-                    if k in PROCS:
+                    if k in PROCS or not mod.get("enabled", True):
                         continue
                     mod["_manual"] = True
                     spawn(k, mod, datetime.now(), st)

@@ -10,5 +10,10 @@ daily.log
 # 运行状态（每次跑都在变，不入库）
 state.json
 
+# case 任务产出（数据与产物不入库，只留代码）
+case/*/out/
+case/*/logs/
+case/*/__pycache__/
+
 # 云平台部署元数据
 .coze

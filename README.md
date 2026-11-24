@@ -56,9 +56,46 @@ Tushare 主连后缀有坑，注意：SHFE→`.SHF`、DCE→`.DCE`、INE→`.INE
 
 IV / Skew 库内是小数，展示时 ×100 转 %。分位需要 ≥30 个样本才算，不够就 NA——**不编造、不拿旧值顶替**。
 
+## dumate 分支：只展示，任务全部搬进 `case/`
+
+`dumate` 分支把「计算」和「展示」彻底分开：**本仓库不再跑原来的 8 个 producer**
+（`modules.json` 里 macro / liquidity / rmt / chanlun / dfa / option / bond / risk 全部 `enabled=false`，
+保留配置只为对照与回滚），所有任务以独立目录搬进 `case/`，由 `scheduler.py` 按各自 `task.json`
+的 `sched` 定时执行，产出写 DataHub 指标仓，`build.py` 再按 `section` 标签渲染。
+
+```
+case/<task-key>/
+├── task.json           任务元数据：section / metrics / sched / cmd / deliver
+├── out/latest.json     本次产出的标准指标（运行后生成，不入库）
+└── *.py                任务代码（白名单复制，不含数据与产物）
+```
+
+数据链路：
+
+```
+case 任务跑完 → out/latest.json → case/_lib/publish.py → data_hub.tech 指标仓 → build.py
+```
+
+任务按标签归类，`section` 同时决定面板 Tab 与投递行为：
+股票 `stock` 17 个、期货 `futures` 2 个、地产 `realestate` 1 个，
+其余落在 `macro` 4 / `liquidity` 4 / `bond` 4 / `modules` 1。
+
+常用命令：
+
+```bash
+python3 case/_lib/case_registry.py          # 列 case 任务与校验结果
+python3 case/_tools/import_task.py --dry-run  # 预览从 _seed/tasks.json 导入
+python3 case/_lib/publish.py --all -n        # 校验产出（--dry-run 写法见 case/README.md）
+python3 scheduler.py fg                      # 调度：内置 + case 一体
+python3 manager.py list                      # 清单里 case 任务标 case
+```
+
+打包到其他服务器：整目录拷过去，`PYTHONPATH` 指到 DataHub 根，`python3 scheduler.py fg` 即可。
+`cwd` 全部相对，不绑死本机绝对路径。细节见 [case/README.md](case/README.md)。
+
 ## 调度
 
-弃用 crontab。`scheduler.py` 读 `modules.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
+弃用 crontab。`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
 
 | 模块 | 时间 |
 |---|---|
