@@ -1,0 +1,946 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""scheduler.py — stock-dashboard 自带的任务调度器（不依赖 crontab）
+
+一个 Python 进程管住所有模块：每个模块按 modules.json 里的 sched 自己算
+下次该跑的时间，到点起子进程，跑完把状态写进 state.json。同时起一个轻量
+HTTP 服务，让管理页面能查状态、启停模块、立刻跑一次、改板块显隐。
+
+纯标准库，零 token。
+
+命令：
+  python3 scheduler.py start          后台常驻
+  python3 scheduler.py stop           停止
+  python3 scheduler.py restart        重启
+  python3 scheduler.py status         打印状态表
+  python3 scheduler.py fg             前台跑（调试，Ctrl-C 退出）
+  python3 scheduler.py run <key>      立刻跑一次
+  python3 scheduler.py on <key>       启用模块
+  python3 scheduler.py off <key>      停用模块
+  python3 scheduler.py serve          只起 HTTP 控制台，不跑调度
+
+模块字段（modules.json）：
+  key/title/desc/domains/cwd/cmd/timeout/enabled  必填
+  sched: {"mode":"daily","at":"21:00","weekdays":[1,2,3,4,5]}   ISO：1=周一 … 7=周日
+  depends: ["macro", ...]  这些模块在跑时先等它们跑完
+"""
+
+import json
+import os
+import random
+import re
+import signal
+import subprocess
+import sys
+import threading
+import time
+import traceback
+from datetime import datetime, timedelta, time as dtime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CFG_PATH = os.path.join(HERE, "modules.json")
+SEC_PATH = os.path.join(HERE, "sections.json")
+REG_PATH = os.path.join(HERE, "registry.json")
+STATE_PATH = os.path.join(HERE, "state.json")
+LOG_DIR = os.path.join(HERE, "logs")
+PID_PATH = os.path.join(HERE, "scheduler.pid")
+SELF_LOG = os.path.join(LOG_DIR, "scheduler.log")
+INDEX_PATH = os.path.join(HERE, "index.html")
+
+TICK_SEC = 15          # 调度轮询间隔
+GRACE_SEC = 6 * 3600   # 错过超过 6 小时就不补跑
+
+LOCK = threading.RLock()
+PROCS = {}             # key -> {proc, started, slot, logf}
+_STOP = threading.Event()
+
+
+# ────────────────────────────── 基础读写 ──────────────────────────────
+def log(msg):
+    """只写文件 —— stdout 本身可能就重定向到同一个文件，避免重复。"""
+    line = "[%s] %s" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg)
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        with open(SELF_LOG, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
+
+
+def _read_json(path, default):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def _write_json(path, obj):
+    """原子写；云盘偶尔不让建 .tmp，退化成直接写。"""
+    data = json.dumps(obj, ensure_ascii=False, indent=2)
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(data)
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(data)
+
+
+def load_cfg():
+    return _read_json(CFG_PATH, {"modules": []})
+
+
+def save_cfg(cfg):
+    _write_json(CFG_PATH, cfg)
+
+
+def load_state():
+    st = _read_json(STATE_PATH, {})
+    st.setdefault("scheduler", {})
+    st.setdefault("modules", {})
+    return st
+
+
+def save_state(st):
+    _write_json(STATE_PATH, st)
+
+
+def api_conf():
+    return (load_cfg().get("api") or {})
+
+
+def load_registry():
+    r = _read_json(REG_PATH, {})
+    r.setdefault("workers", [])
+    return r
+
+
+def save_registry(r):
+    _write_json(REG_PATH, r)
+
+
+def all_modules():
+    """内置 modules.json + 外部注册 registry.json。key 唯一，内置优先。"""
+    mods = []
+    seen = set()
+    for m in (load_cfg().get("modules") or []):
+        if m.get("key") and m["key"] not in seen:
+            m = dict(m)
+            m["source"] = "builtin"
+            mods.append(m)
+            seen.add(m["key"])
+    for w in (load_registry().get("workers") or []):
+        k = w.get("key")
+        if w.get("status") != "approved":
+            continue
+        if k and k not in seen:
+            w = dict(w)
+            w["source"] = "registered"
+            mods.append(w)
+            seen.add(k)
+    return mods
+
+
+def _now_s():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _rand(n=8):
+    return "".join(random.choice("0123456789abcdef") for _ in range(n))
+
+
+def reg_key():
+    """注册密钥：modules.json 的 api.registry_key，缺省跟管理密码一致。"""
+    a = api_conf()
+    return str(a.get("registry_key") or a.get("password") or "123456")
+
+
+def find_worker(app_id=None, key=None):
+    reg = load_registry()
+    for w in (reg.get("workers") or []):
+        if app_id and w.get("app_id") == app_id:
+            return w, reg
+        if key and w.get("key") == key:
+            return w, reg
+    return None, reg
+
+
+def register_worker(body):
+    """外部注册一个 Worker，落到 pending 等后台批准。返回 (worker, err)。"""
+    key = str(body.get("key") or "").strip()
+    if not re.match(r"^[A-Za-z][A-Za-z0-9_]{1,31}$", key):
+        return None, "key 必须字母开头，只能字母/数字/下划线，2-32 位"
+    if not str(body.get("cmd") or "").strip():
+        return None, "cmd 必填（这个 Worker 到点要执行的命令）"
+    if any(m.get("key") == key for m in (load_cfg().get("modules") or [])):
+        return None, "key 与内置模块重名，换一个"
+
+    old, reg = find_worker(key=key)
+    if old and old.get("status") == "approved":
+        return None, "这个 key 已经批准过了，要改请先在后台注销"
+
+    w = {
+        "app_id": (old or {}).get("app_id") or ("wk_" + _rand(10)),
+        "secret": (old or {}).get("secret") or ("sk_" + _rand(24)),
+        "key": key,
+        "title": str(body.get("title") or key).strip()[:64],
+        "desc": str(body.get("desc") or "").strip()[:300],
+        "tab": str(body.get("tab") or "").strip()[:32],
+        "domains": [str(x)[:32] for x in (body.get("domains") or [])][:12],
+        "sec": str(body.get("sec") or "CN.MACRO")[:32],
+        "metrics": (body.get("metrics") or [])[:24],
+        "sched": body.get("sched") or {"mode": "daily", "at": "21:30",
+                                       "weekdays": [1, 2, 3, 4, 5]},
+        "cwd": str(body.get("cwd") or HERE),
+        "cmd": str(body["cmd"]),
+        "timeout": int(body.get("timeout") or 1800),
+        "enabled": True,
+        "status": "pending",
+        "section": body.get("section") or None,
+        "registered_at": _now_s(),
+        "reviewed_at": None,
+    }
+    # 校验 sched.at
+    try:
+        hh, mm = [int(x) for x in str(w["sched"].get("at", "")).split(":")]
+        if not (0 <= hh < 24 and 0 <= mm < 60):
+            raise ValueError
+    except (ValueError, TypeError):
+        return None, "sched.at 要写成 HH:MM，例如 21:30"
+
+    reg["workers"] = [x for x in (reg.get("workers") or []) if x.get("key") != key]
+    reg["workers"].append(w)
+    save_registry(reg)
+    log("收到注册申请：%s（%s）→ 待批准" % (key, w["app_id"]))
+    return w, None
+
+
+def review_worker(app_id, action):
+    """批准 / 拒绝 / 删除。返回 (worker, err)。"""
+    w, reg = find_worker(app_id=app_id)
+    if not w:
+        return None, "没有这个 app_id"
+    if action == "delete":
+        reg["workers"] = [x for x in reg["workers"] if x.get("app_id") != app_id]
+        save_registry(reg)
+        log("后台删除 Worker：%s（%s）" % (w.get("key"), app_id))
+        return w, None
+    if action == "approve":
+        w["status"] = "approved"
+        w["enabled"] = True
+        w["reviewed_at"] = _now_s()
+        # 批准时才把板块写进 sections.json
+        _ensure_section(w)
+    elif action == "reject":
+        w["status"] = "rejected"
+        w["enabled"] = False
+        w["reviewed_at"] = _now_s()
+    else:
+        return None, "action 只能是 approve / reject / delete"
+    save_registry(reg)
+    log("后台%s Worker：%s（%s）" % ({"approve": "批准", "reject": "拒绝"}[action],
+                                    w.get("key"), app_id))
+    return w, None
+
+
+def _ensure_section(w):
+    """把注册的 model 挂到它所属的大类 Tab 下；大类不存在就新建一个大类。"""
+    sec = load_sections()
+    sec.setdefault("sections", [])
+    tab = w.get("tab") or ""
+    model = {"key": w["key"], "title": w.get("title") or w["key"],
+             "enabled": True, "worker": w.get("app_id"), "source": "registered"}
+    tgt = next((x for x in sec["sections"] if x.get("key") == tab), None)
+    if tgt is not None:
+        tgt.setdefault("subs", [])
+        tgt["subs"] = [x for x in tgt["subs"] if x.get("key") != w["key"]]
+        tgt["subs"].append(model)
+    else:
+        keys = {x.get("key") for x in sec["sections"]}
+        if w["key"] in keys:
+            return
+        new = {"key": w["key"], "num": "%02d" % (len(sec["sections"]) + 1),
+               "title": w.get("title") or w["key"],
+               "sub": w.get("desc") or "", "enabled": True, "subs": [],
+               "source": "registered", "worker": w.get("app_id")}
+        # 插在 modules 之前
+        pos = next((i for i, x in enumerate(sec["sections"])
+                    if x.get("key") == "modules"), len(sec["sections"]))
+        sec["sections"].insert(pos, new)
+    _write_json(SEC_PATH, sec)
+
+
+def set_enabled(key, on):
+    """改启用状态，写回它所在的那个文件。"""
+    cfg = load_cfg()
+    for m in (cfg.get("modules") or []):
+        if m.get("key") == key:
+            m["enabled"] = bool(on)
+            save_cfg(cfg)
+            return True
+    reg = load_registry()
+    for w in (reg.get("workers") or []):
+        if w.get("key") == key:
+            w["enabled"] = bool(on)
+            save_registry(reg)
+            return True
+    return False
+
+
+# ────────────────────────────── 时间计算 ──────────────────────────────
+def _at_time(sched, day):
+    try:
+        hh, mm = [int(x) for x in str(sched.get("at", "")).split(":")]
+    except (ValueError, AttributeError):
+        return None
+    return datetime.combine(day, dtime(hh, mm))
+
+
+def _weekdays(sched):
+    w = sched.get("weekdays")
+    return set(w) if w else {1, 2, 3, 4, 5}
+
+
+def compute_slot(sched, now):
+    """now 之前（含）最近一个应跑时间点；没有就 None。"""
+    if not sched.get("at"):
+        return None
+    wds = _weekdays(sched)
+    for d in range(0, 9):
+        day = (now - timedelta(days=d)).date()
+        if day.isoweekday() not in wds:
+            continue
+        cand = _at_time(sched, day)
+        if cand and cand <= now:
+            return cand
+    return None
+
+
+def compute_next(sched, now):
+    """严格晚于 now 的下一个应跑时间点。"""
+    if not sched.get("at"):
+        return None
+    wds = _weekdays(sched)
+    for d in range(0, 10):
+        day = (now + timedelta(days=d)).date()
+        if day.isoweekday() not in wds:
+            continue
+        cand = _at_time(sched, day)
+        if cand and cand > now:
+            return cand
+    return None
+
+
+# ────────────────────────────── 进程管理 ──────────────────────────────
+def _kill_tree(p):
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            p.terminate()
+        except OSError:
+            pass
+    try:
+        p.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+
+
+def _finish(key, rc, status, st):
+    rec = PROCS.pop(key, None)
+    if not rec:
+        return
+    dur = (datetime.now() - rec["started"]).total_seconds()
+    try:
+        rec["logf"].write(("[%s] 结束 %s exit=%s 耗时 %.1fs\n" %
+                           (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            key, rc, dur)).encode())
+        rec["logf"].close()
+    except OSError:
+        pass
+    with LOCK:
+        st["modules"].setdefault(key, {}).update({
+            "last_status": status, "exit": rc,
+            "duration": round(dur, 1), "running": False,
+            "finished": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        })
+        save_state(st)
+    log("模块结束 %s status=%s exit=%s 耗时 %.1fs" % (key, status, rc, dur))
+
+
+def spawn(key, m, slot, st):
+    os.makedirs(LOG_DIR, exist_ok=True)
+    logp = os.path.join(LOG_DIR, "%s.log" % key)
+    f = open(logp, "ab")
+    now = datetime.now()
+    head = ("\n" + "=" * 72 +
+            "\n[%s] 启动 %s（计划点 %s）\n[cmd] %s\n[cwd] %s\n" %
+            (now.strftime("%Y-%m-%d %H:%M:%S"), key,
+             slot.strftime("%Y-%m-%d %H:%M"), m.get("cmd"),
+             m.get("cwd") or HERE))
+    f.write(head.encode())
+    f.flush()
+    try:
+        p = subprocess.Popen(
+            m["cmd"], shell=True, executable="/bin/bash",
+            cwd=m.get("cwd") or HERE,
+            stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            start_new_session=True)
+    except OSError as e:
+        f.write(("启动失败: %s\n" % e).encode())
+        f.close()
+        with LOCK:
+            st["modules"].setdefault(key, {}).update({
+                "last_status": "fail", "running": False,
+                "note": "启动失败: %s" % e})
+            save_state(st)
+        log("启动失败 %s: %s" % (key, e))
+        return
+    PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f}
+    with LOCK:
+        st["modules"].setdefault(key, {}).update({
+            "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
+            "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "last_status": "running", "running": True, "note": "",
+        })
+        save_state(st)
+    log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
+
+
+def tick():
+    now = datetime.now()
+    st = load_state()
+    mods = {m["key"]: m for m in all_modules() if m.get("key")}
+
+    # ① 回收已结束 / 超时的进程
+    for key in list(PROCS.keys()):
+        rec = PROCS[key]
+        p = rec["proc"]
+        rc = p.poll()
+        if rc is None:
+            to = float((mods.get(key) or {}).get("timeout") or 3600)
+            if (now - rec["started"]).total_seconds() > to:
+                _kill_tree(p)
+                _finish(key, -1, "timeout", st)
+            continue
+        _finish(key, rc, "ok" if rc == 0 else "fail", st)
+
+    # ② 到点的起新任务
+    for key, m in mods.items():
+        if not m.get("enabled", True) or key in PROCS:
+            continue
+        sched = m.get("sched") or {}
+        slot = compute_slot(sched, now)
+        if slot is None or (now - slot).total_seconds() > GRACE_SEC:
+            continue
+        slotkey = slot.strftime("%Y-%m-%d %H:%M")
+        if (st["modules"].get(key) or {}).get("last_slot") == slotkey:
+            continue
+        deps = m.get("depends") or []
+        waiting = [d for d in deps if d in PROCS]
+        if waiting:
+            st["modules"].setdefault(key, {})["note"] = "等 %s 跑完" % "/".join(waiting)
+            continue
+        spawn(key, m, slot, st)
+
+    # ③ 刷新状态
+    for key, m in mods.items():
+        ms = st["modules"].setdefault(key, {})
+        ms["enabled"] = bool(m.get("enabled", True))
+        nx = compute_next(m.get("sched") or {}, now)
+        ms["next_run"] = nx.strftime("%Y-%m-%d %H:%M") if nx else "—"
+        ms["running"] = key in PROCS
+        if key in PROCS:
+            ms["elapsed"] = round((now - PROCS[key]["started"]).total_seconds())
+    st["scheduler"].update({
+        "pid": os.getpid(), "tick": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "running": len(PROCS), "mode": st["scheduler"].get("mode", "daemon"),
+    })
+    save_state(st)
+
+
+def loop():
+    log("调度器启动 pid=%d，轮询 %ds" % (os.getpid(), TICK_SEC))
+    while not _STOP.is_set():
+        try:
+            tick()
+        except Exception:                                    # noqa: BLE001
+            log("tick 异常：\n" + traceback.format_exc())
+        _STOP.wait(TICK_SEC)
+    log("调度器退出")
+
+
+# ────────────────────────────── HTTP 控制台 ──────────────────────────────
+def _json_resp(h, obj, code=200):
+    """写 JSON 响应；浏览器提前断开（BrokenPipe）不算错误。"""
+    body = json.dumps(obj, ensure_ascii=False).encode()
+    try:
+        _json_write(h, body, code)
+    except (BrokenPipeError, ConnectionResetError):
+        pass
+
+
+def _json_write(h, body, code):
+    h.send_response(code)
+    h.send_header("Content-Type", "application/json; charset=utf-8")
+    h.send_header("Content-Length", str(len(body)))
+    h.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+    h.send_header("Access-Control-Allow-Origin", "*")
+    h.send_header("Access-Control-Allow-Headers", "Content-Type, X-SD-PW")
+    h.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    h.end_headers()
+    h.wfile.write(body)
+
+
+def _kick_build():
+    """Worker 批准后触发一次重建发布，让新板块上线。"""
+    try:
+        b = next((m for m in all_modules() if m.get("key") == "build"), None)
+        if not b or not b.get("enabled", True):
+            return False
+        if "build" in PROCS:
+            return False
+        spawn("build", b, datetime.now(), load_state())
+        log("已触发重建发布（Worker 变更）")
+        return True
+    except Exception:                                        # noqa: BLE001
+        log("触发重建失败：" + traceback.format_exc())
+        return False
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "sd-scheduler/1.0"
+
+    def log_message(self, fmt, *args):      # 静音访问日志
+        pass
+
+    # ── 工具 ──
+    def _pw_ok(self):
+        want = str(api_conf().get("password") or "")
+        got = self.headers.get("X-SD-PW", "")
+        return (not want) or (got == want)
+
+    def _body(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            if not n:
+                return {}
+            return json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+        except (ValueError, OSError):
+            return {}
+
+    def _snapshot(self):
+        st = load_state()
+        mods = []
+        for m in all_modules():
+            k = m.get("key")
+            ms = st["modules"].get(k) or {}
+            mods.append({
+                "key": k, "title": m.get("title"), "desc": m.get("desc"),
+                "source": m.get("source") or "builtin",
+                "app_id": m.get("app_id"),
+                "status": m.get("status") or "builtin",
+                "domains": m.get("domains") or [],
+                "sched": m.get("sched") or {},
+                "enabled": bool(m.get("enabled", True)),
+                "timeout": m.get("timeout"),
+                "depends": m.get("depends") or [],
+                "running": k in PROCS,
+                "next_run": ms.get("next_run"),
+                "last_run": ms.get("last_run"),
+                "last_status": ms.get("last_status"),
+                "duration": ms.get("duration"),
+                "exit": ms.get("exit"),
+                "elapsed": ms.get("elapsed"),
+                "note": ms.get("note") or "",
+            })
+        return {"now": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "scheduler": st.get("scheduler") or {},
+                "modules": mods,
+                "sections": (load_sections().get("sections") or [])}
+
+    # ── GET ──
+    def do_GET(self):
+        path = urlparse(self.path).path
+        try:
+            if path == "/api/state":
+                return _json_resp(self, self._snapshot())
+            if path == "/api/sections":
+                return _json_resp(self, load_sections())
+            if path == "/api/registry":
+                if not self._pw_ok():
+                    return _json_resp(self, {"error": "密码不对"}, 401)
+                r = load_registry()
+                pend = [w for w in r.get("workers", []) if w.get("status") == "pending"]
+                return _json_resp(self, {
+                    "ok": True,
+                    "registry_key": reg_key(),
+                    "endpoint": "/api/register",
+                    "workers": r.get("workers", []),
+                    "pending": len(pend),
+                })
+            m = re.match(r"^/api/log/([A-Za-z0-9_]+)$", path)
+            if m:
+                key = m.group(1)
+                fp = os.path.join(LOG_DIR, "%s.log" % key)
+                try:
+                    with open(fp, "rb") as f:
+                        f.seek(0, os.SEEK_END)
+                        size = f.tell()
+                        f.seek(max(0, size - 8000))
+                        txt = f.read().decode("utf-8", "replace")
+                except OSError:
+                    txt = "（还没有日志）"
+                return _json_resp(self, {"key": key, "log": txt})
+            if path in ("/", "/index.html"):
+                return self._serve_index()
+            if path == "/health":
+                return _json_resp(self, {"ok": True, "pid": os.getpid()})
+            _json_resp(self, {"error": "not found"}, 404)
+        except Exception:                                    # noqa: BLE001
+            _json_resp(self, {"error": traceback.format_exc()}, 500)
+
+    def _serve_index(self):
+        try:
+            with open(INDEX_PATH, "rb") as f:
+                body = f.read()
+        except OSError:
+            return _json_resp(self, {"error": "index.html 还没生成，先跑一次 build"}, 404)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _key_ok(self):
+        """外部注册用 X-SD-KEY（或 ?key=）对注册密钥，不要求管理密码。"""
+        got = (self.headers.get("X-SD-KEY") or "").strip()
+        if not got:
+            q = parse_qs(urlparse(self.path).query)
+            got = (q.get("key") or [""])[0].strip()
+        return got == reg_key()
+
+    # ── POST ──
+    def do_POST(self):
+        path = urlparse(self.path).path
+        body = self._body()
+        # 外部注册只认注册密钥
+        if path == "/api/register":
+            if not self._key_ok():
+                return _json_resp(self, {"error": "注册密钥不对"}, 401)
+            w, err = register_worker(body)
+            if err:
+                return _json_resp(self, {"error": err}, 400)
+            return _json_resp(self, {
+                "ok": True, "status": "pending",
+                "app_id": w["app_id"], "secret": w["secret"], "key": w["key"],
+                "message": "已收到申请，等后台批准后才会显示和调度",
+            })
+        if not self._pw_ok():
+            return _json_resp(self, {"error": "密码不对"}, 401)
+        try:
+            m = re.match(r"^/api/worker/([A-Za-z0-9_]+)/(approve|reject|delete)$", path)
+            if m:
+                w, err = review_worker(m.group(1), m.group(2))
+                if err:
+                    return _json_resp(self, {"error": err}, 404)
+                if m.group(2) == "approve":
+                    # 异步触发，别让云盘读写把 HTTP 响应拖到 2-3 秒
+                    threading.Thread(target=_kick_build, daemon=True).start()
+                return _json_resp(self, {"ok": True, "app_id": w.get("app_id"),
+                                         "key": w.get("key"), "status": w.get("status")})
+            m = re.match(r"^/api/module/([A-Za-z0-9_]+)/(toggle|run)$", path)
+            if m:
+                return self._module_action(m.group(1), m.group(2), body)
+            m = re.match(r"^/api/section/([A-Za-z0-9_]+)/toggle$", path)
+            if m:
+                return self._section_toggle(m.group(1), body)
+            if path == "/api/shutdown":
+                log("管理页面：请求停止调度器")
+                _json_resp(self, {"ok": True, "bye": True})
+                threading.Timer(1.0, _STOP.set).start()
+                return
+            if path == "/api/run_all":
+                st = load_state()
+                n = 0
+                for mod in all_modules():
+                    k = mod.get("key")
+                    if k in PROCS:
+                        continue
+                    mod["_manual"] = True
+                    spawn(k, mod, datetime.now(), st)
+                    n += 1
+                return _json_resp(self, {"ok": True, "started": n})
+            _json_resp(self, {"error": "not found"}, 404)
+        except Exception:                                    # noqa: BLE001
+            _json_resp(self, {"error": traceback.format_exc()}, 500)
+
+    def _module_action(self, key, act, body):
+        st = load_state()
+        mod = next((m for m in all_modules() if m.get("key") == key), None)
+        if not mod:
+            return _json_resp(self, {"error": "模块不存在: %s" % key}, 404)
+        if act == "toggle":
+            on = bool(body.get("enabled", not mod.get("enabled", True)))
+            set_enabled(key, on)
+            mod["enabled"] = on
+            log("管理页面：%s → %s" % (key, "启用" if on else "停用"))
+            if not mod["enabled"] and key in PROCS:
+                _kill_tree(PROCS[key]["proc"])
+                _finish(key, -9, "stopped", st)
+            return _json_resp(self, {"ok": True, "key": key, "enabled": mod["enabled"]})
+        # run
+        if key in PROCS:
+            return _json_resp(self, {"error": "%s 正在跑，先等它结束" % key}, 409)
+        spawn(key, mod, datetime.now(), st)
+        log("管理页面：手动跑 %s" % key)
+        return _json_resp(self, {"ok": True, "key": key, "started": True})
+
+    def _section_toggle(self, key, body):
+        sec = load_sections()
+        for s in sec.get("sections", []):
+            if s.get("key") == key:
+                s["enabled"] = bool(body.get("enabled", not s.get("enabled", True)))
+                _write_json(SEC_PATH, sec)
+                log("管理页面：板块 %s → %s" % (key, "显示" if s["enabled"] else "隐藏"))
+                return _json_resp(self, {"ok": True, "key": key, "enabled": s["enabled"]})
+        _json_resp(self, {"error": "板块不存在: %s" % key}, 404)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-SD-PW")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.end_headers()
+
+
+def load_sections():
+    return _read_json(SEC_PATH, {"sections": []})
+
+
+def serve_thread():
+    conf = api_conf()
+    host = conf.get("host") or "0.0.0.0"
+    port = int(conf.get("port") or 8765)
+    try:
+        srv = ThreadingHTTPServer((host, port), Handler)
+    except OSError as e:
+        log("HTTP 控制台起不来 %s:%s → %s" % (host, port, e))
+        return
+    log("HTTP 控制台 http://%s:%s（管理页面同源，无跨域问题）" % (host, port))
+    srv.serve_forever()
+
+
+# ────────────────────────────── 命令行 ──────────────────────────────
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError, OSError):
+        return False
+
+
+def read_pid():
+    try:
+        with open(PID_PATH, encoding="utf-8") as f:
+            pid = int(f.read().strip())
+        return pid if _pid_alive(pid) else None
+    except (OSError, ValueError):
+        return None
+
+
+def cmd_start():
+    pid = read_pid()
+    if pid:
+        print("已在运行 pid=%d" % pid)
+        return 0
+    os.makedirs(LOG_DIR, exist_ok=True)
+    out = open(SELF_LOG, "ab")
+    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), "_daemon"],
+                         cwd=HERE, stdin=subprocess.DEVNULL,
+                         stdout=out, stderr=subprocess.STDOUT,
+                         start_new_session=True)
+    time.sleep(1.8)
+    if p.poll() is None:
+        print("调度器已启动 pid=%d" % p.pid)
+        print("  日志   %s" % SELF_LOG)
+        print("  控制台 http://127.0.0.1:%s" % (api_conf().get("port") or 8765))
+        return 0
+    print("启动失败，看 %s" % SELF_LOG)
+    return 1
+
+
+def cmd_stop():
+    pid = read_pid()
+    if not pid:
+        print("没在跑")
+        return 0
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError as e:
+        print("停止失败：%s" % e)
+        return 1
+    for _ in range(20):
+        if not _pid_alive(pid):
+            break
+        time.sleep(0.3)
+    else:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    try:
+        os.unlink(PID_PATH)
+    except OSError:
+        pass
+    print("已停止 pid=%d" % pid)
+    return 0
+
+
+def cmd_status():
+    cfg = load_cfg()
+    st = load_state()
+    pid = read_pid()
+    print("调度器 %s" % ("运行中 pid=%d" % pid if pid else "未运行"))
+    print("  控制台 http://127.0.0.1:%s   tick=%s" %
+          (api_conf().get("port") or 8765, (st.get("scheduler") or {}).get("tick") or "—"))
+    print()
+    print("  %-11s %-22s %-16s %-9s %-8s %s" %
+          ("KEY", "模块", "下次", "状态", "上次耗时", "数据域"))
+    print("  " + "-" * 96)
+    for m in all_modules():
+        k = m.get("key")
+        ms = st["modules"].get(k) or {}
+        on = m.get("enabled", True)
+        state = ms.get("last_status") or "未跑"
+        if k in PROCS:
+            state = "运行中 %ss" % ms.get("elapsed", 0)
+        print("  %-11s %-22s %-16s %-9s %-8s %s" %
+              (k, (m.get("title") or "")[:20],
+               ms.get("next_run") or "—",
+               ("✓" if on else "✗") + " " + state[:7],
+               ("%ss" % ms["duration"]) if ms.get("duration") else "—",
+               ",".join(m.get("domains") or []) or "—"))
+    return 0
+
+
+def cmd_run(key):
+    st = load_state()
+    mod = next((m for m in all_modules() if m.get("key") == key), None)
+    if not mod:
+        print("没有这个模块：%s" % key)
+        print("可选：" + " ".join(m.get("key", "") for m in all_modules()))
+        return 1
+    if key in PROCS:
+        print("%s 正在跑" % key)
+        return 1
+    spawn(key, mod, datetime.now(), st)
+    print("已启动 %s，日志 logs/%s.log" % (key, key))
+    return 0
+
+
+def cmd_toggle(key, on):
+    if not set_enabled(key, on):
+        print("没有这个模块：%s" % key)
+        return 1
+    print("%s → %s" % (key, "启用" if on else "停用"))
+    return 0
+
+
+def _daemon():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    with open(PID_PATH, "w", encoding="utf-8") as f:
+        f.write(str(os.getpid()))
+
+    def _bye(signum, frame):                                 # noqa: ARG001
+        _STOP.set()
+
+    signal.signal(signal.SIGTERM, _bye)
+    signal.signal(signal.SIGINT, _bye)
+
+    t = threading.Thread(target=serve_thread, daemon=True)
+    t.start()
+    try:
+        loop()
+    finally:
+        for k in list(PROCS.keys()):
+            try:
+                _kill_tree(PROCS[k]["proc"])
+            except OSError:
+                pass
+        try:
+            os.unlink(PID_PATH)
+        except OSError:
+            pass
+
+
+def cmd_fg():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    with open(PID_PATH, "w", encoding="utf-8") as f:
+        f.write(str(os.getpid()))
+    threading.Thread(target=serve_thread, daemon=True).start()
+    try:
+        loop()
+    except KeyboardInterrupt:
+        _STOP.set()
+    finally:
+        try:
+            os.unlink(PID_PATH)
+        except OSError:
+            pass
+    return 0
+
+
+def main(argv):
+    if len(argv) < 2:
+        print(__doc__)
+        return 0
+    cmd = argv[1]
+    if cmd == "_daemon":
+        _daemon()
+        return 0
+    if cmd == "start":
+        return cmd_start()
+    if cmd == "stop":
+        return cmd_stop()
+    if cmd == "restart":
+        cmd_stop()
+        time.sleep(0.6)
+        return cmd_start()
+    if cmd == "status":
+        return cmd_status()
+    if cmd == "fg":
+        return cmd_fg()
+    if cmd == "serve":
+        os.makedirs(LOG_DIR, exist_ok=True)
+        serve_thread()
+        return 0
+    if cmd == "run":
+        if len(argv) < 3:
+            print("用法：python3 scheduler.py run <key>")
+            return 1
+        return cmd_run(argv[2])
+    if cmd in ("on", "off"):
+        if len(argv) < 3:
+            print("用法：python3 scheduler.py %s <key>" % cmd)
+            return 1
+        return cmd_toggle(argv[2], cmd == "on")
+    print("未知命令：%s\n" % cmd)
+    print(__doc__)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

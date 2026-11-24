@@ -1,0 +1,15 @@
+# 运行时产物
+index.html
+pub/
+logs/
+__pycache__/
+*.pyc
+scheduler.pid
+daily.log
+
+# 本机配置与状态（含密码，别提交）
+modules.json
+state.json
+
+# 云平台部署元数据
+.coze

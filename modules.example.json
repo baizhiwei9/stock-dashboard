@@ -1,0 +1,180 @@
+{
+  "version": 2,
+  "note": "由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。（示例文件：复制为 modules.json 后改密码）",
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8767,
+    "password": "CHANGE_ME",
+    "registry_key": "CHANGE_ME"
+  },
+  "modules": [
+    {
+      "key": "macro",
+      "title": "宏观与美元环流",
+      "desc": "M2 / GDP / CPI / PPI / 社融 / M1-M2剪刀差 + 美元指数 / 离岸在岸人民币",
+      "domains": [
+        "macro"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:00",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.macro_daily --days 500",
+      "timeout": 2400,
+      "enabled": true
+    },
+    {
+      "key": "liquidity",
+      "title": "流动性与两融",
+      "desc": "DR001 / DR007 / SHIBOR3M / OMO净投放 / GC001 / 国债10Y·2Y / 中美利差 + 两融余额·维持担保比例",
+      "domains": [
+        "liquidity",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.liquidity_daily --days 500",
+      "timeout": 2400,
+      "enabled": true
+    },
+    {
+      "key": "rmt",
+      "title": "RMT 随机矩阵",
+      "desc": "全成分股收益率矩阵 → 吸收率 AR5 / 特征值比 λ1λ2 / 最优熵 oe / 秩相关 RC",
+      "domains": [
+        "rmt"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:10",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.rmt_daily --lookback 300 --max-comps 150",
+      "timeout": 3600,
+      "enabled": true
+    },
+    {
+      "key": "chanlun",
+      "title": "缠论结构 + 趋势动量",
+      "desc": "笔/线段/中枢/买卖点/多头评分 + MA20斜率 / MA60偏离 / 20日涨幅 / 20日波动",
+      "domains": [
+        "chanlun",
+        "trend"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:25",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.chanlun_daily",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "dfa",
+      "title": "DFA / Hurst",
+      "desc": "短长周期 Hurst 指数 + 波动率 Hurst + 临界/金叉/死叉信号",
+      "domains": [
+        "dfa"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:28",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.dfa_daily",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "option",
+      "title": "期权定价（IV/偏度/PCR/VIX）",
+      "desc": "5 个指数对应期权的平值IV / 25D偏度 / 持仓与成交PCR / VIX，收盘后算，看板只读缓存",
+      "domains": [
+        "option"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "18:10",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.option_daily --days 3",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "build",
+      "title": "看板构建与发布",
+      "desc": "读指标仓 → 生成 index.html → 发布 Pages",
+      "domains": [],
+      "sched": {
+        "mode": "daily",
+        "at": "22:40",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "depends": [
+        "macro",
+        "liquidity",
+        "rmt",
+        "chanlun",
+        "dfa"
+      ],
+      "cwd": "/Coze/Drive/股市监控画布/stock-dashboard",
+      "cmd": "python3 build.py && ./publish.sh",
+      "timeout": 1800,
+      "enabled": true
+    }
+  ]
+}
