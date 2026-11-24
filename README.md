@@ -11,8 +11,8 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | 文件 | 作用 |
 |---|---|
 | `build.py` | 生成 `index.html`（唯一渲染入口，纯 Python，无前端框架） |
-| `scheduler.py` | 任务调度器：按 `modules.json` 里每个 task 的启停时间跑，**不用 crontab** |
-| `manager.py` | 管理 API：任务启停、注册审批、密钥校验 |
+| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑，**不用 crontab** |
+| `manager.py` | 命令行运维：模块清单 / 体检 / 手动跑 / 启停 / 板块显隐 |
 | `modules.json` | 模块与调度配置，**含密码与注册密钥**（入库方便改；对外公开前必须先改） |
 | `sections.json` | Tab 与子类结构 |
 | `registry.json` | 已注册 Worker 清单 |
@@ -24,10 +24,13 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 ```bash
 # 改 modules.json 里的 api.password / api.registry_key（初始都是 123456，务必改掉）
 
-python3 scheduler.py fg     # 前台跑调度
+python3 scheduler.py fg     # 前台跑调度（同时起 HTTP 控制台，端口见 modules.json）
 python3 build.py            # 或单次生成 index.html
-python3 manager.py          # 管理 API，默认 :8767
+python3 manager.py list     # 命令行运维：清单 / status / run / enable / disable
 ```
+
+`manager.py` 是**命令行工具**，不监听端口；HTTP 控制台和注册接口都由 `scheduler.py`
+提供（默认端口 `modules.json` 的 `api.port`，现为 `8767`）。
 
 `build.py` 依赖 `data_hub`，需要同级 checkout `datahub-multi-tier` 并把它的根目录加进 `PYTHONPATH`（或把 `data_hub/` 放进同目录）。
 

@@ -255,6 +255,12 @@ def score_bar(score: Optional[float]) -> str:
             % (p, col, lab, p))
 
 
+def _n_valid(series_rows) -> int:
+    """有效点位数（quality=ok 且有数值）——与 chart_payload 的判定保持一致。"""
+    return sum(1 for r in (series_rows or [])
+               if r.get("quality") == "ok" and r.get("value_num") is not None)
+
+
 def chart_block(cid: str, series_rows: List[Dict], field: str = "value_num") -> str:
     """生成一个图容器 + 数据脚本。点数不足 3 显示提示。"""
     pts = [(r["obs_date"], r.get(field)) for r in (series_rows or [])
@@ -1356,7 +1362,7 @@ def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
     _live = []
     for _c in charts:
         _cid, _k, _nm = _c[0], _c[1], _c[2]
-        _n = len(series.get(_k) or [])
+        _n = _n_valid(series.get(_k))
         if _n < 3:
             ch_html += ('<div class="blk"><h4>%s</h4>'
                         '<div class="chart na-box">数据点不足（%d 个），暂不绘图</div></div>'
@@ -1417,7 +1423,7 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
     _live = []
     for _c in charts:
         _cid, _k, _nm = _c[0], _c[1], _c[2]
-        _n = len(series.get(_k) or [])
+        _n = _n_valid(series.get(_k))
         if _n < 3:
             ch_html += ('<div class="blk"><h4>%s</h4>'
                         '<div class="chart na-box">数据点不足（%d 个），暂不绘图</div></div>'
@@ -1503,7 +1509,7 @@ def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
     _live = []
     for _c in charts:
         _cid, _k, _nm = _c[0], _c[1], _c[2]
-        _n = len(series.get(_k) or [])
+        _n = _n_valid(series.get(_k))
         if _n < 3:
             ch_html += ('<div class="blk"><h4>%s</h4>'
                         '<div class="chart na-box">数据点不足（%d 个），暂不绘图</div></div>'
@@ -1552,9 +1558,10 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
         vs = "—" if vnum is None else (("%." + str(dec) + "f") % vnum) + unit
         rows.append(kv(nm, '<b>%s</b> <span class="sm">%s</span>' % (vs, o)))
         sv = series.get((k, sc))
-        if sv and len(sv) >= 3:
+        if sv and _n_valid(sv) >= 3:
             cid = "rw_%s_%d" % (key, len(charts))
-            charts.append((cid, k, nm, it.get("color") or "#4a9eff", unit, dec))
+            # series 的 key 是 (metric_key, security_id) 元组，不是单个指标名
+            charts.append((cid, (k, sc), nm, it.get("color") or "#4a9eff", unit, dec))
     ch_html = "".join(
         '<div class="blk"><h4>%s</h4><div class="chart" id="%s"></div></div>' % (nm, cid)
         for cid, _k, nm, _c, _u, _d in charts)
@@ -1638,6 +1645,8 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
     st = st or {}
     mstate = st.get("modules") or {}
     mods = _all_modules(cfg)
+    api_port = (cfg.get("api") or {}).get("port") or 8767
+    console_url = "http://&lt;主机&gt;:%s/" % api_port
 
     def _fresh(doms):
         cells = []
@@ -1736,13 +1745,13 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
             '<th class="nw">结果</th><th>数据新鲜度</th>'
             '</tr></thead><tbody>%s</tbody></table>'
             '<p class="note">调度器 <code>scheduler.py</code> 常驻管理全部 task，'
-            '不用系统 crontab。控制台：<code>http://&lt;主机&gt;:8766/</code>'
+            '不用系统 crontab。控制台：<code>%s</code>'
             '（同源，可直接启停 / 立即跑 / 审批注册）。<br>'
             '外部模块接入：<code>POST /api/register</code> 带注册密钥提交，'
             '后台批准后自动出现在对应大类下并开始定时更新。'
             '%s</p>'
             '</div></div></section>'
-            % (len(mods), len(tree), "".join(tree), "".join(rows),
+            % (len(mods), len(tree), "".join(tree), "".join(rows), console_url,
                ('<br><b class="mid">有 %d 个注册申请待批准</b>' % len(pend))
                if pend else ""))
 
@@ -2090,8 +2099,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         <tr><td><code>timeout</code></td><td>超时秒数（可选，默认 1800）</td></tr>
         </tbody></table>
         <p class="adm-note">curl 示例：<br>
-        <code>curl -X POST -H 'X-SD-KEY: {adm_key}' -H 'Content-Type: application/json' \<br>
-        &nbsp;&nbsp;-d '{{"tab":"macro","key":"my_ind","title":"我的指标","sched":{{"at":"21:30","weekdays":[1,2,3,4,5]}},"cmd":"python3 /path/x.py"}}' \<br>
+        <code>curl -X POST -H 'X-SD-KEY: {adm_key}' -H 'Content-Type: application/json' \\<br>
+        &nbsp;&nbsp;-d '{{"tab":"macro","key":"my_ind","title":"我的指标","sched":{{"at":"21:30","weekdays":[1,2,3,4,5]}},"cmd":"python3 /path/x.py"}}' \\<br>
         &nbsp;&nbsp;http://&lt;主机&gt;:8767/api/register</code></p>
         <p class="adm-note">提交后是 <b>pending</b>，在上面的列表点「批准」才会显示和调度。</p>
       </details>

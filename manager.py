@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""manager.py — 看板模块管理器
+"""manager.py — 看板模块管理器（命令行）
 
-每个模块 = 一个独立脚本 + 一条自己的 crontab，互不牵连。
+每个模块 = 一个独立脚本 + 一条自己的定时任务，互不牵连。
 一个模块炸了不影响别的模块出数。
+
+调度由 scheduler.py 统一负责（modules.json 的 sched 字段），
+manager.py 只做本地运维：看状态、手动跑、启停、板块显隐。
 
 用法
 ════════════════════════════════════════════════════════════════
@@ -12,15 +15,15 @@
     python3 manager.py run <key> [--bg]     # 手动跑一个模块
     python3 manager.py enable  <key>        # 启用（改 modules.json）
     python3 manager.py disable <key>        # 停用
-    python3 manager.py install              # 写 crontab 标记块（只装启用的）
-    python3 manager.py uninstall            # 移除 crontab 标记块
+    python3 manager.py install              # 已停用（调度归 scheduler.py）
+    python3 manager.py uninstall            # 已停用（调度归 scheduler.py）
     python3 manager.py sections [on|off|pw] # 板块显隐 / 改管理密码
     python3 manager.py log <key>            # 看最近日志
 
 设计
 ════════════════════════════════════════════════════════════════
-· 配置在 modules.json，crontab 只由 install 生成，标记块内不要手改
-· 停用 = 从 crontab 摘掉，不删脚本，随时可恢复
+· 配置在 modules.json，改完 scheduler.py 自动热加载，无需重启
+· 停用 = enabled=false，不删脚本，随时可恢复
 · 数据状态直接读 tech 指标仓，不看日志猜
 """
 from __future__ import annotations
@@ -35,6 +38,7 @@ from typing import Dict, List, Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = os.path.join(HERE, "modules.json")
+SEC_CFG = os.path.join(HERE, "sections.json")
 DH_ROOT = "/opt/coze/.fuse_drive/dataHub_三级体系"
 LOG_DIR = os.path.join(HERE, "logs")
 
@@ -61,6 +65,15 @@ def save_cfg(cfg: Dict) -> None:
         f.write("\n")
 
 
+def _sec_load() -> Dict:
+    """读 sections.json；读不到就当空配置，不抛异常。"""
+    try:
+        with open(SEC_CFG, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"sections": []}
+
+
 def get_mod(cfg: Dict, key: str) -> Dict:
     for m in cfg["modules"]:
         if m["key"] == key:
@@ -79,7 +92,7 @@ def sched_text(m) -> str:
     s = m.get("sched") or {}
     mode = s.get("mode")
     if mode == "daily":
-        wd = s.get("weekdays") or list(range(1, 7))
+        wd = s.get("weekdays") or [1, 2, 3, 4, 5]
         if sorted(wd) == [1, 2, 3, 4, 5]:
             wd_txt = "工作日"
         elif len(wd) == 7:
@@ -397,8 +410,12 @@ def main(argv: List[str]) -> int:
             raise SystemExit("用法: manager.py run <key> [--bg]")
         return cmd_run(argv[1], bg="--bg" in argv)
     if c == "enable":
+        if len(argv) < 2:
+            raise SystemExit("用法: manager.py enable <key>")
         return cmd_toggle(argv[1], True)
     if c == "disable":
+        if len(argv) < 2:
+            raise SystemExit("用法: manager.py disable <key>")
         return cmd_toggle(argv[1], False)
     if c == "install":
         return cmd_install()
@@ -407,6 +424,8 @@ def main(argv: List[str]) -> int:
     if c == "sections":
         return cmd_sections(argv[1:])
     if c == "log":
+        if len(argv) < 2:
+            raise SystemExit("用法: manager.py log <key>")
         return cmd_log(argv[1])
     raise SystemExit("未知命令: %s（list/status/run/enable/disable/log）" % c)
 
