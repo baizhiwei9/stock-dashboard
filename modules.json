@@ -265,6 +265,56 @@
       ]
     },
     {
+      "key": "risk_v52",
+      "title": "每日风险报告 v5.2",
+      "desc": "读风险仪表盘 26 维算综合分与风险等级，落 DailyPredict/outputs/YYYYMMDD_daily_risk_v52.json 供 task_tags 转录；报告与飞书通知由任务自己发。",
+      "domains": [
+        "risk"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "19:30",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998182050545974/workspace",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 /usr/bin/python3 -m data_hub.tech.health_run --name \"风险日报v52\" --timeout 1500 -- /usr/bin/python3 DailyPredict/daily_risk_report.py",
+      "timeout": 1800,
+      "enabled": true,
+      "depends": [],
+      "note": "2026-11-25 从 crontab 迁入 scheduler"
+    },
+    {
+      "key": "vol_surface_vix",
+      "title": "波动率曲面（自算 VIX）",
+      "desc": "算 IV 曲面/偏度/PCR 与自算 VIX，落 outputs/YYYYMMDD_vol_surface.json 供 task_tags 转录；图表与飞书通知由任务自己发。",
+      "domains": [
+        "option"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "19:00",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998182050545974/workspace",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 /usr/bin/python3 -m data_hub.tech.health_run --name \"波动率曲面\" --timeout 1500 -- /usr/bin/python3 vol_surface_runner.py",
+      "timeout": 1800,
+      "enabled": true,
+      "depends": [],
+      "note": "2026-11-25 从 crontab 迁入 scheduler"
+    },
+    {
       "key": "build",
       "title": "看板构建与发布",
       "desc": "读指标仓 → 生成 index.html → 发布 Pages",
