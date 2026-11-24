@@ -771,20 +771,63 @@ def _finish(key, rc, status, st):
         })
         save_state(st)
     log("模块结束 %s status=%s exit=%s 耗时 %.1fs" % (key, status, rc, dur))
-    _health_record(key, rc, rec.get("mod") or {})
+    # 主动停用不是失败：管理页面 toggle 关掉正在跑的任务会走 _finish(-9,
+    # "stopped")，照记就会算成连败 +1，手动停 5 次就收到"连续失败 5 次"的
+    # 邮件，还污染真实连败计数。timeout 是任务自己没跑完，仍算失败。
+    if status != "stopped":
+        _health_async(key, rc, rec.get("mod") or {})
 
 
-def _health_record(key, rc, m):
+def _health_preload():
+    """启动时预热 data_hub.tech.health 的 import。
+
+    这个 import 会一路拉进 data_hub/__init__.py → collectors.misc →
+    option_metrics_history，后者在模块顶层执行 _migrate_legacy_cache_once()，
+    在 FUSE 云盘上扫 os.path 实测要 20 秒上下；第二次命中 sys.modules 是 0 秒。
+    放在启动阶段预热，第一次记账就不用干等；预热自己也丢后台，不拖慢启动。
+    """
+    def _warm():
+        try:
+            dh = os.environ.get("DATAHUB_DIR",
+                                "/opt/coze/.fuse_drive/dataHub_三级体系")
+            if dh not in sys.path:
+                sys.path.insert(0, dh)
+            t0 = time.time()
+            from data_hub.tech import health             # noqa: F401
+            log("健康度模块预热完成（%.1fs）" % (time.time() - t0))
+        except Exception as e:                           # noqa: BLE001
+            log("健康度模块预热失败: %s: %s" % (type(e).__name__, e))
+    threading.Thread(target=_warm, daemon=True).start()
+
+
+def _health_async(key, rc, m, err=None):
+    """health 记账丢到后台线程 —— record() 在第 5 次失败会同步发 SMTP。
+
+    send_email 的 SMTP_SSL timeout=30s、subprocess 兜底 timeout=60s，同步跑
+    最坏能把 tick 卡一分多钟，后面的模块全部顺延。tick 本身串行，并发量很小，
+    一个 daemon 线程足够；进程退出时最坏丢一次记账，下次成功即清零，可接受。
+    """
+    def _run():
+        try:
+            _health_record(key, rc, m, err)
+        except Exception:                                   # noqa: BLE001
+            pass
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _health_record(key, rc, m, err=None):
     """把模块结果记进 task_health，与 crontab 侧的 health_run 共用同一张表。
 
     scheduler 是 modules.json + registry.json + case/ 三类任务的统一执行者，
     在这里收口比给每条 cmd 套 health_run 外壳更彻底：一处覆盖全部模块，
     手动 run / HTTP 触发也不会漏，case/ 的 task.json 契约也不用动。
 
-    两条边界：
+    三条边界：
       ① cmd 里已经带 health_run 的跳过 —— 否则同一次执行会记两遍，
-         fails 双倍计数，连败 5 天的阈值等于被砍半。
-      ② 记不了健康度绝不能影响调度本身，异常只打日志。
+         fails 双倍计数，连败 5 天的阈值等于被砍半。用子串判断够用：
+         约定 health_run 只作为命令里的包装器出现，没有别的模块名带它。
+      ② 主动停用（status=stopped）由 _finish 侧跳过，不进这里。
+      ③ 记不了健康度绝不能影响调度本身，异常只打日志。
     """
     if "health_run" in (m.get("cmd") or ""):
         return
@@ -795,7 +838,7 @@ def _health_record(key, rc, m):
             sys.path.insert(0, dh)
         from data_hub.tech.health import record
         r = record(key, ok=(rc == 0),
-                   error=None if rc == 0 else "退出码 %s" % rc)
+                   error=err or (None if rc == 0 else "退出码 %s" % rc))
         if rc == 0:
             log("健康度 %s 成功，失败计数清零" % key)
         else:
@@ -812,6 +855,7 @@ def spawn(key, m, slot, st, pulled=False):
     pulled=True 表示「提前执行」：slot 仍是该任务当天的计划点（`last_slot` 记它，当天不重复跑），
     只是实际启动时间早于计划点 —— 报告早于计划点交付。
     """
+    _spawn_err = None
     with LOCK:
         if key in PROCS:
             return False
@@ -848,20 +892,27 @@ def spawn(key, m, slot, st, pulled=False):
                 "note": "启动失败: %s" % e})
             save_state(st)
             log("启动失败 %s: %s" % (key, e))
-            return False
-        PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f,
-                      "mod": m}             # mod 供 _finish 记账时判断模块定义
-        ORPHANS.pop(key, None)          # 该任务已由本进程接管，孤儿登记作废
-        ms = st["modules"].setdefault(key, {})
-        ms.pop("queued", None)          # 起跑即退出排队
-        ms.pop("orphan_pid", None)
-        ms.update({
-            "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
-            "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "last_status": "running", "running": True, "note": "",
-            "pid": p.pid, "pulled_forward": bool(pulled),
-        })
-        save_state(st)
+            _spawn_err = e
+        else:
+            PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f,
+                          "mod": m}             # mod 供 _finish 记账时判断模块定义
+            ORPHANS.pop(key, None)          # 该任务已由本进程接管，孤儿登记作废
+            ms = st["modules"].setdefault(key, {})
+            ms.pop("queued", None)          # 起跑即退出排队
+            ms.pop("orphan_pid", None)
+            ms.update({
+                "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
+                "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "last_status": "running", "running": True, "note": "",
+                "pid": p.pid, "pulled_forward": bool(pulled),
+            })
+            save_state(st)
+    if _spawn_err is not None:
+        # 起不来 = 每次都失败，必须记进 task_health。cwd 不存在 / 权限错这类
+        # "永远起不来"的任务根本进不了 _finish，不在这里补就是永久静默 ——
+        # 正好是"失败静默但连败 5 次要说"的反面。放在 LOCK 外：发邮件不能卡 tick。
+        _health_async(key, -1, m, err="启动失败: %s" % _spawn_err)
+        return False
     log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
     return True
 
@@ -1583,6 +1634,7 @@ def _daemon():
     signal.signal(signal.SIGTERM, _bye)
     signal.signal(signal.SIGINT, _bye)
 
+    _health_preload()
     t = threading.Thread(target=serve_thread, daemon=True)
     t.start()
     try:
@@ -1684,6 +1736,7 @@ def main(argv):
         signal.signal(signal.SIGTERM, _bye)
         signal.signal(signal.SIGINT, _bye)
 
+        _health_preload()
         threading.Thread(target=loop, daemon=True).start()
         try:
             serve_thread()
