@@ -2031,6 +2031,10 @@ def render_health_section() -> str:
     """
     # 分色阈值跟着 health.py 走，不硬编码：health 的 THRESHOLD 改成几，
     # 看板这边就同步变成几，避免「邮件已发、看板还是橙」的两边不一致。
+    # 注意：import data_hub.tech.health 首次会拖进 collectors.misc →
+    # option_metrics_history（顶层 _migrate_legacy_cache_once 扫 FUSE），
+    # 冷启动实测 19~34s、二次命中 0s。build.py 顶层 from data_hub.tech 已付
+    # 这笔，这里命中 sys.modules；若在长驻进程用 health，先预热一次，别在 tick 里首次 import。
     try:
         from data_hub.tech.health import THRESHOLD
     except Exception:                                         # noqa: BLE001
