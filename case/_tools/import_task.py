@@ -350,6 +350,11 @@ def main(argv: List[str]) -> int:
     for t in tasks:
         if only and t.get("key") not in only:
             continue
+        if t.get("skip"):
+            rows.append({"key": t.get("key"), "status": "SKIP", "root": None,
+                         "entry": None, "copied": 0, "mb": 0, "cut": False,
+                         "sched": None, "why": t.get("skip_reason") or "清单标记 skip"})
+            continue
         if args.clean and not args.dry_run:
             d = os.path.join(CASE_DIR, t["key"] or "_")
             if t.get("key") and os.path.isdir(d):
@@ -357,14 +362,19 @@ def main(argv: List[str]) -> int:
         rows.append(import_one(t, ws, args.dry_run, idx))
 
     ok = [r for r in rows if r["status"] == "ok"]
-    no = [r for r in rows if r["status"] != "ok"]
+    no = [r for r in rows if r["status"] not in ("ok", "SKIP")]
     total_mb = sum(r.get("mb") or 0 for r in ok)
-    print("%s导入 %d 个任务，成功 %d，无源 %d，合计 %.1f MB"
-          % ("[dry-run] " if args.dry_run else "", len(rows), len(ok), len(no), total_mb))
+    skipped = [r for r in rows if r["status"] == "SKIP"]
+    print("%s导入 %d 个任务，成功 %d，跳过 %d，无源 %d，合计 %.1f MB"
+          % ("[dry-run] " if args.dry_run else "", len(rows), len(ok),
+             len(skipped), len(no), total_mb))
     for r in rows:
         print("  %-24s %-9s %4s 个文件 %5s MB %-4s %s"
               % (r["key"], r["status"], r.get("copied") or 0, r.get("mb") or 0,
                  "CUT" if r.get("cut") else "", r.get("entry") or "-"))
+    for r in rows:
+        if r["status"] == "SKIP":
+            print("  - %-24s 跳过：%s" % (r["key"], r.get("why") or ""))
     for r in no:
         print("  ! %s 找不到源目录（cwd 缺失且按入口文件名也没搜到）" % r["key"])
     return 0 if not no else 1
