@@ -79,6 +79,21 @@ IV / Skew 库内是小数，展示时 ×100 转 %。分位需要 ≥30 个样本
 
 初始值都是 `123456`，跟仓库一起提交是为了改起来方便——**这个仓库一旦要转公开，先改掉这两个值**。
 
+## 给 Agent 读：JSON 快照
+
+页面给人看，程序读 `snapshot.py`：
+
+```bash
+python3 snapshot.py --out snap.json      # 指数四模块 + 期权，一次拿全
+python3 snapshot.py --futures            # 额外带期货实时快照（联网，慢）
+```
+
+复用 `build.py` 同一套 `data_hub.tech` 接口，口径与页面一致。数据契约（key 用指数、
+缺的不补零、IV 已转 %、`direction` 只表达方向）见 [docs/agent_api.md](docs/agent_api.md)。
+
+多 Agent 底座那边有对应的取数角色实现，见
+[multi-agent#27](https://github.com/baizhiwei9/multi-agent/pull/27)。
+
 ## 发布
 
 ```bash
