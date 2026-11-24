@@ -195,6 +195,68 @@
       "enabled": true
     },
     {
+      "key": "task_tags",
+      "title": "任务结论转录（带风险标签）",
+      "desc": "把风格漂移/中线偏好/杨康平顶底/风险释放/CFC/波动率/掉期/原油/信用利差/涨停预测/xgboost/板块筛选/四选股器/技术共识/挖地兔/涨幅榜/热点概念/小波/两融季节等任务的已有产出，原样转录成带 alert·risk·opportunity 标签的数据点；判断与通知仍由各任务自己完成",
+      "domains": [
+        "risk",
+        "option",
+        "macro",
+        "bond",
+        "stock",
+        "trend",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.task_tags_daily",
+      "timeout": 600,
+      "enabled": true,
+      "depends": []
+    },
+    {
+      "key": "task_tags_notify",
+      "title": "任务标签汇总推送",
+      "desc": "读库里的 risk_level 标签，按 alert→risk→opportunity 排序发飞书；alert 级另发邮件。只转发任务侧判断，不重算阈值；同一 (指标,标的,日期,通道) 只发一次",
+      "domains": [
+        "risk",
+        "option",
+        "macro",
+        "bond",
+        "stock",
+        "trend",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:35",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel email --to 410119229@qq.com --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】",
+      "timeout": 300,
+      "enabled": true,
+      "depends": [
+        "task_tags"
+      ]
+    },
+    {
       "key": "build",
       "title": "看板构建与发布",
       "desc": "读指标仓 → 生成 index.html → 发布 Pages",
@@ -216,7 +278,9 @@
         "rmt",
         "chanlun",
         "dfa",
-        "risk"
+        "risk",
+        "task_tags",
+        "task_tags_notify"
       ],
       "cwd": "/Coze/Drive/股市监控画布/stock-dashboard",
       "cmd": "python3 build.py && ./publish.sh",
