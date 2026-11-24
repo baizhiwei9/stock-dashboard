@@ -32,7 +32,8 @@ if DATAHUB_ROOT not in sys.path:
     sys.path.insert(0, DATAHUB_ROOT)
 
 from data_hub.tech import (                                   # noqa: E402
-    FUTURES, fut_groups, fut_snapshot, opt_asof, opt_snapshot,
+    FUTURES, REGISTRY, count_alerts, fut_groups, fut_snapshot,
+    list_risk_points, opt_asof, opt_snapshot,
     INDEX_ORDER, SECURITIES, pair_of, read_latest, read_series, security_name, stats,
 )
 
@@ -146,6 +147,58 @@ def t(latest: Dict, key: str, sid: str) -> Optional[str]:
 # ════════════════════════════════════════════════════════════════
 NA = '<span class="na">NA</span>'
 
+# ── 风险标签：任务写数据时自己打的 risk_level，这里只读 ──
+_RISK: Dict = {}          # (metric_key, security_id) -> {"level","note"}
+_RISK_BY_SEC: Dict = {}   # security_id -> 该标的最高等级
+
+
+def load_risk(days: int = 7) -> None:
+    """build 开始时加载一次风险标签，供卡片/指标打标与排序用。"""
+    global _RISK, _RISK_BY_SEC
+    try:
+        rows = list_risk_points(days=days, limit=1000)
+    except Exception:                                        # noqa: BLE001
+        rows = []
+    rank = {"alert": 3, "risk": 2, "opportunity": 1}
+    _RISK = {}
+    _RISK_BY_SEC = {}
+    for r in rows:
+        k = (r.get("metric_key") or "", r.get("security_id") or "")
+        lv = r.get("risk_level") or "none"
+        # 同一指标多天，保留等级最高的
+        if k not in _RISK or rank.get(lv, 0) > rank.get(_RISK[k]["level"], 0):
+            _RISK[k] = {"level": lv, "note": r.get("risk_note") or "",
+                        "obs": r.get("obs_date") or ""}
+        sid = k[1]
+        if sid:
+            if sid not in _RISK_BY_SEC or rank.get(lv, 0) > rank.get(_RISK_BY_SEC[sid], 0):
+                _RISK_BY_SEC[sid] = lv
+
+
+def risk_of(key: str, sid: str = "") -> Optional[str]:
+    r = _RISK.get((key, sid))
+    return r["level"] if r else None
+
+
+def rbadge(key: str, sid: str = "") -> str:
+    """指标级风险标记：alert/risk 红 ★，opportunity 绿 ☾，无标签空串。"""
+    lv = risk_of(key, sid)
+    if lv in ("alert", "risk"):
+        return '<b class="bd up" title="%s">★ %s</b>' % (
+            html.escape(_RISK[(key, sid)]["note"]), "严重" if lv == "alert" else "风险")
+    if lv == "opportunity":
+        return '<b class="bd down" title="%s">☾ 机会</b>' % html.escape(
+            _RISK[(key, sid)]["note"])
+    return ""
+
+
+def sec_risk(sid: str) -> str:
+    return _RISK_BY_SEC.get(sid, "none")
+
+
+def sec_risk_rank(sid: str) -> int:
+    return {"alert": 3, "risk": 2, "opportunity": 1}.get(sec_risk(sid), 0)
+
 
 def num(vv, dec=2, unit="", cls=""):
     if vv is None:
@@ -256,6 +309,13 @@ def render_index_card(sid: str, latest: Dict, series: Dict, obs: Optional[str]) 
     if dfa_sig:
         m = {"golden": "up", "dead": "down", "critical": "mid"}.get(dfa_sig, "mid")
         badges.append('<b class="bd %s">Hurst %s</b>' % (m, DFA_CN.get(dfa_sig, dfa_sig)))
+
+    # 该标的下任一指标带风险标签 → 卡片头打标（标签由任务侧写入，这里只读）
+    _sr = sec_risk(sid)
+    if _sr in ("alert", "risk", "opportunity"):
+        _ico = "☾ 机会" if _sr == "opportunity" else ("★ 严重" if _sr == "alert" else "★ 风险")
+        _cls = "down" if _sr == "opportunity" else "up"
+        badges.append('<b class="bd %s">%s</b>' % (_cls, _ico))
 
     # ── 缠论区 ──
     chan = ['<div class="blk">',
@@ -683,6 +743,43 @@ table.mod-tab.fut td:nth-child(2){font-variant-numeric:tabular-nums}
 #regBox button{background:var(--card2);border:1px solid var(--line);color:var(--tx2);
   border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer}
 #regBox button:hover{border-color:var(--blue);color:var(--blue)}
+/* ══ 告警 / 机会（只展示，不判断）══ */
+.alerts{margin:14px 0 18px;border:1px solid var(--line);border-radius:12px;
+  background:var(--card);overflow:hidden}
+.al-hd{display:flex;align-items:center;gap:16px;padding:10px 16px;
+  border-bottom:1px solid var(--line);background:var(--card2);font-size:13px}
+.al-hd .t{font-weight:700;letter-spacing:.2px}
+.al-hd .t.red{color:var(--up)}
+.al-hd .t.green{color:var(--down)}
+.al-hd .t.mute{color:var(--tx3);font-weight:600}
+.al-hd .date{margin-left:auto;color:var(--tx3);font-size:12px}
+.al-list{padding:5px 0;max-height:264px;overflow:auto}
+.al-item{display:flex;align-items:baseline;gap:10px;padding:6px 16px;font-size:13px;
+  border-left:3px solid transparent}
+.al-item.alert{border-left-color:var(--up);background:rgba(255,77,94,.06)}
+.al-item.risk{border-left-color:var(--up)}
+.al-item.opportunity{border-left-color:var(--down);background:rgba(34,197,94,.05)}
+.al-item .lv{font-size:11px;flex:none;padding:1px 6px;border-radius:4px;background:var(--card2);color:var(--tx2)}
+.al-item.alert .lv{background:rgba(255,77,94,.18);color:var(--up);font-weight:700}
+.al-item.risk .lv{background:rgba(255,77,94,.12);color:var(--up)}
+.al-item.opportunity .lv{background:rgba(34,197,94,.15);color:var(--down)}
+.al-item .val{font-variant-numeric:tabular-nums;color:var(--tx);flex:none;font-weight:600}
+.al-item .note{color:var(--tx3);font-size:12px;flex:1;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;margin-left:8px}
+.al-item .ico{font-size:13px;line-height:1;flex:none}
+.al-item.alert .ico{color:var(--up)}
+.al-item.opportunity .ico{color:var(--down)}
+.al-item .src{color:var(--tx3);font-size:11.5px;flex:none;min-width:132px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.al-item .ti{color:var(--tx);font-weight:600;flex:none}
+.al-item .dt{color:var(--tx2);font-size:12px}
+.al-empty{padding:12px 16px;color:var(--tx3);font-size:12.5px}
+
+/* ══ 股债性价比（股票栏专属）══ */
+.erp-card{grid-column:1/-1}
+.erp-card .idx-body{padding:0}
+.erp-card .kvs{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
 """
 
 JS_ADMIN = r"""
@@ -954,6 +1051,143 @@ JS_CORE = r"""
 # ════════════════════════════════════════════════════════════════
 # 分区渲染：期货 / 宏观 / 流动性 / 模块管理
 # ════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════
+# 告警 / 机会（只展示，判断在各任务侧）
+# ════════════════════════════════════════════════════════════════
+
+ALERT_DAYS = 7
+
+# 三档标签：alert 最上（任务侧已发邮件），其次 risk，最后 opportunity
+_LEVEL_META = {
+    "alert":       ("★", "red",   "严重"),
+    "risk":        ("★", "red",   "风险"),
+    "opportunity": ("☾", "green", "机会"),
+}
+_LEVEL_ORDER = ("alert", "risk", "opportunity")
+
+
+def render_alerts(days: int = ALERT_DAYS) -> str:
+    """渲染「严重 / 风险 / 机会」条。
+
+    数据来自 ``metric_points.risk_level`` —— 每个任务写数据时自己打的标签。
+    这里**不做任何判断**：不重算阈值、不筛标的、不合并同类项，
+    只按标签分色、按等级排序原样展示。
+
+    排序固定为 alert → risk → opportunity（风险永远在最上面）。
+    """
+    try:
+        rows = list_risk_points(days=days, limit=300)
+        cnt = count_alerts(days=days)
+    except Exception:                                        # noqa: BLE001
+        rows, cnt = [], {}
+
+    def _row(r: Dict) -> str:
+        lv = r.get("risk_level") or "none"
+        ico, _cls, lv_cn = _LEVEL_META.get(lv, ("·", "flat", lv))
+        key = r.get("metric_key") or ""
+        mdef = REGISTRY.get(key)
+        nm = html.escape(mdef.name if mdef else key)
+        sid = r.get("security_id") or ""
+        sid_txt = html.escape(security_name(sid) or sid) if sid else ""
+        note = html.escape(str(r.get("risk_note") or ""))
+        val = r.get("value_num")
+        if val is None:
+            vtxt = html.escape(str(r.get("value_text") or ""))
+        else:
+            unit = (mdef.unit if mdef and mdef.unit else "")
+            vtxt = ("%.4g" % val) + (unit if unit and unit != "text" else "")
+        head = nm + (" · " + sid_txt if sid_txt else "")
+        tail = ('<span class="val">%s</span>' % vtxt) if vtxt else ""
+        return ('<div class="al-item %s"><span class="ico">%s</span>'
+                '<span class="lv">%s</span>'
+                '<span class="ti">%s</span>'
+                '%s'
+                '<span class="dt">%s</span>'
+                '<span class="note">%s</span></div>'
+                % (lv, ico, lv_cn, head, tail,
+                   html.escape(str(r.get("obs_date") or "")), note))
+
+    ordered = []
+    for lv in _LEVEL_ORDER:
+        ordered.extend([r for r in rows if (r.get("risk_level") or "") == lv])
+    body = "".join(_row(r) for r in ordered)
+    if not body:
+        body = ('<div class="al-empty">近 %d 天没有任务打出风险或机会标签。'
+                '（判断在各任务侧，看板只读标签）</div>' % days)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    n_today = sum(1 for r in rows if r.get("obs_date") == today)
+
+    def _cnt(lv: str) -> str:
+        n = cnt.get(lv, 0)
+        ico, cls, lv_cn = _LEVEL_META[lv]
+        if not n:
+            return '<span class="t mute">%s %s 0</span>' % (ico, lv_cn)
+        return '<span class="t %s">%s %s %d</span>' % (cls, ico, lv_cn, n)
+
+    return ('<section class="alerts" id="alerts">'
+            '<div class="al-hd">%s%s%s<span class="date">共 %d 条 · 今日 %d 条 · 每项只留最新</span></div>'
+            '<div class="al-list">%s</div></section>'
+            % (_cnt("alert"), _cnt("risk"), _cnt("opportunity"),
+               len(rows), n_today, body))
+
+def render_erp_card(latest: Dict, series: Dict, obs: Optional[str]):
+    """股债性价比卡（股票栏专属，按用户要求不放宏观栏）。
+
+    股债利差 = 沪深300 盈利收益率 EY − 10Y 国债收益率 BY。
+    值越高 = 股票相对债券越便宜。分位越高 = 当前越偏股票便宜。
+
+    返回 (html, chart_script)；无数据时 chart_script 为空串。
+    """
+    SID = "000300.SH"
+    erp = v(latest, "stock.erp_300", SID)
+    ey = v(latest, "stock.ey_300", SID)
+    pe = v(latest, "stock.pe_300", SID)
+    pct = v(latest, "stock.erp_300_pct", SID)
+
+    head = ('<header><div class="ttl"><h3>股债性价比</h3>'
+            '<code>%s</code><span class="sm pair">EY − 10Y国债</span></div>'
+            '<div class="bds">%s</div></header>' % (SID, ""))
+    if erp is None:
+        body = ('<div class="idx-body"><div class="blk"><div class="kvs">%s</div>'
+                '</div></div>' % kv("股债利差", NA))
+        return ('<section class="idx-card erp-card" data-sec="erp" data-def="1">'
+                '%s%s</section>' % (head, body)), ""
+
+    # 分位分档：越高越偏股票便宜（绿），越低越偏债券贵（红）
+    if pct is None:
+        zone, zcls = "—", "flat"
+    elif pct >= 80:
+        zone, zcls = "股票很便宜", "down"
+    elif pct >= 60:
+        zone, zcls = "偏股票", "down"
+    elif pct > 40:
+        zone, zcls = "中性", "flat"
+    elif pct > 20:
+        zone, zcls = "偏债券", "up"
+    else:
+        zone, zcls = "股票偏贵", "up"
+
+    kvs = []
+    kvs.append(kv("股债利差",
+                  '<span class="%s">%.2f</span> <span class="sm">pp</span>'
+                  % (zcls, erp)))
+    kvs.append(kv("盈利收益率 EY", num(ey, 2, "%")))
+    kvs.append(kv("沪深300 PE", num(pe, 2, "倍")))
+    kvs.append(kv("历史分位",
+                  '%s <span class="sm %s">%s</span>'
+                  % (num(pct, 1, "%"), zcls, zone)))
+
+    rows = series.get(("stock.erp_300", SID)) or []
+    blk = ('<div class="blk"><div class="kvs">%s</div>%s</div>'
+           % ("".join(kvs),
+              chart_block("t_erp_300", rows)))
+    script = chart_payload("t_erp_300", rows, "股债利差", "#e0a33e",
+                           unit="pp", dec=2)
+    body = '<div class="idx-body">%s</div>' % blk
+    return ('<section class="idx-card erp-card" data-sec="erp" data-def="1">'
+            '%s%s</section>' % (head, body)), script
+
 def section_head(num_txt: str, title: str, sub: str, obs: Optional[str],
                  enabled: bool = True) -> str:
     return ('<div class="sec-head"><span class="sec-num">%s</span>'
@@ -1516,6 +1750,8 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
 def build(out_path: str, asof: Optional[str] = None) -> str:
     latest, series, obs = load_all(asof)
     st = stats()
+    # 先加载风险标签：卡片打标与排序都要用
+    load_risk(ALERT_DAYS)
 
     # 顶部总览
     scores = [v(latest, "chanlun.bull_score", s) for s in INDEX_ORDER]
@@ -1541,7 +1777,9 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
                             m.get("sub", ""), obs_d, en(k))
 
     cards = []
-    for sid in INDEX_ORDER:
+    # 卡片自动排序：带风险标签的标的最前（alert > risk > opportunity），其余保持原序
+    _sid_sorted = sorted(INDEX_ORDER, key=lambda x: -sec_risk_rank(x))
+    for sid in _sid_sorted:
         body = render_index_card(sid, latest, series, obs)
         # 把 blk 们包进 .idx-body（header 之后）
         body = body.replace("</header>", '</header><div class="idx-body">', 1)
@@ -1697,6 +1935,10 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
                       + [(k, MARGIN_SEC) for k in MARGIN_KEYS])
     bond_obs = _obs_of([(k, BOND_SEC) for k in BOND_KEYS])
 
+    alerts_html = render_alerts()
+    erp_html, erp_script = render_erp_card(latest, series, obs)
+    if erp_script:
+        scripts.append(erp_script)
     doc = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1723,12 +1965,15 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
 
 <nav class="jump">{jump}<span class="jump-sep"></span>{idx_jump}</nav>
 
+{alerts_html}
+
 <div class="layout">
   <div class="grid-idx">
 
     <div class="sec-wrap" data-sec="stock" data-def="1"{sty("stock")}>
       {sh("stock", obs)}
       <div class="sec-grid">
+        {erp_html}
         {"".join(cards)}
         {reg_in['stock']}
       </div>

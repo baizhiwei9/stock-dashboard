@@ -5,6 +5,8 @@ set -uo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export LANG=C.UTF-8
 export TZ=Asia/Shanghai
+# scheduler 起的子进程偶尔拿不到登录态（AUTH_REQUIRED），显式固定 HOME
+export HOME="${HOME:-/root}"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CLI=/usr/bin/coze-dev
@@ -34,7 +36,19 @@ except Exception: print('')
 " 2>/dev/null)
 
 if [ -z "$DID" ]; then
-    echo "$(ts) 发布失败：未拿到 deploy_history_id" >> "$LOG"
+    # 一次自愈重试：偶发 AUTH_REQUIRED / 网络抖动
+    sleep 5
+    OUT=$("$CLI" deploy --format json --source-root "$PUB" --application-type pages \
+            --app-id "$APP_ID" --name "$APP_NAME" --yes 2>&1)
+    DID=$(printf '%s' "$OUT" | python3 -c "
+import json,sys
+try: print(json.load(sys.stdin).get('deploy_history_id',''))
+except Exception: print('')
+" 2>/dev/null)
+fi
+
+if [ -z "$DID" ]; then
+    echo "$(ts) 发布失败：未拿到 deploy_history_id（已重试1次）" >> "$LOG"
     echo "$OUT" | head -5 >> "$LOG"
     exit 1
 fi
