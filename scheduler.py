@@ -774,19 +774,44 @@ def _is_scheduler(pid: int) -> bool:
     return any(os.path.basename(a) == "scheduler.py" for a in parts[1:])
 
 
+def _http_alive(timeout=2.0) -> bool:
+    """端口探活。
+
+    cron 拉起的调度器跑在宿主命名空间，沙箱里 /proc/<pid> 看不见，单靠
+    /proc 判断会误报「未运行」，进而重复起实例。端口是通的，用它兜底。
+    """
+    import urllib.request
+    port = api_conf().get("port") or 8765
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/" % int(port), timeout=timeout) as r:
+            return 200 <= r.status < 500
+    except Exception:
+        return False
+
+
 def read_pid():
+    """返回调度器 pid；进程不在当前命名空间但端口有响应时返回 -1。"""
+    pid = 0
     try:
         with open(PID_PATH, encoding="utf-8") as f:
             pid = int(f.read().strip())
-        return pid if _pid_alive(pid) and _is_scheduler(pid) else None
     except (OSError, ValueError):
-        return None
+        pid = 0
+    if pid > 0 and _pid_alive(pid) and _is_scheduler(pid):
+        return pid
+    if _http_alive():
+        return -1
+    return None
 
 
 def cmd_start():
     pid = read_pid()
     if pid:
-        print("已在运行 pid=%d" % pid)
+        if pid > 0:
+            print("已在运行 pid=%d" % pid)
+        else:
+            print("已在运行（端口 %s 有响应，进程不在当前命名空间）"
+                  % (api_conf().get("port") or 8765))
         return 0
     os.makedirs(LOG_DIR, exist_ok=True)
     out = open(SELF_LOG, "ab")
@@ -809,6 +834,10 @@ def cmd_stop():
     if not pid:
         print("没在跑")
         return 0
+    if pid < 0:
+        print("无法从当前环境停止：调度器进程在宿主命名空间，/proc 不可见。")
+        print("  可在管理页点「停止」，或重启容器让它自然退出。")
+        return 1
     try:
         os.kill(pid, signal.SIGTERM)
     except OSError as e:
@@ -835,7 +864,13 @@ def cmd_status():
     cfg = load_cfg()
     st = load_state()
     pid = read_pid()
-    print("调度器 %s" % ("运行中 pid=%d" % pid if pid else "未运行"))
+    if pid and pid > 0:
+        _desc = "运行中 pid=%d" % pid
+    elif pid:
+        _desc = "运行中（端口 %s 有响应）" % (api_conf().get("port") or 8765)
+    else:
+        _desc = "未运行"
+    print("调度器 %s" % _desc)
     print("  控制台 http://127.0.0.1:%s   tick=%s" %
           (api_conf().get("port") or 8765, (st.get("scheduler") or {}).get("tick") or "—"))
     print()
