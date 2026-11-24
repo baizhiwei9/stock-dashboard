@@ -78,8 +78,24 @@
       "subs": []
     },
     {
-      "key": "modules",
+      "key": "option",
       "num": "07",
+      "title": "期权 · 波动率",
+      "sub": "IV / 偏度 / PCR / 波动率曲面 / 杨康平顶底",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "risk",
+      "num": "08",
+      "title": "风险 · 结构",
+      "sub": "综合风险评分 / CDI / 风险释放 / 风格漂移 / 中线偏好",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "modules",
+      "num": "09",
       "title": "模块管理",
       "sub": "每个模块 = 一个脚本 + 一条自己的定时任务",
       "enabled": true,

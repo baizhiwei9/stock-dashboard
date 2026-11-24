@@ -64,6 +64,28 @@ BOND_KEYS = ["bond.govt_3m", "bond.govt_6m", "bond.govt_1y", "bond.govt_3y",
              "bond.cd_aaa_1y", "bond.cd_spread_1y", "bond.mmf_7d_median",
              "bond.mmf_7d_p25", "bond.mmf_7d_p75", "bond.wealth_gap"]
 
+# 期权 / 波动率（各标的）
+OPTION_KEYS = ["option.atm_iv", "option.iv_skew", "option.pcr_oi",
+               "option.pcr_vol", "option.vix"]
+VOL_KEYS = ["vol.atm_iv", "vol.iv_pctile", "vol.direction",
+            "vol.alert", "vol.surface_state", "vol.surface_risk_count"]
+BOTTOM_KEYS = ["bottom.position", "bottom.triggered", "bottom.prediction"]
+
+# 风险 / 结构（分口径落不同标的）
+RISK_ALLA_KEYS = ["risk.score_all_a", "risk.struct_score", "risk.volume_score",
+                  "risk.extreme_score", "risk.grade", "risk.cdi",
+                  "risk.abs_factor", "struct.cfc", "struct.cfc_signal"]
+RISK_IDX_KEYS = ["risk.concentration", "risk.up50", "midline.up50"]
+RISK_HS3_KEYS = ["risk.release_composite", "risk.release_vix",
+                 "risk.release_pcr", "risk.release_skew"]
+RISK_VIRT_KEYS = ["risk.daily_composite", "risk.gsratio_cross",
+                  "style.drift_z", "style.drift_state", "style.drift_advice",
+                  "midline.gex_alert", "midline.kurt_alert"]
+
+ALLA_SEC = "881001.WI"        # 万得全 A：全市场口径
+RISK_IDX_SEC = "000852.SH"    # 中证1000：多数结构指标落这个标的
+RISK_HS3_SEC = "000300.SH"    # 沪深300：风险释放走这个标的
+
 BOND_SEC = "CN.BOND"
 
 MACRO_SEC = "CN.MACRO"
@@ -103,6 +125,17 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
     ext_latest.update(read_latest(BOND_KEYS, [BOND_SEC], asof=asof))
     latest.update(ext_latest)
 
+    # 期权 / 波动率 / 顶底：按标的 + 虚拟标的（空串）
+    _o = read_latest(OPTION_KEYS + VOL_KEYS, OPT_IDS, asof=asof)
+    _o.update(read_latest(BOTTOM_KEYS + ["vol.surface_risk_count"], [""], asof=asof))
+    latest.update(_o)
+
+    # 风险 / 结构 / 风格 / 中线
+    latest.update(read_latest(RISK_ALLA_KEYS, [ALLA_SEC], asof=asof))
+    latest.update(read_latest(RISK_IDX_KEYS, [RISK_IDX_SEC], asof=asof))
+    latest.update(read_latest(RISK_HS3_KEYS, [RISK_HS3_SEC], asof=asof))
+    latest.update(read_latest(RISK_VIRT_KEYS, [""], asof=asof))
+
     series: Dict[Tuple[str, str], List[Dict]] = {}
     for sid in INDEX_ORDER:
         for k in ("chanlun.bull_score", "rmt.ar5", "rmt.outlier_energy",
@@ -120,6 +153,17 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
     for k in ("bond.govt_10y", "bond.spread_10y1y", "bond.corp_spread_3y",
               "bond.cd_aaa_1y"):
         series[(k, BOND_SEC)] = read_series(k, BOND_SEC)
+
+    # 期权 / 风险 图表时序
+    for k, s in (("option.vix", "000300.SH"), ("option.iv_skew", "000300.SH"),
+                 ("option.pcr_oi", "000300.SH"), ("vol.iv_pctile", "000300.SH"),
+                 ("risk.score_all_a", ALLA_SEC), ("risk.cdi", ALLA_SEC),
+                 ("risk.struct_score", ALLA_SEC),
+                 ("risk.release_composite", RISK_HS3_SEC)):
+        try:
+            series[(k, s)] = read_series(k, s)
+        except Exception:                                 # noqa: BLE001
+            series[(k, s)] = []
     return latest, series, obs
 
 
@@ -218,6 +262,8 @@ def num(vv, dec=2, unit="", cls=""):
     if vv is None:
         return NA
     s = ("%." + str(dec) + "f") % vv
+    if s.lstrip("-").strip("0.") == "" and s.startswith("-"):
+        s = s[1:]                    # -0.0 → 0.0，别让负零难看
     c = (' class="%s"' % cls) if cls else ""
     return '<span%s>%s%s</span>' % (c, s, unit)
 
@@ -252,6 +298,55 @@ def kvh(label_html, val_html):
 
 def kv(label, val_html):
     return kvh(html.escape(label), val_html)
+
+
+def kvl(label, note, val_html):
+    """长文本指标：值另起一行，不跟 label 挤在同一行。
+
+    顶部判断、漂移建议、GEX 告警这类是整句话，用 kvh 会挤成一坨。
+    """
+    return ('<div class="kv kv-long"><span class="k">%s%s</span>'
+            '<span class="v">%s</span></div>'
+            % (html.escape(label),
+               ('<span class="sm">%s</span>' % html.escape(note)) if note else "",
+               val_html))
+
+
+def _kv_smart(label, note, latest, key, sid, dec=0, unit=""):
+    """按内容自动选布局：数值 → 并排；短文本 → 并排；长文本 → 另起一行。
+
+    没值也没文本返回空串（主人 2026-11-25：没数据就不显示，别摆 NA）。
+    """
+    vv = v(latest, key, sid)
+    if vv is not None:
+        return kvh('%s <span class="sm">%s</span>' % (label, note) if note
+                   else html.escape(label), num(vv, dec, unit))
+    tt = t(latest, key, sid)
+    if not tt:
+        return ""
+    _s = str(tt).strip()
+    _h = '<span class="tx">%s</span>' % html.escape(_s)
+    if len(_s) > 10:
+        return kvl(label, note, _h)
+    return kvh('%s <span class="sm">%s</span>' % (label, note) if note
+               else html.escape(label), _h)
+
+
+def risk_bar(score: Optional[float]) -> str:
+    """风险综合分的进度条：分越高越危险（跟缠论评分的语义相反）。"""
+    if score is None:
+        return '<div class="bar-wrap">%s</div>' % DASH
+    p = max(0.0, min(100.0, float(score)))
+    if p >= 60:
+        col, lab = "#ff4d5e", "高风险"
+    elif p >= 40:
+        col, lab = "#e0a33e", "中风险"
+    else:
+        col, lab = "#22c55e", "低风险"
+    return ('<div class="bar-wrap"><div class="bar">'
+            '<i style="width:%.1f%%;background:%s"></i><u style="left:50%%"></u>'
+            '</div><div class="bar-lab">%s %.2f/100</div></div>'
+            % (p, col, lab, p))
 
 
 def score_bar(score: Optional[float]) -> str:
@@ -649,6 +744,17 @@ nav.jump a:hover{border-color:var(--blue);color:var(--blue)}
 /* 状态色 */
 .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--tx2)}
 .na{color:#4d5866;font-style:italic}
+.tx{color:#c8d2e0}
+.kv-long{flex-direction:column;align-items:flex-start;gap:3px}
+.kv-long .k{white-space:normal}
+.kv-long .v{text-align:left;line-height:1.6;font-family:inherit;font-size:12.5px;
+color:#c8d2e0;white-space:normal}
+.opt-tab{width:100%;font-size:12.5px}
+.opt-tab th{font-weight:500;color:#7c8798;text-align:right;padding:6px 8px;border-bottom:1px solid #232b36;white-space:nowrap}
+.opt-tab th:first-child,.opt-tab td.nm{text-align:left}
+.opt-tab td{text-align:right;padding:6px 8px;border-bottom:1px solid #1b222b;color:#c8d2e0;white-space:nowrap}
+.opt-tab td.nm{color:#e6edf6;font-weight:500}
+.opt-tab tbody tr:last-child td{border-bottom:0}
 .dash{color:#3d4652}
 .ok{color:var(--down)} .todo{color:#7a6a3a}
 .mid{color:var(--mid)}
@@ -1546,6 +1652,237 @@ def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
                                     wealth_html, ch_html)), charts
 
 
+# ════════════════════════════════════════════════════════════════
+# 期权 / 风险 两个 Tab
+#
+# 主人 2026-11-25：标签除了股票/期货/地产/宏观/流动性，还可以往上扩。
+# 这里扩「期权」和「风险」两块，数据全部来自指标仓 option.* / vol.* /
+# bottom.* / risk.* / struct.* / style.* / midline.*，
+# 页面只读不判断，风险等级一律用指标自带的标签（rbadge）。
+# ════════════════════════════════════════════════════════════════
+
+# 期权标的顺序：先股指后 ETF，跟期权任务自己的口径一致
+OPT_IDS = ["000300.SH", "000905.SH", "000852.SH", "399006.SZ",
+           "000688.SH", "932000.CSI"]
+
+# 波动率曲面状态机的中文名（任务侧给的是 safe/medium/high）
+_VOL_ST = {"safe": "安全", "medium": "关注", "high": "风险"}
+
+
+def _tv(latest: Dict, key: str, sid: str, dec: int = 0, unit: str = "") -> str:
+    """有数值就显示数值，纯文本就显示文本，都没有才显示短横。
+
+    评级、状态、建议这类指标只落 text 不落 value_num，
+    不能一律当 NA 处理（主人 2026-11-25：没数据才不显示，有文本就得显示）。
+    """
+    vv = v(latest, key, sid)
+    if vv is not None:
+        return num(vv, dec, unit)
+    tt = t(latest, key, sid)
+    if tt:
+        return '<span class="tx">%s</span>' % html.escape(str(tt))
+    return DASH
+
+
+def render_option_section(latest: Dict, series: Dict,
+                          obs: Optional[str]) -> tuple:
+    """期权栏 —— 各标的 IV / 偏度 / PCR，加波动率曲面与顶底判断。"""
+    cols = [
+        ("平值 IV", "option.atm_iv", 2, "%"),
+        ("25D 偏度", "option.iv_skew", 2, ""),
+        ("持仓 PCR", "option.pcr_oi", 2, ""),
+        ("成交 PCR", "option.pcr_vol", 2, ""),
+        ("VIX", "option.vix", 2, ""),
+        ("IV 分位", "vol.iv_pctile", 0, "%"),
+    ]
+    pairs = [(k, s) for s in OPT_IDS for _n, k, _d, _u in cols]
+    pairs += [("vol.surface_state", s) for s in OPT_IDS]
+    pairs += [("bottom.position", ""), ("bottom.triggered", ""),
+              ("bottom.prediction", ""), ("vol.surface_risk_count", "")]
+    if not any_val(latest, pairs):
+        return "", []        # 整块无数据 → 不渲染
+
+    # ── 逐标的明细表 ──
+    # 列过滤：所有标的都空的列直接不显示（主人 2026-11-25：没数据就不显示）
+    live_cols = [c for c in cols
+                 if any(v(latest, c[1], s) is not None for s in OPT_IDS)]
+    # 行过滤：这一行所有列都空、曲面状态也空 → 整行不显示
+    live_rows = [s for s in OPT_IDS
+                 if any(v(latest, k, s) is not None for _n, k, _d, _u in live_cols)
+                 or v(latest, "vol.surface_state", s) is not None]
+    head = "".join("<th>%s</th>" % n for n, _k, _d, _u in live_cols)
+    rows = []
+    for s in live_rows:
+        cells = []
+        for _n, k, d, u in live_cols:
+            _vv = v(latest, k, s)
+            # 这个标的天然没有这项（比如中证2000 没有对应期权品种）→ 留空，不摆 NA
+            cells.append("<td>%s</td>" % (num(_vv, d, u) if _vv is not None else ""))
+        _st = v(latest, "vol.surface_state", s)
+        _stt = t(latest, "vol.surface_state", s)
+        _lab = _VOL_ST.get(str(_stt or "").strip().lower(), "")
+        if not _lab and _st is None:
+            st_s = DASH
+        else:
+            st_s = '<span class="tx">%s</span>' % html.escape(
+                _lab or str(_stt or _st or ""))
+        rows.append('<tr><td class="nm">%s%s</td>%s<td>%s</td></tr>'
+                    % (html.escape(security_name(s)),
+                       rbadge("vol.surface_state", s), "".join(cells), st_s))
+    tab = ('<table class="mod-tab opt-tab"><thead><tr><th>标的</th>%s'
+           '<th>曲面状态</th></tr></thead><tbody>%s</tbody></table>'
+           % (head, "".join(rows)))
+
+    # ── 波动率曲面汇总（没值的项直接跳过）──
+    surf_html = "".join(x for x in (
+        _kv_smart("风险标的数", "medium/high 标的个数",
+                  latest, "vol.surface_risk_count", "", 0, " 个"),
+        _kv_smart("曲面告警", "", latest, "vol.alert", "", 0, ""),
+    ) if x)
+
+    # ── 杨康平顶底 ──
+    bot_html = "".join(x for x in (
+        _kv_smart("仓位建议", "11 红线 + 7 顶部信号", latest, "bottom.position", ""),
+        _kv_smart("底部红线触发", "越多越接近底部", latest, "bottom.triggered", "", 0, " 条"),
+        _kv_smart("顶部判断", "", latest, "bottom.prediction", ""),
+    ) if x)
+
+    # ── 图表 ──
+    charts = [
+        ("op_vix", ("option.vix", "000300.SH"), "沪深300 VIX", "#4a9eff", "", 2),
+        ("op_skew", ("option.iv_skew", "000300.SH"), "沪深300 25D偏度",
+         "#e0a33e", "", 2),
+        ("op_pcr", ("option.pcr_oi", "000300.SH"), "沪深300 持仓PCR",
+         "#9b7bff", "", 2),
+        ("op_pct", ("vol.iv_pctile", "000300.SH"), "沪深300 IV分位",
+         "#22c55e", "%", 0),
+    ]
+    ch_html = ""
+    _live = []
+    for _c in charts:
+        _cid, _k, _nm = _c[0], _c[1], _c[2]
+        _n = _n_valid(series.get(_k))
+        if _n >= 3:
+            ch_html += ('<div class="blk"><h4>%s</h4>'
+                        '<div class="chart" id="%s"></div></div>' % (_nm, _cid))
+            _live.append(_c)
+    charts = _live
+
+    return ('<section class="idx-card sec" id="option">'
+            '<header><h3>期权 · 波动率 <em>IV · 偏度 · PCR · 波动率曲面</em></h3>'
+            '<div class="obs">日频</div></header>'
+            '<div class="idx-body">'
+            '<div class="blk"><h4>各标的期权指标</h4>%s'
+            '<p class="note">PCR &gt; 1 通常对应认沽占比高、避险情绪偏重；'
+            '25D 偏度越大说明虚值认沽越贵。曲面状态由任务自己的'
+            '<code>analyze_surface_risk()</code> 判定，页面只翻译不重算。</p></div>'
+            '<div class="blk"><h4>波动率曲面</h4><div class="kvs">%s</div></div>'
+            '<div class="blk"><h4>杨康平顶底</h4><div class="kvs">%s</div></div>'
+            '%s</div></section>' % (tab, surf_html, bot_html, ch_html)), charts
+
+
+def render_risk_section(latest: Dict, series: Dict,
+                        obs: Optional[str]) -> tuple:
+    """风险栏 —— 全 A 风险评分、结构健康、风险释放、风格漂移、中线偏好。"""
+    ALLA = "881001.WI"       # 万得全 A：全市场口径
+    IDX = "000852.SH"        # 中证1000：多数结构指标落这个标的
+    HS3 = "000300.SH"        # 沪深300：风险释放走这个标的
+
+    score = [
+        ("全A综合风险分", "risk.score_all_a", ALLA, 1, "", "越高越该谨慎"),
+        ("结构风险分", "risk.struct_score", ALLA, 1, "", "结构层面拥挤度"),
+        ("量能情绪风险分", "risk.volume_score", ALLA, 1, "", "成交与情绪过热"),
+        ("极端风险分", "risk.extreme_score", ALLA, 1, "", "尾部事件概率"),
+        ("每日风险综合评分", "risk.daily_composite", "", 2, "分", "V5.2 日频"),
+        ("风险评级", "risk.grade", ALLA, 0, "", "任务自带分级"),
+    ]
+    health = [
+        ("CDI 结构健康度", "risk.cdi", ALLA, 2, "", "越高结构越健康"),
+        ("结构因子 AbsFactor", "risk.abs_factor", ALLA, 4, "", "多空力量净额"),
+        ("成交额集中度", "risk.concentration", IDX, 1, "%", "中证1000 口径"),
+        ("up50 分位", "risk.up50", IDX, 1, "%", "上行空间分位"),
+    ]
+    release = [
+        ("风险释放度", "risk.release_composite", HS3, 1, "分", "越高释放越充分"),
+        ("释放 VIX", "risk.release_vix", HS3, 2, "", "沪深300 口径"),
+        ("释放 PCR", "risk.release_pcr", HS3, 2, "", "沪深300 口径"),
+        ("释放 skew", "risk.release_skew", HS3, 3, "", "沪深300 口径"),
+    ]
+    style = [
+        ("风格漂移 z", "style.drift_z", "", 2, "", "z_opt 越大越偏"),
+        ("漂移状态", "style.drift_state", "", 0, "", "任务自己的判定"),
+        ("漂移建议", "style.drift_advice", "", 0, "", "任务自己的建议"),
+    ]
+    mid = [
+        ("中线 up50 分位", "midline.up50", IDX, 1, "%", "≥90% 风险 / ≤10% 机会"),
+        ("CFC 结构因子", "struct.cfc", ALLA, 4, "", "资金流结构"),
+        ("CFC 信号", "struct.cfc_signal", ALLA, 0, "", "任务自己的信号"),
+        ("中线 GEX 告警", "midline.gex_alert", "", 0, "", "Flip 只认现价 ±20% 内"),
+    ]
+
+    all_groups = score + health + release + style + mid
+    if not any_val(latest, [(k, s) for _n, k, s, _d, _u, _x in all_groups]):
+        # 数值全空时还要看文本类指标有没有落库
+        if not any(t(latest, k, s) for _n, k, s, _d, _u, _x in all_groups):
+            return "", []
+
+    def _grp(items) -> str:
+        # 没值的项直接跳过，不留 NA/DASH（主人 2026-11-25）
+        return "".join(x for x in (
+            _kv_smart(n, note, latest, k, s, d, u)
+            for n, k, s, d, u, note in items) if x)
+
+    score_html = _grp(score)
+    health_html = _grp(health)
+    release_html = _grp(release)
+    style_html = _grp(style)
+    mid_html = _grp(mid)
+
+    # 每日风险综合评分单独画一条进度条，比数字直观
+    _dc = v(latest, "risk.daily_composite", "")
+    bar_html = ('<div class="blk"><h4>每日风险综合评分</h4>%s'
+                '<p class="note">V5.2 任务自己的综合分，<b>分越高风险越大</b>；'
+                '评级与穿越事件见上方告警区。</p></div>'
+                % risk_bar(_dc))
+
+    charts = [
+        ("rk_all", ("risk.score_all_a", ALLA), "全A综合风险分", "#ff4d5e", "", 1),
+        ("rk_cdi", ("risk.cdi", ALLA), "CDI 结构健康度", "#22c55e", "", 2),
+        ("rk_rel", ("risk.release_composite", HS3), "风险释放度", "#4a9eff", "", 1),
+        ("rk_str", ("risk.struct_score", ALLA), "结构风险分", "#e0a33e", "", 1),
+    ]
+    ch_html = ""
+    _live = []
+    for _c in charts:
+        _cid, _k, _nm = _c[0], _c[1], _c[2]
+        _n = _n_valid(series.get(_k))
+        if _n >= 3:
+            ch_html += ('<div class="blk"><h4>%s</h4>'
+                        '<div class="chart" id="%s"></div></div>' % (_nm, _cid))
+            _live.append(_c)
+    charts = _live
+
+    return ('<section class="idx-card sec" id="risk">'
+            '<header><h3>风险 · 结构 <em>综合评分 · CDI · 风险释放 · 风格漂移</em></h3>'
+            '<div class="obs">日频</div></header>'
+            '<div class="idx-body">'
+            '<div class="blk"><h4>风险评分</h4><div class="kvs">%s</div>'
+            '<p class="note">四类分项都来自任务自己算的分数，'
+            '页面只读不重算阈值。</p></div>'
+            '%s'
+            '<div class="blk"><h4>结构健康度</h4><div class="kvs">%s</div>'
+            '<p class="note">CDI 越高说明结构越健康；AbsFactor 是多空力量的净额，'
+            '正值偏多、负值偏空。</p></div>'
+            '<div class="blk"><h4>风险释放</h4><div class="kvs">%s</div>'
+            '<p class="note">释放度越高说明这波风险释放得越充分，'
+            '不等于马上见底，要配合结构看。</p></div>'
+            '<div class="blk"><h4>风格漂移</h4><div class="kvs">%s</div></div>'
+            '<div class="blk"><h4>中线偏好与结构因子</h4><div class="kvs">%s</div></div>'
+            '%s</div></section>'
+            % (score_html, bar_html, health_html, release_html,
+               style_html, mid_html, ch_html)), charts
+
+
 def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
     """把外部注册的 model 渲染成一个大类下的子块。返回 (html, charts)。"""
     key = w.get("key")
@@ -1865,7 +2202,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     mod_sec = render_modules_panel(os.path.join(HERE, "modules.json"), st)
 
     # ── 外部注册的 model：按所属大类分组 ──
-    KNOWN_TABS = ("stock", "futures", "realestate", "macro", "liquidity", "bond")
+    KNOWN_TABS = ("stock", "futures", "realestate", "macro", "liquidity",
+                  "bond", "option", "risk")
     reg_in = {t: [] for t in KNOWN_TABS}
     reg_new = []
     reg_charts = []
@@ -1913,7 +2251,13 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         scripts.append(chart_payload(cid, series.get(key), nm, color, unit=unit, dec=dec))
     for cid, key, nm, color, unit, dec in liq_charts:
         scripts.append(chart_payload(cid, series.get(key), nm, color, unit=unit, dec=dec))
+    # 期权 / 风险 两个 Tab（主人 2026-11-25 批准扩的标签）
+    opt_sec, opt_charts = render_option_section(latest, series, obs)
+    risk_sec, risk_charts = render_risk_section(latest, series, obs)
+
     for cid, key, nm, color, unit, dec in bond_charts:
+        scripts.append(chart_payload(cid, series.get(key), nm, color, unit=unit, dec=dec))
+    for cid, key, nm, color, unit, dec in (opt_charts + risk_charts):
         scripts.append(chart_payload(cid, series.get(key), nm, color, unit=unit, dec=dec))
 
     # ── 管理面板：板块显隐清单 ──
@@ -1948,6 +2292,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     _NAV = [("stock", "股票 · 宽基"), ("futures", "期货 · 基差"),
             ("realestate", "地产"), ("macro", "宏观"),
             ("liquidity", "流动性"), ("bond", "债券 · 理财"),
+            ("option", "期权 · 波动率"), ("risk", "风险 · 结构"),
             ("modules", "模块管理")]
     _has = {
         "stock": bool((erp_html or "").strip() or cards or reg_in.get("stock")),
@@ -1956,6 +2301,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         "macro": bool((macro_sec or "").strip() or reg_in.get("macro")),
         "liquidity": bool((liq_sec or "").strip() or reg_in.get("liquidity")),
         "bond": bool((bond_sec or "").strip() or reg_in.get("bond")),
+        "option": bool((opt_sec or "").strip() or reg_in.get("option")),
+        "risk": bool((risk_sec or "").strip() or reg_in.get("risk")),
         "modules": True,
     }
     jump = "".join('<a href="#%s">%s</a>' % (k, t) for k, t in _NAV
@@ -1976,6 +2323,10 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     liq_obs = _obs_of([(k, LIQ_SEC) for k in LIQ_KEYS]
                       + [(k, MARGIN_SEC) for k in MARGIN_KEYS])
     bond_obs = _obs_of([(k, BOND_SEC) for k in BOND_KEYS])
+    opt_obs = _obs_of([("option.vix", s) for s in OPT_IDS]
+                      + [("vol.surface_state", s) for s in OPT_IDS])
+    risk_obs = _obs_of([("risk.score_all_a", "881001.WI"),
+                        ("risk.daily_composite", "")])
 
     alerts_html = render_alerts()
     doc = f"""<!DOCTYPE html>
@@ -2020,6 +2371,10 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     {wrap("liquidity", liq_sec, reg_in['liquidity'], liq_obs)}
 
     {wrap("bond", bond_sec, reg_in['bond'], bond_obs)}
+
+    {wrap("option", opt_sec, reg_in['option'], opt_obs)}
+
+    {wrap("risk", risk_sec, reg_in['risk'], risk_obs)}
 
     {extra_secs}
 
