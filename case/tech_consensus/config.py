@@ -3,7 +3,8 @@
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.join(HERE, "output")
+# 产物统一落 out/（框架约定），取数缓存留在 data/
+OUT_DIR = os.path.join(HERE, "out")
 DATA_DIR = os.path.join(HERE, "data")
 FONT_PATH = os.path.join(HERE, "fonts", "SimHei.ttf")
 

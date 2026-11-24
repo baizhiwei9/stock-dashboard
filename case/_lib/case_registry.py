@@ -28,6 +28,10 @@ SECTIONS = ("stock", "futures", "realestate", "macro", "liquidity", "bond",
             "option", "risk", "modules")
 KEY_RE = re.compile(r"^[a-z0-9_]{2,40}$")
 AT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+# 框架生命周期：有 pipeline 的任务由 case/_lib/runner.py 按这几个阶段驱动
+PIPELINE_STAGES = ("fetch", "check", "render", "emit", "dispatch")
+VISIBILITIES = ("public", "internal")
+RUNNER = os.path.join(HERE, "runner.py")
 
 
 def _read_json(path: str, default):
@@ -36,6 +40,52 @@ def _read_json(path: str, default):
             return json.load(f)
     except (OSError, ValueError):
         return default
+
+
+def visibility_of(t: Dict) -> str:
+    """任务的可见性：public 上牌面，internal 只跑与落库。缺省按 public。"""
+    v = str(t.get("visibility") or "public").strip().lower()
+    return v if v in VISIBILITIES else "public"
+
+
+def task_dirs(base: Optional[str] = None) -> List[str]:
+    """任务根目录列表：case/ 在前，CASE_EXTRA_DIRS 里的私有目录追加在后。"""
+    dirs = [base or CASE_DIR]
+    extra = (os.environ.get("CASE_EXTRA_DIRS") or "").replace(";", ":")
+    for p in extra.split(":"):
+        p = p.strip()
+        if p and os.path.isdir(p) and p not in dirs:
+            dirs.append(p)
+    return dirs
+
+
+def _validate_pipeline(p) -> List[str]:
+    """pipeline 结构校验：阶段名合法、每阶段有 cmd 或内置实现。"""
+    errs: List[str] = []
+    if p is None:
+        return errs
+    if not isinstance(p, dict):
+        return ["pipeline 必须是对象"]
+    if p.get("on_fail") not in (None, "stop", "continue"):
+        errs.append("pipeline.on_fail 只能是 stop/continue")
+    ratio = p.get("min_ok_ratio")
+    if ratio is not None and not (isinstance(ratio, (int, float)) and 0 <= ratio <= 1):
+        errs.append("pipeline.min_ok_ratio 必须在 0-1")
+    stages = p.get("stages")
+    if not (isinstance(stages, list) and stages):
+        return errs + ["pipeline.stages 必须是非空数组"]
+    for i, st in enumerate(stages):
+        if not isinstance(st, dict):
+            errs.append("pipeline.stages[%d] 不是对象" % i)
+            continue
+        name = st.get("name")
+        if name not in PIPELINE_STAGES:
+            errs.append("pipeline.stages[%d].name 非法：%r（可选 %s）"
+                        % (i, name, "/".join(PIPELINE_STAGES)))
+        if (not st.get("cmd") and not st.get("builtin") and not st.get("hook")
+                and name not in ("check", "emit")):
+            errs.append("pipeline.stages[%d]（%s）缺 cmd/builtin/hook" % (i, name))
+    return errs
 
 
 def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
@@ -50,10 +100,24 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
         errs.append("key 与目录名不一致：%s != %s" % (k, dir_key))
     if not str(t.get("title") or "").strip():
         errs.append("缺 title")
-    if t.get("section") not in SECTIONS:
-        errs.append("section 非法：%r（可选 %s）" % (t.get("section"), "/".join(SECTIONS)))
-    if not str(t.get("cmd") or "").strip():
-        errs.append("缺 cmd")
+    vis = t.get("visibility") or "public"
+    if vis not in VISIBILITIES:
+        errs.append("visibility 非法：%r（可选 %s）" % (vis, "/".join(VISIBILITIES)))
+    sec = t.get("section")
+    if vis == "public":
+        if sec not in SECTIONS:
+            errs.append("section 非法：%r（public 必须给 %s 之一）"
+                        % (sec, "/".join(SECTIONS)))
+    elif sec and sec not in SECTIONS:
+        errs.append("section 非法：%r（internal 可以留空，给了就必须在 %s 内）"
+                    % (sec, "/".join(SECTIONS)))
+    dep = t.get("depends_on")
+    if dep is not None:
+        if not isinstance(dep, list) or not all(isinstance(x, str) and KEY_RE.match(x) for x in dep):
+            errs.append("depends_on 必须是由任务 key 组成的数组")
+    if not str(t.get("cmd") or "").strip() and not isinstance(t.get("pipeline"), dict):
+        errs.append("缺 cmd（或给一个 pipeline 让 runner 分阶段执行）")
+    errs.extend(_validate_pipeline(t.get("pipeline")))
     s = t.get("sched")
     if not isinstance(s, dict):
         errs.append("sched 必须是对象")
@@ -82,33 +146,43 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
 
 
 def load_tasks(base: Optional[str] = None, only_enabled: bool = False) -> List[Dict]:
-    """扫描 case/*/task.json。坏配置跳过并写进 errors（不中断整体）。"""
-    base = base or CASE_DIR
+    """扫描任务目录（case/ + CASE_EXTRA_DIRS）。坏配置记错误但不中断整体。
+
+    同一个 key 出现在多个目录时，先扫描到的生效（case/ 优先），后出现的记一条冲突。
+    """
     out: List[Dict] = []
-    try:
-        names = sorted(os.listdir(base))
-    except OSError:
-        return out
-    for name in names:
-        if name.startswith("_") or name.startswith("."):
+    seen: Dict[str, str] = {}
+    for root_dir in task_dirs(base):
+        try:
+            names = sorted(os.listdir(root_dir))
+        except OSError:
             continue
-        d = os.path.join(base, name)
-        tj = os.path.join(d, "task.json")
-        if not os.path.isfile(tj):
-            continue
-        t = _read_json(tj, None)
-        if not isinstance(t, dict):
-            continue
-        errs = validate_task(t, name)
-        t = dict(t)
-        t["_dir"] = d
-        t["_errors"] = errs
-        t["source"] = "case"
-        t.setdefault("cwd", d)
-        elif_off = not bool(t.get("enabled", True))
-        if only_enabled and (errs or elif_off):
-            continue
-        out.append(t)
+        for name in names:
+            if name.startswith("_") or name.startswith("."):
+                continue
+            d = os.path.join(root_dir, name)
+            tj = os.path.join(d, "task.json")
+            if not os.path.isfile(tj):
+                continue
+            t = _read_json(tj, None)
+            if not isinstance(t, dict):
+                continue
+            errs = validate_task(t, name)
+            t = dict(t)
+            t["_dir"] = d
+            t["source"] = "case" if root_dir == CASE_DIR else "case-external"
+            if name in seen:
+                msg = "key 重复：%s 已由 %s 提供，本次忽略 %s" % (name, seen[name], d)
+                print("[case_registry] " + msg, file=sys.stderr)
+                errs.append(msg)
+                t["_errors"] = errs
+                continue
+            seen[name] = d
+            t["_errors"] = errs
+            t.setdefault("cwd", d)
+            if only_enabled and (errs or not bool(t.get("enabled", True))):
+                continue
+            out.append(t)
     return out
 
 
@@ -123,9 +197,18 @@ def _resolve_cwd(t: Dict) -> str:
 
 
 def as_modules(base: Optional[str] = None) -> List[Dict]:
-    """转成 scheduler 认的模块结构（key/title/desc/domains/cwd/cmd/timeout/enabled/sched）。"""
+    """转成 scheduler 认的模块结构（key/title/desc/domains/cwd/cmd/timeout/enabled/sched）。
+
+    有 pipeline 的任务，cmd 统一换成 runner 入口，由框架按阶段驱动；
+    没有 pipeline 的沿用原 cmd 直跑（兼容尚未改造的任务）。
+    """
     mods: List[Dict] = []
     for t in load_tasks(base):
+        pipe = t.get("pipeline") if isinstance(t.get("pipeline"), dict) else None
+        if pipe:
+            cmd = "%s %s --task %s" % (_q(sys.executable), _q(RUNNER), _q(t["key"]))
+        else:
+            cmd = t["cmd"]
         mods.append({
             "key": t["key"],
             "title": t.get("title") or t["key"],
@@ -133,7 +216,9 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "domains": [t.get("section") or "modules"],
             "section": t.get("section"),
             "cwd": _resolve_cwd(t),
-            "cmd": t["cmd"],
+            "cmd": cmd,
+            "legacy_cmd": t.get("cmd") if pipe else "",
+            "pipeline": bool(pipe),
             "timeout": int(t.get("timeout") or 1800),
             "enabled": bool(t.get("enabled", True)),
             "sched": t.get("sched"),
@@ -144,12 +229,21 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
     return mods
 
 
+def _q(s: str) -> str:
+    return '"%s"' % str(s).replace('"', '\\"')
+
+
 def as_workers(base: Optional[str] = None) -> List[Dict]:
-    """转成 build.py 的 worker 结构，用于在对应 section 渲染 case 任务结果。"""
+    """转成 build.py 的 worker 结构，用于在对应 section 渲染 case 任务结果。
+
+    只出 visibility=public 且有 section 的任务：internal 任务照跑照落库，但不上牌面。
+    """
     out: List[Dict] = []
     for t in load_tasks(base, only_enabled=True):
         if not t.get("metrics"):
             continue                      # 首跑还没回填指标的任务不上面板
+        if visibility_of(t) != "public" or not t.get("section"):
+            continue                      # 私有任务：运行与落库照旧，只是不展示
         out.append({
             "key": t["key"],
             "app_id": "case:%s" % t["key"],
