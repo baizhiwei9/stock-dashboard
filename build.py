@@ -146,6 +146,8 @@ def t(latest: Dict, key: str, sid: str) -> Optional[str]:
 # 渲染小工具
 # ════════════════════════════════════════════════════════════════
 NA = '<span class="na">NA</span>'
+# 「本来就没有这一项」用短横，跟「该有但没取到」的 NA 区分开
+DASH = '<span class="dash">—</span>'
 
 # ── 风险标签：任务写数据时自己打的 risk_level，这里只读 ──
 _RISK: Dict = {}          # (metric_key, security_id) -> {"level","note"}
@@ -198,6 +200,18 @@ def sec_risk(sid: str) -> str:
 
 def sec_risk_rank(sid: str) -> int:
     return {"alert": 3, "risk": 2, "opportunity": 1}.get(sec_risk(sid), 0)
+
+
+def any_val(latest: Dict, pairs) -> bool:
+    """pairs=[(key, sec), ...] 里任意一个有值 → True。
+
+    板块级「有没有数据」判定用。整块都没值就整块不渲染，
+    不留一排 NA（主人 2026-11-25：没数据就不显示，要好看）。
+    """
+    for _k, _s in pairs:
+        if v(latest, _k, _s) is not None:
+            return True
+    return False
 
 
 def num(vv, dec=2, unit="", cls=""):
@@ -410,7 +424,6 @@ def render_index_card(sid: str, latest: Dict, series: Dict, obs: Optional[str]) 
             "%.1f" % _o["vix"] if _o.get("vix") is not None else NA)))
     else:
         tr.append(kv("期权 PCR / VIX", NA))
-    tr.append(kv("两融/资金流", NA))
     tr.append('</div>')
     tr.append(chart_block("t_%s" % sid.replace(".", "_"), series.get(("trend.pct_20d", sid))))
     tr.append('</div>')
@@ -472,13 +485,9 @@ def render_side_panel(latest: Dict, st: Optional[Dict] = None,
         ("央行 OMO 净投放", num(v(latest, "liquidity.omo_net", LIQ_SEC), 0, " 亿")),
         ("两融余额（两市）", num(v(latest, "margin.rzrqye", MARGIN_SEC), 0, " 亿")),
         ("中美 10Y 利差", num(v(latest, "liquidity.spread_cn_us", LIQ_SEC), 1, " bp")),
-        ("北向资金", NA),
-        ("VIX / 中国波指", NA),
-        ("50ETF 期权 PCR", NA),
-        ("股指期货基差", NA),
-        ("市场宽度（涨跌家数）", NA),
     ]
-    lis = "".join(kv(k, val) for k, val in snap)
+    # 没取到的项直接不显示（主人 2026-11-25：没数据就别显示，别摆一排 NA）
+    lis = "".join(kv(k, val) for k, val in snap if val != NA)
 
     # ── 接入进度：查库统计，不写死 ──
     items = [("缠论结构", "chanlun"), ("RMT 随机矩阵", "rmt"),
@@ -503,8 +512,8 @@ def render_side_panel(latest: Dict, st: Optional[Dict] = None,
             '<h3>数据接入进度 <em>%d / %d 组</em></h3>'
             '<div class="kvs">%s</div>'
             '<p class="note">✓ 后是「已入库指标数 / 契约已定义数」。'
-            '只显示已按契约写入 tech 指标仓的数据，未接入一律 '
-            '<span class="na">NA</span>，不拿别处的旧值顶替。</p>'
+            '只显示已按契约写入 tech 指标仓的数据，未接入就不显示、'
+            '不拿别处的旧值顶替。</p>'
             '</section>' % (n_done, len(cov), "".join(prows)))
 
     ov = ""
@@ -527,8 +536,7 @@ def render_side_panel(latest: Dict, st: Optional[Dict] = None,
             '<h3>关键指标快照 <em>%s</em></h3>'
             '<div class="kvs">%s</div>'
             '<p class="note">全部来自 tech 指标仓最新一期。'
-            '北向资金 / VIX / PCR / 基差 / 市场宽度 尚未按契约接入，'
-            '保持 <span class="na">NA</span>。</p>'
+            '未接入的项直接不显示，不摆 NA、不拿旧值顶替。</p>'
             '</section>' % (obs or "—", lis)) + prog + ov
 
 
@@ -641,6 +649,7 @@ nav.jump a:hover{border-color:var(--blue);color:var(--blue)}
 /* 状态色 */
 .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--tx2)}
 .na{color:#4d5866;font-style:italic}
+.dash{color:#3d4652}
 .ok{color:var(--down)} .todo{color:#7a6a3a}
 .mid{color:var(--mid)}
 
@@ -1087,6 +1096,9 @@ def render_alerts(days: int = ALERT_DAYS) -> str:
     except Exception:                                        # noqa: BLE001
         rows, cnt = [], {}
 
+    if not rows:
+        return ""            # 没有带标签的结论 → 整块不渲染
+
     def _row(r: Dict) -> str:
         lv = r.get("risk_level") or "none"
         ico, _cls, lv_cn = _LEVEL_META.get(lv, ("·", "flat", lv))
@@ -1155,10 +1167,7 @@ def render_erp_card(latest: Dict, series: Dict, obs: Optional[str]):
             '<code>%s</code><span class="sm pair">EY − 10Y国债</span></div>'
             '<div class="bds">%s</div></header>' % (SID, ""))
     if erp is None:
-        body = ('<div class="idx-body"><div class="blk"><div class="kvs">%s</div>'
-                '</div></div>' % kv("股债利差", NA))
-        return ('<section class="idx-card erp-card" data-sec="erp" data-def="1">'
-                '%s%s</section>' % (head, body)), ""
+        return "", ""        # 无数据 → 整张卡不渲染
 
     # 分位分档：越高越偏股票便宜（绿），越低越偏债券贵（红）
     if pct is None:
@@ -1232,13 +1241,8 @@ def render_futures_section() -> str:
         snap, groups = {}, {}
 
     if not snap:
-        return ('<section class="idx-card sec" id="futures">'
-                '<header><h3>期货品种 <em>主连 / 期限 / 基差</em></h3>'
-                '<div class="obs">取数失败</div></header>'
-                '<div class="idx-body"><div class="blk"><div class="kvs">%s</div>'
-                '<p class="note">期货日线取数失败（Tushare fut_daily 未返回）。'
-                '按「没有数据就不写」的规则这里显示 %s，不用旧值顶替。</p>'
-                '</div></div></section>' % (kv("品种快照", NA), NA))
+        # 整块没数据 → 整块不显示，不留「取数失败」空壳
+        return ""
 
     obs = next(iter(snap.values())).get("date") or "—"
     blocks = []
@@ -1264,7 +1268,8 @@ def render_futures_section() -> str:
                 sp_s = '<span class="%s">%s</span>' % (cls, _fpx(sp))
             b = v.get("basis")
             if b is None:
-                b_s = NA
+                # 商品没有现货指数，基差天然为空 → 用短横，不当成缺数据
+                b_s = DASH
             else:
                 bp = v.get("basis_pct")
                 cls = "up" if b > 0 else ("down" if b < 0 else "flat")
@@ -1286,9 +1291,9 @@ def render_futures_section() -> str:
     note = ('<p class="note">口径：<b>主连</b>=品种连续合约收盘；'
             '<b>主力合约</b>=当日持仓量最大的合约；'
             '<b>期限</b>=主力−次主力价差（正=近强远弱 backwardation，负=contango）；'
-            '<b>基差</b>=现货指数−主力期货，只有股指期货有现货，商品基差显示 %s。'
+            '<b>基差</b>=现货指数−主力期货，只有股指期货有现货，商品基差显示 —。'
             'key 一律用品种主连（<code>AU.SHF</code>），'
-            '<code>AU2412</code> / <code>AU0</code> / <code>au</code> 都是它的别名。</p>' % NA)
+            '<code>AU2412</code> / <code>AU0</code> / <code>au</code> 都是它的别名。</p>')
 
     return ('<section class="idx-card sec" id="futures">'
             '<header><h3>期货品种 <em>主连 / 期限 / 基差</em></h3>'
@@ -1298,22 +1303,12 @@ def render_futures_section() -> str:
 
 
 def render_realestate_section() -> str:
-    """地产栏 —— 本机没有地产任务落库，只留栏目，不编造。"""
-    rows = [("商品房销售面积累计同比", None), ("房地产开发投资累计同比", None),
-            ("70 城新房价格同比", None), ("70 城二手房价格同比", None),
-            ("地产债信用利差", None), ("房企到位资金同比", None)]
-    lis = "".join(kv(k, NA) for k, _ in rows)
-    return ('<section class="idx-card sec" id="realestate">'
-            '<header><h3>地产 <em>销售 · 投资 · 房价 · 地产债</em></h3>'
-            '<div class="obs">本机无数据</div></header>'
-            '<div class="idx-body"><div class="blk">'
-            '<h4>地产景气与融资</h4><div class="kvs">%s</div>'
-            '<p class="note">⚠️ 本机 crontab 里没有地产相关任务，'
-            'EDB 也只有美国实际利率两条相关序列，没有国内地产数据。<br>'
-            '按「没有数据就不写」的规则，这里只保留栏目，显示 '
-            '<span class="na">NA</span>。等有任务往指标仓塞 '
-            '<code>realestate.*</code> 契约数据，这块自动就有值。</p>'
-            '</div></div></section>' % lis)
+    """地产栏 —— 本机没有地产任务落库。
+
+    整块无数据 → 整块不渲染（不再留一排 NA + 「本机无数据」说明）。
+    等有任务往指标仓塞 realestate.* 契约数据，这里改成读 latest 渲染。
+    """
+    return ""
 
 
 def load_sections(path: str) -> Dict:
@@ -1344,6 +1339,10 @@ def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
         ("离岸 USD/CNH", "macro.cnh", 4, "", "上行=人民币贬值"),
         ("在岸 USD/CNY", "macro.usdcny", 4, "", "在岸即期"),
     ]
+    if not any_val(latest, [(k, MACRO_SEC) for _n, k, _d, _u, _x in cn]
+                          + [(k, GLOBAL_SEC) for _n, k, _d, _u, _x in gl]):
+        return "", []        # 整块无数据 → 不渲染
+
     cn_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
                          num(v(latest, k, MACRO_SEC), d, u))
                      for n, k, d, u, note in cn)
@@ -1404,6 +1403,10 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
         ("融券余额", "margin.rqye", 0, "亿", ""),
         ("维持担保比例", "margin.maint_ratio", 1, "%", "越低越近强平区"),
     ]
+    if not any_val(latest, [(k, LIQ_SEC) for _n, k, _d, _u, _x in rate + spread]
+                          + [(k, MARGIN_SEC) for _n, k, _d, _u, _x in mg]):
+        return "", []        # 整块无数据 → 不渲染
+
     rate_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
                            num(v(latest, k, LIQ_SEC), d, u))
                         for n, k, d, u, note in rate)
@@ -1479,6 +1482,10 @@ def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
         ("75 分位", "bond.mmf_7d_p75", 3, "%", "尾部货基"),
         ("存单 − 货基价差", "bond.wealth_gap", 1, "bp", "锁久期的收益补偿"),
     ]
+
+    if not any_val(latest, [(k, BOND_SEC) for _n, k, _d, _u, _x
+                            in curve + term + credit + wealth]):
+        return "", []        # 整块无数据 → 不渲染
 
     curve_html = "".join(kvh('%s <span class="sm">%s</span>' % (n, note),
                              num(v(latest, k, BOND_SEC), d, u))
@@ -1785,6 +1792,19 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         return section_head(m.get("num", ""), m.get("title", k),
                             m.get("sub", ""), obs_d, en(k))
 
+    def wrap(k: str, body: str, reg: str = "",
+             obs_d: Optional[str] = None) -> str:
+        """板块外壳。body 和 reg 都空 → 整块不渲染。
+
+        主人 2026-11-25：没数据的模块就别显示，少一两个没啥，页面要好看。
+        """
+        inner = (body or "") + (reg or "")
+        if not inner.strip():
+            return ""
+        return ('<div class="sec-wrap" data-sec="%s" data-def="1"%s>%s'
+                '<div class="sec-grid">%s</div></div>'
+                % (k, sty(k), sh(k, obs_d), inner))
+
     cards = []
     # 卡片自动排序：带风险标签的标的最前（alert > risk > opportunity），其余保持原序
     _sid_sorted = sorted(INDEX_ORDER, key=lambda x: -sec_risk_rank(x))
@@ -1920,13 +1940,26 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     adm_key = html.escape(str(_api.get("registry_key") or _api.get("password") or "123456"))
     adm_port = int(_api.get("port") or 8767)
 
-    jump = ('<a href="#stock">股票 · 宽基</a>'
-            '<a href="#futures">期货 · 基差</a>'
-            '<a href="#realestate">地产</a>'
-            '<a href="#macro">宏观</a>'
-            '<a href="#liquidity">流动性</a>'
-            '<a href="#bond">债券 · 理财</a>'
-            '<a href="#modules">模块管理</a>')
+    erp_html, erp_script = render_erp_card(latest, series, obs)
+    if erp_script:
+        scripts.append(erp_script)
+
+    # 导航只给「真渲染出来」的板块出链接（空板块不显示，链接也别留）
+    _NAV = [("stock", "股票 · 宽基"), ("futures", "期货 · 基差"),
+            ("realestate", "地产"), ("macro", "宏观"),
+            ("liquidity", "流动性"), ("bond", "债券 · 理财"),
+            ("modules", "模块管理")]
+    _has = {
+        "stock": bool((erp_html or "").strip() or cards or reg_in.get("stock")),
+        "futures": bool((futures_sec or "").strip() or reg_in.get("futures")),
+        "realestate": bool((re_sec or "").strip() or reg_in.get("realestate")),
+        "macro": bool((macro_sec or "").strip() or reg_in.get("macro")),
+        "liquidity": bool((liq_sec or "").strip() or reg_in.get("liquidity")),
+        "bond": bool((bond_sec or "").strip() or reg_in.get("bond")),
+        "modules": True,
+    }
+    jump = "".join('<a href="#%s">%s</a>' % (k, t) for k, t in _NAV
+                   if _has.get(k))
     idx_jump = "".join('<a class="sub" href="#i_%s">%s</a>'
                        % (s.replace(".", "_"), security_name(s)) for s in INDEX_ORDER)
 
@@ -1945,9 +1978,6 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     bond_obs = _obs_of([(k, BOND_SEC) for k in BOND_KEYS])
 
     alerts_html = render_alerts()
-    erp_html, erp_script = render_erp_card(latest, series, obs)
-    if erp_script:
-        scripts.append(erp_script)
     doc = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1979,54 +2009,17 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
 <div class="layout">
   <div class="grid-idx">
 
-    <div class="sec-wrap" data-sec="stock" data-def="1"{sty("stock")}>
-      {sh("stock", obs)}
-      <div class="sec-grid">
-        {erp_html}
-        {"".join(cards)}
-        {reg_in['stock']}
-      </div>
-    </div>
+    {wrap("stock", erp_html + "".join(cards), reg_in['stock'], obs)}
 
-    <div class="sec-wrap" data-sec="futures" data-def="1"{sty("futures")}>
-      {sh("futures")}
-      <div class="sec-grid">
-        {futures_sec}
-        {reg_in['futures']}
-      </div>
-    </div>
+    {wrap("futures", futures_sec, reg_in['futures'], None)}
 
-    <div class="sec-wrap" data-sec="realestate" data-def="1"{sty("realestate")}>
-      {sh("realestate")}
-      <div class="sec-grid">
-        {re_sec}
-        {reg_in['realestate']}
-      </div>
-    </div>
+    {wrap("realestate", re_sec, reg_in['realestate'], None)}
 
-    <div class="sec-wrap" data-sec="macro" data-def="1"{sty("macro")}>
-      {sh("macro", macro_obs)}
-      <div class="sec-grid">
-        {macro_sec}
-        {reg_in['macro']}
-      </div>
-    </div>
+    {wrap("macro", macro_sec, reg_in['macro'], macro_obs)}
 
-    <div class="sec-wrap" data-sec="liquidity" data-def="1"{sty("liquidity")}>
-      {sh("liquidity", liq_obs)}
-      <div class="sec-grid">
-        {liq_sec}
-        {reg_in['liquidity']}
-      </div>
-    </div>
+    {wrap("liquidity", liq_sec, reg_in['liquidity'], liq_obs)}
 
-    <div class="sec-wrap" data-sec="bond" data-def="1"{sty("bond")}>
-      {sh("bond", bond_obs)}
-      <div class="sec-grid">
-        {bond_sec}
-        {reg_in['bond']}
-      </div>
-    </div>
+    {wrap("bond", bond_sec, reg_in['bond'], bond_obs)}
 
     {extra_secs}
 
@@ -2047,7 +2040,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
   数据源：DataHub · tech 指标仓（<code>{html.escape(st['db_path'])}</code>）·
   覆盖 {st['n_metrics']} 个指标 / {st['n_securities']} 个证券 ·
   日期范围 {st['date_min'] or "—"} ~ {st['date_max'] or "—"}<br>
-  取不到值一律显示 <span class="na">NA</span>，不插值、不用上期值顶替。
+  整块没数据的板块直接不显示，不插值、不用上期值顶替。
   算法口径见 <code>data_hub/tech/CONTRACT.md</code>。<br>
   生成时间 {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ·
   纯静态页面，不触发任何计算，只读库渲染。
