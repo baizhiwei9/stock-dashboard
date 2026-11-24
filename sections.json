@@ -70,8 +70,16 @@
       "subs": []
     },
     {
-      "key": "modules",
+      "key": "bond",
       "num": "06",
+      "title": "债券 · 理财",
+      "sub": "国债曲线 / 期限结构 / 信用利差 / 类理财收益（货币基金口径）",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "modules",
+      "num": "07",
       "title": "模块管理",
       "sub": "每个模块 = 一个脚本 + 一条自己的定时任务",
       "enabled": true,

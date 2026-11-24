@@ -56,6 +56,15 @@ LIQ_KEYS = ["liquidity.dr001", "liquidity.dr007", "liquidity.shibor_3m",
             "liquidity.cn2y", "liquidity.spread_10y2y", "liquidity.spread_cn_us"]
 MARGIN_KEYS = ["margin.rzye", "margin.rqye", "margin.rzrqye", "margin.maint_ratio"]
 
+BOND_KEYS = ["bond.govt_3m", "bond.govt_6m", "bond.govt_1y", "bond.govt_3y",
+             "bond.govt_5y", "bond.govt_7y", "bond.govt_10y", "bond.govt_30y",
+             "bond.spread_10y1y", "bond.spread_30y10y", "bond.curve_shape",
+             "bond.govt_10y_pct", "bond.corp_aaa_3y", "bond.corp_spread_3y",
+             "bond.cd_aaa_1y", "bond.cd_spread_1y", "bond.mmf_7d_median",
+             "bond.mmf_7d_p25", "bond.mmf_7d_p75", "bond.wealth_gap"]
+
+BOND_SEC = "CN.BOND"
+
 MACRO_SEC = "CN.MACRO"
 GLOBAL_SEC = "GLOBAL.MACRO"
 LIQ_SEC = "CN.LIQ"
@@ -90,6 +99,7 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
     ext_latest.update(read_latest(MACRO_GL_KEYS, [GLOBAL_SEC], asof=asof))
     ext_latest.update(read_latest(LIQ_KEYS, [LIQ_SEC], asof=asof))
     ext_latest.update(read_latest(MARGIN_KEYS, [MARGIN_SEC], asof=asof))
+    ext_latest.update(read_latest(BOND_KEYS, [BOND_SEC], asof=asof))
     latest.update(ext_latest)
 
     series: Dict[Tuple[str, str], List[Dict]] = {}
@@ -106,6 +116,9 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
     for k in ("liquidity.dr001", "liquidity.dr007", "liquidity.spread_cn_us"):
         series[(k, LIQ_SEC)] = read_series(k, LIQ_SEC)
     series[("margin.rzrqye", MARGIN_SEC)] = read_series("margin.rzrqye", MARGIN_SEC)
+    for k in ("bond.govt_10y", "bond.spread_10y1y", "bond.corp_spread_3y",
+              "bond.cd_aaa_1y"):
+        series[(k, BOND_SEC)] = read_series(k, BOND_SEC)
     return latest, series, obs
 
 
@@ -1193,6 +1206,99 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
             '%s</div></section>' % (rate_html, sp_html, mg_html, ch_html)), charts
 
 
+def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple:
+    """债券与理财：利率曲线 / 期限结构 / 信用利差 / 理财替代锚。
+
+    数据口径：国债曲线来自中债估值（8 期限），信用债走中债企业债 AAA 与
+    同业存单 AAA 曲线，理财用**货币基金 7 日年化**做类理财收益锚 ——
+    银行理财不披露日频净值，这里不推算、不冒称理财业绩基准。
+    """
+    curve = [
+        ("国债 3M", "bond.govt_3m", 3, "%", "短端资金面"),
+        ("国债 6M", "bond.govt_6m", 3, "%", ""),
+        ("国债 1Y", "bond.govt_1y", 3, "%", "期限利差基准"),
+        ("国债 3Y", "bond.govt_3y", 3, "%", "信用利差基准"),
+        ("国债 5Y", "bond.govt_5y", 3, "%", "配置主力"),
+        ("国债 7Y", "bond.govt_7y", 3, "%", ""),
+        ("国债 10Y", "bond.govt_10y", 3, "%", "债市定价之锚"),
+        ("国债 30Y", "bond.govt_30y", 3, "%", "超长端"),
+    ]
+    term = [
+        ("期限利差 10Y-1Y", "bond.spread_10y1y", 1, "bp", "走阔=曲线变陡"),
+        ("期限利差 30Y-10Y", "bond.spread_30y10y", 1, "bp", "超长端溢价"),
+    ]
+    credit = [
+        ("企业债 AAA 3Y", "bond.corp_aaa_3y", 3, "%", "中债估值曲线"),
+        ("信用利差 AAA 3Y", "bond.corp_spread_3y", 1, "bp", "走阔=风险溢价上升"),
+        ("同业存单 AAA 1Y", "bond.cd_aaa_1y", 3, "%", "银行负债成本"),
+        ("存单利差 1Y", "bond.cd_spread_1y", 1, "bp", "边际负债压力"),
+    ]
+    wealth = [
+        ("货基 7 日年化 · 中位数", "bond.mmf_7d_median", 3, "%", "类理财收益锚"),
+        ("25 分位", "bond.mmf_7d_p25", 3, "%", "头部货基"),
+        ("75 分位", "bond.mmf_7d_p75", 3, "%", "尾部货基"),
+        ("存单 − 货基价差", "bond.wealth_gap", 1, "bp", "锁久期的收益补偿"),
+    ]
+
+    curve_html = "".join(kvh('%s <span class="sm">%s</span>' % (n, note),
+                             num(v(latest, k, BOND_SEC), d, u))
+                         for n, k, d, u, note in curve)
+
+    _shp = (g(latest, "bond.curve_shape", BOND_SEC) or {}).get("value_text") or "NA"
+    _pct = num(v(latest, "bond.govt_10y_pct", BOND_SEC), 1, "%")
+    term_html = "".join(kvh('%s <span class="sm">%s</span>' % (n, note),
+                            num(v(latest, k, BOND_SEC), d, u))
+                        for n, k, d, u, note in term)
+    term_html += kvh('曲线形态 <span class="sm">10Y 方向 × 利差方向</span>',
+                     '<b>%s</b>' % html.escape(str(_shp)))
+    term_html += kvh('10Y 历史分位 <span class="sm">近 500 交易日</span>', _pct)
+
+    credit_html = "".join(kvh('%s <span class="sm">%s</span>' % (n, note),
+                              num(v(latest, k, BOND_SEC), d, u))
+                          for n, k, d, u, note in credit)
+    wealth_html = "".join(kvh('%s <span class="sm">%s</span>' % (n, note),
+                              num(v(latest, k, BOND_SEC), d, u))
+                          for n, k, d, u, note in wealth)
+
+    charts = [
+        ("bd_10y", ("bond.govt_10y", BOND_SEC), "国债 10Y", "#4a9eff", "%", 3),
+        ("bd_sp", ("bond.spread_10y1y", BOND_SEC), "期限利差 10Y-1Y", "#e0a33e", "bp", 1),
+        ("bd_cs", ("bond.corp_spread_3y", BOND_SEC), "信用利差 AAA 3Y", "#ff4d5e", "bp", 1),
+    ]
+    ch_html = ""
+    _live = []
+    for _c in charts:
+        _cid, _k, _nm = _c[0], _c[1], _c[2]
+        _n = len(series.get(_k) or [])
+        if _n < 3:
+            ch_html += ('<div class="blk"><h4>%s</h4>'
+                        '<div class="chart na-box">数据点不足（%d 个），暂不绘图</div></div>'
+                        % (_nm, _n))
+        else:
+            ch_html += ('<div class="blk"><h4>%s</h4>'
+                        '<div class="chart" id="%s"></div></div>' % (_nm, _cid))
+            _live.append(_c)
+    charts = _live
+
+    return ('<section class="idx-card sec" id="bond">'
+            '<header><h3>债券与理财 <em>利率曲线 · 信用利差 · 类理财收益</em></h3>'
+            '<div class="obs">日频</div></header>'
+            '<div class="idx-body">'
+            '<div class="blk"><h4>国债收益率曲线（中债估值）</h4>'
+            '<div class="kvs">%s</div></div>'
+            '<div class="blk"><h4>期限结构与形态</h4><div class="kvs">%s</div></div>'
+            '<div class="blk"><h4>信用债与信用利差</h4><div class="kvs">%s</div>'
+            '<p class="note">信用利差 = 同期限信用债 − 同期限国债。走阔通常对应'
+            '信用风险溢价上升、风险偏好下降。</p></div>'
+            '<div class="blk"><h4>理财替代锚（货币基金口径）</h4>'
+            '<div class="kvs">%s</div>'
+            '<p class="note">银行理财不披露日频净值，公开接口没有统一的理财收益率序列。'
+            '这里用<b>货币基金 7 日年化</b>做「类理财收益」的可得锚，'
+            '只陈述数据本身，<b>不是银行理财业绩基准</b>，两者口径不同不可直接比较。</p></div>'
+            '%s</div></section>' % (curve_html, term_html, credit_html,
+                                    wealth_html, ch_html)), charts
+
+
 def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
     """把外部注册的 model 渲染成一个大类下的子块。返回 (html, charts)。"""
     key = w.get("key")
@@ -1488,10 +1594,11 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     re_sec = render_realestate_section()
     macro_sec, macro_charts = render_macro_section(latest, series, obs)
     liq_sec, liq_charts = render_liquidity_section(latest, series, obs)
+    bond_sec, bond_charts = render_bond_section(latest, series, obs)
     mod_sec = render_modules_panel(os.path.join(HERE, "modules.json"), st)
 
     # ── 外部注册的 model：按所属大类分组 ──
-    KNOWN_TABS = ("stock", "futures", "realestate", "macro", "liquidity")
+    KNOWN_TABS = ("stock", "futures", "realestate", "macro", "liquidity", "bond")
     reg_in = {t: [] for t in KNOWN_TABS}
     reg_new = []
     reg_charts = []
@@ -1539,6 +1646,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         scripts.append(chart_payload(cid, series.get(key), nm, color, unit=unit, dec=dec))
     for cid, key, nm, color, unit, dec in liq_charts:
         scripts.append(chart_payload(cid, series.get(key), nm, color, unit=unit, dec=dec))
+    for cid, key, nm, color, unit, dec in bond_charts:
+        scripts.append(chart_payload(cid, series.get(key), nm, color, unit=unit, dec=dec))
 
     # ── 管理面板：板块显隐清单 ──
     adm_rows = []
@@ -1569,6 +1678,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
             '<a href="#realestate">地产</a>'
             '<a href="#macro">宏观</a>'
             '<a href="#liquidity">流动性</a>'
+            '<a href="#bond">债券 · 理财</a>'
             '<a href="#modules">模块管理</a>')
     idx_jump = "".join('<a class="sub" href="#i_%s">%s</a>'
                        % (s.replace(".", "_"), security_name(s)) for s in INDEX_ORDER)
@@ -1585,13 +1695,14 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
                         + [(k, GLOBAL_SEC) for k in MACRO_GL_KEYS])
     liq_obs = _obs_of([(k, LIQ_SEC) for k in LIQ_KEYS]
                       + [(k, MARGIN_SEC) for k in MARGIN_KEYS])
+    bond_obs = _obs_of([(k, BOND_SEC) for k in BOND_KEYS])
 
     doc = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stock Dashboard · 股票 / 期货 / 宏观 / 流动性</title>
+<title>Stock Dashboard · 股票 / 期货 / 宏观 / 流动性 / 债券理财</title>
 <style>{CSS}
 </style>
 </head>
@@ -1599,7 +1710,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
 <div class="wrap">
 
 <header class="top">
-  <h1>Stock Dashboard<small>股票 · 期货 · 宏观 · 流动性</small></h1>
+  <h1>Stock Dashboard<small>股票 · 期货 · 宏观 · 流动性 · 债券理财</small></h1>
   <button id="admBtn" class="adm-btn" title="管理板块显示">⚙ 管理</button>
   <div class="top-meta">
     <div><b>{obs or "NA"}</b><span>数据日（上一交易日）</span></div>
@@ -1652,6 +1763,14 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
       <div class="sec-grid">
         {liq_sec}
         {reg_in['liquidity']}
+      </div>
+    </div>
+
+    <div class="sec-wrap" data-sec="bond" data-def="1"{sty("bond")}>
+      {sh("bond", bond_obs)}
+      <div class="sec-grid">
+        {bond_sec}
+        {reg_in['bond']}
       </div>
     </div>
 
