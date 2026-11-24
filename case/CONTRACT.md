@@ -178,9 +178,19 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 
 ---
 
-## 六、依赖与新鲜度
+## 六、任务独立性与依赖
 
-`depends_on: ["option_skew"]` 表示本任务要用 `option_skew` 的产出。`fetch` 之前框架检查：
+**默认：任务之间没有任何运行时依赖。** 每个任务自己取数、自己算、自己出报告，不读别的任务的
+`data/` 或 `out/`，也不要求别的任务先跑完。看板上的先后只由各自 `sched` 的时点决定，不是依赖关系。
+
+- **共享的是代码，不是任务**：`report_stats` / `broad5_risk` / `portfolio_stats` 这类多任务复用的模块
+  放 `case/_shared/`，框架启动时统一注入 `sys.path`，子进程也能拿到 `CASE_SHARED_DIR`。
+- **共享的是数据源，不是产物**：需要同一份外部数据时，各自从数据源取，或由 `CASE_DATA_SRC` 注入，
+  不通过"上游任务写、下游任务读"来传递。
+- **禁止**：`../<别的任务>/out/` 这类跨任务读取。发现即视为契约违规。
+
+确实存在必须读上游产物的例外，才写 `depends_on`，并在 issue 里说明理由。写法：`depends_on: ["option_skew"]`，
+`fetch` 之前框架检查：
 
 1. 上游任务目录存在；
 2. 上游 `out/latest.json` 存在且 `points` 非空；

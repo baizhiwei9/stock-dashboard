@@ -252,3 +252,14 @@ python3 case/_lib/runner.py --task my_task --dry-run
 17 个 `private` 任务（原 12 个 + 2026-11-25 从 public 挪下来的 5 个：`realestate_daily` /
 `volume_wavelet` / `rmt_daily` / `rmt_cgap` / `structural_factor`）都在独立私有仓库
 **precious-task**（`case/<key>/`），本仓库只保留 12 个 `public` 任务。挂载命令见该仓库 README，或用 `CASE_EXTRA_DIRS` 指过去。
+
+### 任务之间不建立依赖
+
+每个任务自己取数、自己算、自己出报告，**不读别的任务的 `data/` 或 `out/`**，也不要求别的任务先跑。
+调度顺序只由各自 `sched` 的时点决定。
+
+多任务复用的模块放 `case/_shared/`（目前有 `report_stats`、`broad5_risk`、`portfolio_stats`），
+`runner.py` 启动时注入 `sys.path`，并给子进程导出 `CASE_SHARED_DIR`；私有仓库用
+`CASE_SHARED_DIR=/path/to/stock-dashboard/case/_shared` 指过来，不要再各自拼绝对路径。
+
+`depends_on` 只是给极少数确有必要读上游产物的例外留的口子，默认不填。
