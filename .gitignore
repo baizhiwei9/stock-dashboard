@@ -7,8 +7,7 @@ __pycache__/
 scheduler.pid
 daily.log
 
-# 本机配置与状态（含密码，别提交）
-modules.json
+# 运行状态（每次跑都在变，不入库）
 state.json
 
 # 云平台部署元数据

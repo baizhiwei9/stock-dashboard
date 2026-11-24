@@ -13,7 +13,7 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | `build.py` | 生成 `index.html`（唯一渲染入口，纯 Python，无前端框架） |
 | `scheduler.py` | 任务调度器：按 `modules.json` 里每个 task 的启停时间跑，**不用 crontab** |
 | `manager.py` | 管理 API：任务启停、注册审批、密钥校验 |
-| `modules.json` | 模块与调度配置（**含密码，不入库**，见下） |
+| `modules.json` | 模块与调度配置，**含密码与注册密钥**（入库方便改；对外公开前必须先改） |
 | `sections.json` | Tab 与子类结构 |
 | `registry.json` | 已注册 Worker 清单 |
 | `publish.sh` | 发布到 Coze Pages |
@@ -22,8 +22,7 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 ## 快速开始
 
 ```bash
-cp modules.example.json modules.json
-# 改 modules.json 里的 api.password / api.registry_key（默认 CHANGE_ME）
+# 改 modules.json 里的 api.password / api.registry_key（初始都是 123456，务必改掉）
 
 python3 scheduler.py fg     # 前台跑调度
 python3 build.py            # 或单次生成 index.html
@@ -77,6 +76,8 @@ IV / Skew 库内是小数，展示时 ×100 转 %。分位需要 ≥30 个样本
 3. 管理页用管理密码批准 → 出现在看板
 
 双密钥分开：`X-SD-PW` 管管理动作，`X-SD-KEY` 只管注册。两者都在 `modules.json` 的 `api` 段。
+
+初始值都是 `123456`，跟仓库一起提交是为了改起来方便——**这个仓库一旦要转公开，先改掉这两个值**。
 
 ## 发布
 
