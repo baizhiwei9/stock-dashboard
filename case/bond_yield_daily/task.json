@@ -1,0 +1,32 @@
+{
+  "key": "bond_yield_daily",
+  "title": "国债收益率四维预测+曲线监控日报",
+  "desc": "",
+  "section": "bond",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "09:00",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u bond_yield_daily/run_daily.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 1,
+  "requires": [],
+  "root": "{WS}/ses_gffe5f0d3c0a33ffewjneus1voziQ3C",
+  "entry": "bond_yield_daily/run_daily.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py"
+}

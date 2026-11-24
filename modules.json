@@ -29,7 +29,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.macro_daily --days 500",
       "timeout": 2400,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "liquidity",
@@ -53,7 +54,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.liquidity_daily --days 500",
       "timeout": 2400,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "rmt",
@@ -76,7 +78,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.rmt_daily --lookback 300 --max-comps 150",
       "timeout": 3600,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "chanlun",
@@ -100,7 +103,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.chanlun_daily",
       "timeout": 1800,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "dfa",
@@ -123,7 +127,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.dfa_daily",
       "timeout": 1800,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "option",
@@ -146,7 +151,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.option_daily --days 3",
       "timeout": 1800,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "bond",
@@ -169,7 +175,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.bond_daily --days 12",
       "timeout": 1800,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "risk",
@@ -192,7 +199,8 @@
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
       "cmd": "python3 -u -m data_hub.tech.producers.risk_daily --days 3",
       "timeout": 1200,
-      "enabled": true
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
     },
     {
       "key": "build",
@@ -218,8 +226,7 @@
         "dfa",
         "risk"
       ],
-      "cwd": "/Coze/Drive/股市监控画布/stock-dashboard",
-      "cmd": "python3 build.py && ./publish.sh",
+      "cmd": "python3 build.py",
       "timeout": 1800,
       "enabled": true
     }

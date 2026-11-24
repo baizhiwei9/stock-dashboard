@@ -41,6 +41,8 @@ CFG = os.path.join(HERE, "modules.json")
 SEC_CFG = os.path.join(HERE, "sections.json")
 DH_ROOT = "/opt/coze/.fuse_drive/dataHub_三级体系"
 LOG_DIR = os.path.join(HERE, "logs")
+CASE_DIR = os.path.join(HERE, "case")
+CASE_LIB = os.path.join(CASE_DIR, "_lib")
 
 if DH_ROOT not in sys.path:
     sys.path.insert(0, DH_ROOT)
@@ -74,12 +76,60 @@ def _sec_load() -> Dict:
         return {"sections": []}
 
 
+def case_mods() -> List[Dict]:
+    """case/*/task.json 里的任务（dumate 分支）；坏配置跳过。"""
+    try:
+        if CASE_LIB not in sys.path:
+            sys.path.insert(0, CASE_LIB)
+        import case_registry
+        return [m for m in case_registry.as_modules(CASE_DIR) if not m.get("_errors")]
+    except Exception:                                         # noqa: BLE001
+        return []
+
+
+def all_mods(cfg: Dict) -> List[Dict]:
+    """内置 modules.json 模块 + case 任务，key 唯一，内置优先。"""
+    mods = [dict(m, source="builtin") for m in (cfg.get("modules") or [])]
+    seen = {m["key"] for m in mods}
+    for m in case_mods():
+        if m["key"] not in seen:
+            mods.append(m)
+            seen.add(m["key"])
+    return mods
+
+
 def get_mod(cfg: Dict, key: str) -> Dict:
     for m in cfg["modules"]:
         if m["key"] == key:
             return m
     raise SystemExit("未知模块: %s（可选：%s）"
-                     % (key, ", ".join(m["key"] for m in cfg["modules"])))
+                     % (key, ", ".join(m["key"] for m in all_mods(cfg))))
+
+
+def find_mod(cfg: Dict, key: str) -> Optional[Dict]:
+    """先内置、后 case；找不到返回 None（不抛）。"""
+    for m in all_mods(cfg):
+        if m["key"] == key:
+            return m
+    return None
+
+
+def case_toggle(key: str, on: bool) -> int:
+    """case 任务的启停写回 case/<key>/task.json。"""
+    fp = os.path.join(CASE_DIR, key, "task.json")
+    try:
+        with open(fp, encoding="utf-8") as f:
+            t = json.load(f)
+    except (OSError, ValueError):
+        raise SystemExit("找不到 case 任务: %s（%s）" % (key, fp))
+    t["enabled"] = on
+    with open(fp, "w", encoding="utf-8") as f:
+        json.dump(t, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    print("%s %s（%s）→ %s" % ("启用" if on else "停用", key, t.get("title") or key,
+                              "enabled=true" if on else "enabled=false"))
+    print("scheduler.py 会热加载 case/*/task.json，无需重启")
+    return 0
 
 
 # ── crontab ─────────────────────────────────────────────────────────
@@ -108,9 +158,8 @@ def sched_text(m) -> str:
 
 
 def live_keys() -> set:
-    """被调度器纳入的模块 key（enabled 即视为在跑，scheduler 热加载 modules.json）。"""
-    cfg = load_cfg()
-    return {m["key"] for m in cfg["modules"] if m.get("enabled", True)}
+    """被调度器纳入的模块 key（内置 + case，enabled 即视为在跑，热加载）。"""
+    return {m["key"] for m in all_mods(load_cfg()) if m.get("enabled", True)}
 
 def crontab_read() -> List[str]:
     r = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
@@ -210,15 +259,16 @@ def last_run(domains: List[str]) -> Optional[str]:
 # ── 命令 ─────────────────────────────────────────────────────────────
 def cmd_list() -> int:
     cfg = load_cfg()
+    mods = all_mods(cfg)
     live = live_keys()
 
-    print("\n%s看板模块清单%s  （配置 %s）\n" % (YEL, RST, CFG))
+    print("\n%s看板模块清单%s  （配置 %s + case/）\n" % (YEL, RST, CFG))
     hdr = "  %-11s %-22s %-18s %-8s %-8s %s" % (
         "KEY", "模块", "调度", "状态", "已纳入", "数据")
     print(DIM + hdr + RST)
     print(DIM + "  " + "─" * 104 + RST)
 
-    for m in cfg["modules"]:
+    for m in mods:
         key = m["key"]
         on = m.get("enabled", True)
         st = (GRN + "启用" + RST) if on else (RED + "停用" + RST)
@@ -249,12 +299,13 @@ def cmd_list() -> int:
                         pass
                     parts.append("%s %s %s" % (x["domain"], x["latest"], age))
             d_txt = " | ".join(parts)
-        print("  %-11s %-22s %-18s %-8s %-8s %s"
-              % (key, m["title"][:20], sched_text(m), st, inst, d_txt))
+        src = "case " if m.get("source") == "case" else ""
+        print("  %-11s %-22s %-18s %-8s %-8s %s%s"
+              % (key, (m.get("title") or key)[:20], sched_text(m), st, inst, src, d_txt))
 
-    n_on = sum(1 for m in cfg["modules"] if m.get("enabled", True))
-    print("\n  %d 个模块，启用 %d 个，调度器已纳入 %d 个\n"
-          % (len(cfg["modules"]), n_on, len(live)))
+    n_on = sum(1 for m in mods if m.get("enabled", True))
+    print("\n  %d 个模块（含 case %d 个），启用 %d 个，调度器已纳入 %d 个\n"
+          % (len(mods), len(case_mods()), n_on, len(live)))
     return 0
 
 
@@ -262,13 +313,14 @@ def cmd_status() -> int:
     cfg = load_cfg()
     live = live_keys()
     print("\n%s模块体检%s\n" % (YEL, RST))
-    for m in cfg["modules"]:
+    for m in all_mods(cfg):
         key = m["key"]
-        print("%s[%s] %s%s" % (YEL, key, m["title"], RST))
-        print("  说明   %s" % m["desc"])
+        print("%s[%s] %s%s" % (YEL, key, m.get("title") or key, RST))
+        print("  说明   %s" % (m.get("desc") or ""))
         print("  调度   %s   %s" % (sched_text(m),
               (GRN + "启用" + RST) if key in live else (RED + "停用" + RST)))
-        print("  命令   cd %s && %s" % (m["cwd"], m["cmd"]))
+        print("  来源   %s" % ("case/" if m.get("source") == "case" else "modules.json"))
+        print("  命令   cd %s && %s" % (m.get("cwd") or HERE, m.get("cmd") or "—"))
         for x in data_state(m.get("domains") or []):
             if x.get("error"):
                 print("  数据   %s%s %s%s" % (RED, x["domain"], x["error"], RST))
@@ -285,23 +337,26 @@ def cmd_status() -> int:
 
 def cmd_run(key: str, bg: bool = False) -> int:
     cfg = load_cfg()
-    m = get_mod(cfg, key)
-    cmd = m["cmd"]
+    m = find_mod(cfg, key)
+    if not m:
+        raise SystemExit("未知模块: %s（内置与 case 都没有）" % key)
+    cmd = m.get("cmd") or ""
     os.makedirs(LOG_DIR, exist_ok=True)
     log = os.path.join(LOG_DIR, "%s.log" % key)
-    print("跑模块 %s：cd %s && %s" % (key, m["cwd"], cmd))
+    print("跑模块 %s：cd %s && %s" % (key, m.get("cwd") or HERE, cmd))
     print("日志 %s" % log)
     with open(log, "a", encoding="utf-8") as f:
         f.write("\n════ %s manager run %s ════\n"
                 % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), key))
         f.flush()
+        cwd = m.get("cwd") or HERE
         if bg:
-            p = subprocess.Popen(["bash", "-lc", cmd], cwd=m["cwd"],
+            p = subprocess.Popen(["bash", "-lc", cmd], cwd=cwd,
                                  stdout=f, stderr=subprocess.STDOUT,
                                  start_new_session=True)
             print("已在后台启动 pid=%d" % p.pid)
             return 0
-        r = subprocess.run(["bash", "-lc", cmd], cwd=m["cwd"],
+        r = subprocess.run(["bash", "-lc", cmd], cwd=cwd,
                            stdout=f, stderr=subprocess.STDOUT)
     print("退出码 %d，看日志：tail -30 %s" % (r.returncode, log))
     return r.returncode
@@ -309,7 +364,11 @@ def cmd_run(key: str, bg: bool = False) -> int:
 
 def cmd_toggle(key: str, on: bool) -> int:
     cfg = load_cfg()
-    m = get_mod(cfg, key)
+    m = find_mod(cfg, key)
+    if not m:
+        raise SystemExit("未知模块: %s（内置与 case 都没有）" % key)
+    if m.get("source") == "case":
+        return case_toggle(key, on)
     m["enabled"] = on
     save_cfg(cfg)
     print("%s %s（%s）→ %s" % ("启用" if on else "停用", key, m["title"],

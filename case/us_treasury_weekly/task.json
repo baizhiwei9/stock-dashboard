@@ -1,0 +1,28 @@
+{
+  "key": "us_treasury_weekly",
+  "title": "美债监控周报",
+  "desc": "",
+  "section": "bond",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "09:00",
+    "weekdays": [
+      7
+    ]
+  },
+  "cmd": "python3 -u run_treasury_weekly.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 13,
+  "requires": [],
+  "root": "{WS}/ses_gffe5f66cc0dfeffeuC7LNdFIrESlJd",
+  "entry": "run_treasury_weekly.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py"
+}

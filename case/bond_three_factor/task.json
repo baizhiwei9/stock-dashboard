@@ -1,0 +1,29 @@
+{
+  "key": "bond_three_factor",
+  "title": "利率三因子周度预测和 Slope交易",
+  "desc": "",
+  "section": "bond",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "09:00",
+    "weekdays": [
+      6
+    ]
+  },
+  "cmd": "BOND_FEISHU_ROUTER_DIR=\"${FEISHU_ROUTER_DIR:-../feishu_router}\" BOND_EMAIL_PUSH_DIR=\"${BOND_EMAIL_PUSH_DIR:-.}\" PYTHONPATH=. python3 -u -m commodities_strategies.bond_strategies.run --push",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 64,
+  "requires": [],
+  "root": "{WS}/projects/commodities_strategies",
+  "entry": "",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
+  "import_note": "包模式（-m 模块入口），收集包内全部 .py"
+}
