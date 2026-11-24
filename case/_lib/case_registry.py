@@ -269,6 +269,8 @@ def as_workers(base: Optional[str] = None) -> List[Dict]:
     """
     out: List[Dict] = []
     for t in load_tasks(base, only_enabled=True):
+        if t.get("_errors"):
+            continue                      # 配置错误的进模块管理页（标红），不上数据板块
         if not t.get("metrics"):
             continue                      # 首跑还没回填指标的任务不上面板
         if visibility_of(t) != "public" or not t.get("section"):
