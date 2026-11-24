@@ -55,7 +55,7 @@ def dispatch(ctx): ctx.sh("python3 -u run_daily.py")                # 发送
 `ctx` 提供：`ctx.dir / data_dir / out_dir`、`ctx.sh(cmd, timeout, check)`、`ctx.emit(points)`、
 `ctx.save_json(name, obj)`、`ctx.log()`、`ctx.warn(title, lines, level)`、`ctx.dry`。
 
-需要精细控制的任务（`tech_consensus` / `tda_spd` / `realestate_daily`）直接复用原模块的函数，
+需要精细控制的任务（`tech_consensus` / `tda_spd`）直接复用原模块的函数，
 把"取数结果 → 报告 → 指标 → 发送"拆开，指标按业务语义命名（如 `tech.consensus`、
 `tda_spd.position_pct`、`re.cycle_stage`）。其余任务先用 `_lib/extract.py` 的
 `auto_extract` 从 `out/*.json` 自动抽取标量字段，先有指标上面板，再逐步精细化。
@@ -95,7 +95,7 @@ case/
   也是 .py，必须带全——`check_imports.py` 会按入口闭包检查漏没漏。
 - **字体不入库**：`assets.ensure_cjk_font()` 在 `fetch` 阶段从系统字体（或 `CASE_CJK_FONT`）
   落到任务目录，找不到就明确报错，不画豆腐块。
-- **输入数据靠注入**：任务不编造数据。需要上游周/月数据的（如 `realestate_daily`），用
+- **输入数据靠注入**：任务不编造数据。需要上游周/月数据的任务（如私有仓库里的 `realestate_daily`），用
   `CASE_DATA_SRC` 指向含数据文件的目录，`fetch` 阶段复制进来；没有就报警并失败。
 
 ---
@@ -157,7 +157,7 @@ python3 case/_tools/import_py.py --only tda_spd
 python3 case/_tools/check_imports.py               # 入口闭包 import 检查
 python3 case/_tools/fix_imports.py                 # 补回漏掉的本地 .py（先 --dry-run）
 python3 case/_tools/make_pipeline.py               # 生成 pipeline.py + pipeline 声明
-python3 case/_tools/make_pipeline.py --only rmt_daily --force
+python3 case/_tools/make_pipeline.py --only tech_consensus --force
 ```
 
 `import_py.py` 会保留已手工改过入口的 `cmd`（标 `cmd_manual`），`make_pipeline.py` 默认
@@ -191,7 +191,7 @@ python3 case/_tools/make_pipeline.py --only rmt_daily --force
 
 ## 八、已知待办（目标机首次运行需确认）
 
-- 依赖 DataHub 的任务（`margin_flow`、`margin_detail`、`rmt_*`、`xi_d_rrg`、`hodge_laplacian` 等）
+- 依赖 DataHub 的任务（`margin_flow`、`margin_detail` 等）
   需要 `PYTHONPATH` 指到 DataHub 仓库、`EDB_REPO` 指到 EDB 仓库，本机无此环境，未做真跑验证。
 - `twosigma_rotation` 等少数任务依赖静态输入数据（如 `data/sw_l3_full.csv`），需用
   `CASE_DATA_SRC` 注入或用上游任务产出补到 `data/`。
@@ -210,11 +210,12 @@ python3 case/_tools/make_pipeline.py --only rmt_daily --force
 | visibility | 定时跑 | 写指标仓 | 上牌面 | 用途 |
 |---|---|---|---|---|
 | `public`（默认） | ✓ | ✓ | ✓（按 `section` 归 Tab） | 基础数据、结构图这类可以给人看的 |
-| `internal` | ✓ | ✓ | ✗ | 选行业/选股/中间算法这类只自己用的 |
+| `private` | ✓ | ✓ | ✗ | 选行业/选股/中间算法这类只自己用的 |
 
-`internal` 任务必须把 `section` 留空（原标签挪到 `section_domain` 备查）。
+`private` 任务必须把 `section` 留空（原标签挪到 `section_domain` 备查）。枚举只有 `public`/`private`，
+旧的 `internal` 已废弃：写了会判非法，任务以「配置错误 + 停用」出现在调度台，不会静默消失。
 看板通过 `case_registry.as_workers()` 拿数据，它只返回 `public` 且 `section` 非空的；
-索引与调度走 `as_modules()`，两种可见性都在，只是 `internal` 在模块管理页带标记。
+索引与调度走 `as_modules()`，两种可见性都在，只是 `private` 在模块管理页带标记。
 
 ### 私有仓库怎么接
 
@@ -246,5 +247,6 @@ python3 case/_lib/runner.py --task my_task --dry-run
 
 分类清单维护在 **`case/_seed/visibility.md`**，改可见性只改 `task.json`，清单同步更新即可。
 
-12 个 `internal` 任务已迁到独立私有仓库 **precious-task**（`case/<key>/`，commit 62e074c），
-本仓库只保留 17 个 `public` 任务。挂载命令见该仓库 README，或用 `CASE_EXTRA_DIRS` 指过去。
+17 个 `private` 任务（原 12 个 + 2026-11-25 从 public 挪下来的 5 个：`realestate_daily` /
+`volume_wavelet` / `rmt_daily` / `rmt_cgap` / `structural_factor`）都在独立私有仓库
+**precious-task**（`case/<key>/`），本仓库只保留 12 个 `public` 任务。挂载命令见该仓库 README，或用 `CASE_EXTRA_DIRS` 指过去。

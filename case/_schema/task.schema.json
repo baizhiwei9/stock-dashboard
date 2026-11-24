@@ -29,10 +29,10 @@
       "type": "string",
       "enum": [
         "public",
-        "internal"
+        "private"
       ],
       "default": "public",
-      "description": "public：跑完写指标仓并按 section 上牌面；internal：跑完只写指标仓，不展示（私有任务用）"
+      "description": "public：跑完写指标仓并按 section 上牌面；private：跑完只写指标仓，不展示（私有任务用）。旧值 internal 已废弃，写了会被判为非法"
     },
     "depends_on": {
       "type": "array",
@@ -55,7 +55,7 @@
         "option",
         "risk"
       ],
-      "description": "面板标签，对应 sections.json 的 key；visibility=internal 时必须为空或不写，visibility=public 时必填"
+      "description": "面板标签，对应 sections.json 的 key；visibility=private 时必须为空或不写，visibility=public 时必填"
     },
     "metrics": {
       "type": "array",

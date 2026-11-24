@@ -281,12 +281,27 @@ def save_registry(r):
 
 
 def _case_modules():
-    """case/*/task.json 的任务（dumate 分支的任务壳）。坏配置跳过并记日志。"""
+    """case/*/task.json 的任务（dumate 分支的任务壳）。
+
+    坏配置**不丢弃**：改成 enabled=False 留在清单里，并在调度台/看板标「配置错误」。
+    任务失败可以静默（连败 5 天才说话），但任务从调度里悄悄消失不行 —— 那是
+    「任务没了」不是「任务失败」，必须响。
+    """
     try:
         if CASE_LIB not in sys.path:
             sys.path.insert(0, CASE_LIB)
         import case_registry
-        return [m for m in case_registry.as_modules(CASE_DIR) if not m.get("_errors")]
+        mods = []
+        for m in case_registry.as_modules(CASE_DIR):
+            errs = m.get("_errors") or []
+            if errs:
+                m = dict(m)
+                m["enabled"] = False
+                m["_config_error"] = "；".join(errs)
+                log("case 任务 %s 配置错误，已停用（不是静默跳过）：%s"
+                    % (m.get("key"), m["_config_error"]))
+            mods.append(m)
+        return mods
     except Exception as e:                                  # noqa: BLE001
         log("装载 case 任务失败：%s" % e)
         return []
@@ -878,6 +893,7 @@ class Handler(BaseHTTPRequestHandler):
                 "enabled": bool(m.get("enabled", True)),
                 "timeout": m.get("timeout"),
                 "depends": m.get("depends") or [],
+                "config_error": m.get("_config_error") or "",
                 "running": k in PROCS,
                 "next_run": ms.get("next_run"),
                 "last_run": ms.get("last_run"),
@@ -1215,6 +1231,8 @@ def cmd_status():
         ms = st["modules"].get(k) or {}
         on = m.get("enabled", True)
         state = ms.get("last_status") or "未跑"
+        if m.get("_config_error"):
+            state = "配置错误"
         if k in PROCS:
             state = "运行中 %ss" % ms.get("elapsed", 0)
         elif ms.get("queued"):

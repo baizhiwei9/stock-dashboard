@@ -34,7 +34,7 @@ AT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 SESSION_DIR_RE = re.compile(r"^ses_[0-9a-f]{6,}$")
 # 框架生命周期：有 pipeline 的任务由 case/_lib/runner.py 按这几个阶段驱动
 PIPELINE_STAGES = ("fetch", "check", "render", "emit", "dispatch")
-VISIBILITIES = ("public", "internal")
+VISIBILITIES = ("public", "private")
 RUNNER = os.path.join(HERE, "runner.py")
 
 
@@ -47,9 +47,12 @@ def _read_json(path: str, default):
 
 
 def visibility_of(t: Dict) -> str:
-    """任务的可见性：public 上牌面，internal 只跑与落库。缺省按 public。"""
-    v = str(t.get("visibility") or "public").strip().lower()
-    return v if v in VISIBILITIES else "public"
+    """任务的可见性：public 上牌面，private 只跑与落库。缺省按 public。
+
+    未知值**原样返回**、不悄悄当 public：这种任务由 validate_task 记一条错误、
+    在调度里以「停用 + 配置错误」的形式露出来，绝不静默消失。
+    """
+    return str(t.get("visibility") or "public").strip().lower()
 
 
 def task_dirs(base: Optional[str] = None) -> List[str]:
@@ -117,16 +120,17 @@ def validate_task(t: Dict, dir_key: Optional[str] = None,
         errs.append("key 非法（要求 [a-z0-9_]{2,40}）")
     if not str(t.get("title") or "").strip():
         errs.append("缺 title")
-    vis = t.get("visibility") or "public"
+    vis = str(t.get("visibility") or "public").strip().lower()
     if vis not in VISIBILITIES:
-        errs.append("visibility 非法：%r（可选 %s）" % (vis, "/".join(VISIBILITIES)))
+        errs.append("visibility 非法：%r（可选 %s；旧值 internal 已废弃，改 private）"
+                    % (t.get("visibility"), "/".join(VISIBILITIES)))
     sec = t.get("section")
     if vis == "public":
         if sec not in SECTIONS:
             errs.append("section 非法：%r（public 必须给 %s 之一）"
                         % (sec, "/".join(SECTIONS)))
     elif sec and sec not in SECTIONS:
-        errs.append("section 非法：%r（internal 可以留空，给了就必须在 %s 内）"
+        errs.append("section 非法：%r（private 可以留空，给了就必须在 %s 内）"
                     % (sec, "/".join(SECTIONS)))
     dep = t.get("depends_on")
     if dep is not None:
@@ -261,7 +265,7 @@ def _q(s: str) -> str:
 def as_workers(base: Optional[str] = None) -> List[Dict]:
     """转成 build.py 的 worker 结构，用于在对应 section 渲染 case 任务结果。
 
-    只出 visibility=public 且有 section 的任务：internal 任务照跑照落库，但不上牌面。
+    只出 visibility=public 且有 section 的任务：private 任务照跑照落库，但不上牌面。
     """
     out: List[Dict] = []
     for t in load_tasks(base, only_enabled=True):

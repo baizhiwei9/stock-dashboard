@@ -78,8 +78,9 @@ case 任务跑完 → out/latest.json → case/_lib/publish.py → data_hub.tech
 ```
 
 任务按标签归类，`section` 同时决定面板 Tab 与投递行为：
-股票 `stock` 17 个、期货 `futures` 2 个、地产 `realestate` 1 个，
-其余落在 `macro` 4 / `liquidity` 4 / `bond` 4 / `modules` 1。
+股票 `stock` 2 个、期货 `futures` 1 个、`macro` 3 个、`liquidity` 3 个、`bond` 3 个，
+`modules` 1 个（模板，不调度）。共 12 个 `public` 任务；另外 17 个 `private` 任务在私有仓库
+`precious-task`，通过 `CASE_EXTRA_DIRS` 挂进来照常跑、照常落库，只是不上牌面。
 
 常用命令：
 

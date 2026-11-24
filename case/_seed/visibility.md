@@ -1,9 +1,12 @@
 # 任务可见性清单
 
-`public` 上牌面（按 section 归 Tab），`internal` 只跑与落库、不上牌面。
-改可见性只改 `task.json` 的 `visibility`（internal 时 `section` 必须为空）。
+`public` 上牌面（按 section 归 Tab），`private` 只跑与落库、不上牌面。
+改可见性只改 `task.json` 的 `visibility`（private 时 `section` 必须为空）。
 
-## public（17）
+> 2026-11-25 起枚举只有 `public` / `private` 两个值，旧的 `internal` **已废弃**：
+> 写了 `internal` 会被判为非法，任务以「配置错误 + 停用」出现在调度台，不会静默消失。
+
+## public（12）
 
 | 任务 | 标签 | 说明 |
 |---|---|---|
@@ -17,18 +20,13 @@
 | `margin_flow` | liquidity | 两融资金流与市场宽度 |
 | `option_risk_cn_us` | stock | 中美期权偏度与风险释放 |
 | `pmi_export` | macro | PMI 出口展望 |
-| `realestate_daily` | realestate | 地产基础数据：北京/上海成交、土狗状态机、付鹏周期 |
-| `rmt_cgap` | stock | 市场临界 C(t) 与 Gap |
-| `rmt_daily` | stock | RMT 市场结构（噪音/共振） |
-| `structural_factor` | stock | 结构因子（MFDFA 等） |
 | `tech_consensus` | stock | 宽基技术面汇总（6 方法 多空平） |
 | `us_treasury_weekly` | bond | 美债监控周报 |
-| `volume_wavelet` | stock | 成交量小波信号 |
 
-## internal（12）—— 已迁出至私有仓库 `precious-task`
+## private（17）—— 全部在私有仓库 `precious-task`
 
-> 目录已从本仓库删除，代码在 https://github.com/baizhiwei9/precious-task （commit 62e074c）。
-> 本清单仅作记录，改可见性请到私有仓库改 `task.json`。
+> 目录已从本仓库删除，代码在 https://github.com/baizhiwei9/precious-task 。
+> 本清单仅作记录，改可见性请到私有仓库改 `task.json`（那边一律 `visibility:"private"`）。
 
 | 任务 | 原标签 | 说明 |
 |---|---|---|
@@ -44,3 +42,8 @@
 | `tda_spd` | - | TDA-SPD 黎曼流形策略（选行业，内部信号） |
 | `twosigma_rotation` | - | Two Sigma 行业动量（选行业，内部） |
 | `xi_d_rrg` | - | ξ+D 结构风控 × 扩散 + RRG（行业轮动，内部） |
+| `realestate_daily` | realestate | 地产基础数据：北京/上海成交、土狗状态机、付鹏周期 |
+| `rmt_cgap` | stock | 市场临界 C(t) 与 Gap |
+| `rmt_daily` | stock | RMT 市场结构（噪音/共振） |
+| `structural_factor` | stock | 结构因子（MFDFA 等） |
+| `volume_wavelet` | stock | 成交量小波信号 |

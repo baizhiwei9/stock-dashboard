@@ -1978,14 +1978,24 @@ def _case_workers() -> list:
 
 
 def _case_modules() -> list:
-    """case 任务清单（含 metrics 还没回填的），用于模块管理页。"""
+    """case 任务清单（含 metrics 还没回填的），用于模块管理页。
+
+    配置错误的也留着（标「配置错误」、不算启用），别让它在页面上悄悄消失。
+    """
     lib = os.path.join(HERE, "case", "_lib")
     try:
         if lib not in sys.path:
             sys.path.insert(0, lib)
         import case_registry
-        return [m for m in case_registry.as_modules(os.path.join(HERE, "case"))
-                if not m.get("_errors")]
+        mods = []
+        for m in case_registry.as_modules(os.path.join(HERE, "case")):
+            errs = m.get("_errors") or []
+            if errs:
+                m = dict(m)
+                m["enabled"] = False
+                m["_config_error"] = "；".join(errs)
+            mods.append(m)
+        return mods
     except Exception:                                         # noqa: BLE001
         return []
 
@@ -2080,6 +2090,8 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
                   "stopped": "已停", "interrupted": "中断"}.get(lstat, "—")
         if ms.get("queued"):
             st_cls, st_txt = "mid", "排队"
+        if m.get("_config_error"):
+            st_cls, st_txt = "down", "配置错误"
         dur = ("%ss" % ms["duration"]) if ms.get("duration") else "—"
         src = "注册" if m.get("source") == "registered" else "内置"
         rows.append(

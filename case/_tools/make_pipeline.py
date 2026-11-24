@@ -33,7 +33,7 @@ CASE_DIR = os.path.dirname(HERE)
 QUIET_FLAGS = ("--no-push", "--no-feishu", "--no-email", "--no-send",
                "--no-share", "--no-alert", "--no-stocks")
 SEND_FLAGS = ("--push", "--send", "--mail")
-HANDMADE = {"tech_consensus", "tda_spd", "realestate_daily"}
+HANDMADE = {"tech_consensus", "tda_spd"}
 SEC_OF = {"stock": "CN.STOCK", "macro": "CN.MACRO", "bond": "CN.BOND",
           "liquidity": "CN.LIQUIDITY", "futures": "CN.FUTURES",
           "realestate": "CN.REALESTATE", "option": "CN.OPTION",
