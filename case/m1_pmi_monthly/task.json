@@ -1,0 +1,28 @@
+{
+  "key": "m1_pmi_monthly",
+  "title": "M1+PMI月度监测",
+  "desc": "",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "monthly",
+    "at": "11:00",
+    "days": [
+      15
+    ]
+  },
+  "cmd": "python3 -u run_monitor_monthly.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 17,
+  "requires": [],
+  "root": "{WS}/macro_monthly_report",
+  "entry": "run_monitor_monthly.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py"
+}
