@@ -149,6 +149,29 @@
       "enabled": true
     },
     {
+      "key": "bond",
+      "title": "债券与理财",
+      "desc": "中债国债 8 期限曲线 / 期限利差与曲线形态 / 企业债AAA·同业存单AAA 信用利差 / 货币基金 7 日年化（类理财收益锚）",
+      "domains": [
+        "bond"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "18:40",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.bond_daily --days 12",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
       "key": "build",
       "title": "看板构建与发布",
       "desc": "读指标仓 → 生成 index.html → 发布 Pages",

@@ -752,11 +752,33 @@ def _pid_alive(pid):
         return False
 
 
+def _is_scheduler(pid: int) -> bool:
+    """确认这个 pid 真的是本调度器进程。
+
+    容器里 PID 空间很小，残留的 pid 文件很容易被别的进程（比如 shell）复用，
+    只判断「进程存活」会把无关进程当成调度器 —— 之后 stop/restart 就会
+    SIGTERM 掉不相干的进程。所以这里额外校验 cmdline。
+    """
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            raw = f.read()
+    except OSError:
+        return False
+    parts = [a for a in raw.decode("utf-8", "ignore").split("\0") if a]
+    if not parts:
+        return False
+    # 第一个参数必须是 python 解释器 —— 排除「某条 shell 命令里恰好提到 scheduler.py」
+    if "python" not in os.path.basename(parts[0]).lower():
+        return False
+    # 必须有一个参数就是 scheduler.py 本体
+    return any(os.path.basename(a) == "scheduler.py" for a in parts[1:])
+
+
 def read_pid():
     try:
         with open(PID_PATH, encoding="utf-8") as f:
             pid = int(f.read().strip())
-        return pid if _pid_alive(pid) else None
+        return pid if _pid_alive(pid) and _is_scheduler(pid) else None
     except (OSError, ValueError):
         return None
 
