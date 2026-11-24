@@ -281,7 +281,7 @@
         ]
       },
       "cwd": "{{WORKSPACE_A}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"风险日报v52\" --timeout 1500 -- /usr/bin/python3 DailyPredict/daily_risk_report.py",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 DailyPredict/daily_risk_report.py",
       "timeout": 1800,
       "enabled": false,
       "depends": []
@@ -305,7 +305,7 @@
         ]
       },
       "cwd": "{{WORKSPACE_A}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"波动率曲面\" --timeout 1500 -- /usr/bin/python3 vol_surface_runner.py",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 vol_surface_runner.py",
       "timeout": 1800,
       "enabled": false,
       "depends": []
@@ -360,7 +360,7 @@
         ]
       },
       "cwd": "{{WORKSPACE_B}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"五策略综合日报\" --timeout 3600 -- /usr/bin/python3 -u strategies/daily_report.py",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -u strategies/daily_report.py",
       "timeout": 3900,
       "enabled": false,
       "depends": []
@@ -384,7 +384,7 @@
         ]
       },
       "cwd": "{{WORKSPACE_B}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"资金面因子日报\" --timeout 1800 -- bash strategies/run_daily_factor.sh",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} bash strategies/run_daily_factor.sh",
       "timeout": 2100,
       "enabled": false,
       "depends": []
@@ -408,7 +408,7 @@
         ]
       },
       "cwd": "{{WORKSPACE_B}}/limit_up_predictor",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"涨停预测·早盘\" --timeout 1800 -- /usr/bin/python3 -u daily_runner.py --mode morning",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -u daily_runner.py --mode morning",
       "timeout": 2100,
       "enabled": false,
       "depends": []
@@ -432,7 +432,7 @@
         ]
       },
       "cwd": "{{WORKSPACE_B}}/limit_up_predictor",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"涨停预测·午盘\" --timeout 1800 -- /usr/bin/python3 -u daily_runner.py --mode noon",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -u daily_runner.py --mode noon",
       "timeout": 2100,
       "enabled": false,
       "depends": []

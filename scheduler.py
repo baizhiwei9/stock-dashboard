@@ -811,7 +811,7 @@ def _health_preload():
     threading.Thread(target=_warm, daemon=True).start()
 
 
-def _health_async(key, rc, m, err=None):
+def _health_async(key, rc, m, err=None, force=False):
     """health 记账丢到后台线程 —— record() 在第 5 次失败会同步发 SMTP。
 
     send_email 的 SMTP_SSL timeout=30s、subprocess 兜底 timeout=60s，同步跑
@@ -820,13 +820,13 @@ def _health_async(key, rc, m, err=None):
     """
     def _run():
         try:
-            _health_record(key, rc, m, err)
+            _health_record(key, rc, m, err, force)
         except Exception:                                   # noqa: BLE001
             pass
     threading.Thread(target=_run, daemon=True).start()
 
 
-def _health_record(key, rc, m, err=None):
+def _health_record(key, rc, m, err=None, force=False):
     """把模块结果记进 task_health，与 crontab 侧的 health_run 共用同一张表。
 
     scheduler 是 modules.json + registry.json + case/ 三类任务的统一执行者，
@@ -840,7 +840,9 @@ def _health_record(key, rc, m, err=None):
       ② 主动停用（status=stopped）由 _finish 侧跳过，不进这里。
       ③ 记不了健康度绝不能影响调度本身，异常只打日志。
     """
-    if "health_run" in (m.get("cmd") or ""):
+    # force=True 用在 spawn 失败：那时 health_run 包装器根本没启动，不可能
+    # 自己记过账，跳过就等于这类模块永远静默。
+    if not force and "health_run" in (m.get("cmd") or ""):
         return
     try:
         dh = _datahub_dir()
@@ -898,6 +900,11 @@ def spawn(key, m, slot, st, pulled=False):
             f.write(("启动失败: %s\n" % e).encode())
             f.close()
             st["modules"].setdefault(key, {}).update({
+                # last_slot 必须写：tick 的 slot 去重就靠它。不写的话每个
+                # 轮询（15s）都会重新 spawn 一次、每次失败都记一次 health，
+                # 6h 宽限内最坏 1440 次，threshold=5 时等于 288 封提醒邮件，
+                # 第一次 75 秒就到 —— 直接违反"单次失败静默"。
+                "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
                 "last_status": "fail", "running": False,
                 "note": "启动失败: %s" % e})
             save_state(st)
@@ -921,7 +928,9 @@ def spawn(key, m, slot, st, pulled=False):
         # 起不来 = 每次都失败，必须记进 task_health。cwd 不存在 / 权限错这类
         # "永远起不来"的任务根本进不了 _finish，不在这里补就是永久静默 ——
         # 正好是"失败静默但连败 5 次要说"的反面。放在 LOCK 外：发邮件不能卡 tick。
-        _health_async(key, -1, m, err="启动失败: %s" % _spawn_err)
+        # force=True：cmd 里带 health_run 的模块，包装器压根没跑起来，
+        # 不可能自己记过账，这里必须记，否则这批模块永久静默。
+        _health_async(key, -1, m, err="启动失败: %s" % _spawn_err, force=True)
         return False
     log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
     return True
