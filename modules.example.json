@@ -311,6 +311,31 @@
       "depends": []
     },
     {
+      "key": "basis_daily",
+      "title": "期货基差日报（IF/IC/IM）〔暂挂：等 datahub 侧 producer〕",
+      "desc": "读 options 项目 16:30 落的 YYYYMMDD_basis_daily.json，转录成 basis.* 指标并打 risk_level（极值/MA20 拐头判定全部复用任务侧函数，不重算阈值）；标签入库供 22:35 统一推送",
+      "domains": [
+        "futures"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "16:40",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.producers.basis_daily",
+      "timeout": 900,
+      "enabled": false,
+      "depends": [],
+      "note": "2026-11-25 从 crontab（16:30）迁入 scheduler，单独一条便于排障；上线时删掉 crontab 那条避免双跑。⚠️ 暂挂：datahub 侧 data_hub/tech/producers/basis_daily.py 尚不存在（仓里只有 collectors/futures/futures_basis.py 的 get_futures_basis() 取数函数，不是 producer、不写 metric_points），现在置 enabled=true 会在 16:40 每次 ModuleNotFoundError → spawn 失败 → health 连败 → 5 次后刷邮件。等 producer 落地后只改这一行 enabled=true 即可，build.depends 已经排好序。"
+    },
+    {
       "key": "build",
       "title": "看板构建与发布",
       "desc": "读指标仓 → 生成 index.html → 发布 Pages",
@@ -333,6 +358,7 @@
         "chanlun",
         "dfa",
         "risk",
+        "basis_daily",
         "task_tags",
         "task_tags_notify"
       ],
