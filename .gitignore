@@ -1,0 +1,14 @@
+# 运行时产物
+index.html
+pub/
+logs/
+__pycache__/
+*.pyc
+scheduler.pid
+daily.log
+
+# 运行状态（每次跑都在变，不入库）
+state.json
+
+# 云平台部署元数据
+.coze

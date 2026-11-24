@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "password": "123456",
+  "note": "板块显隐配置。页面右上角「管理」可改（存浏览器本地）；改这里 = 改全局默认，下次构建生效。",
+  "sections": [
+    {
+      "key": "stock",
+      "num": "01",
+      "title": "股票 · 宽基指数",
+      "sub": "5 大宽基按指数分栏：缠论 → RMT → DFA → 趋势",
+      "enabled": true,
+      "subs": [
+        {
+          "key": "i_000300_SH",
+          "title": "沪深300",
+          "enabled": true
+        },
+        {
+          "key": "i_000905_SH",
+          "title": "中证500",
+          "enabled": true
+        },
+        {
+          "key": "i_000852_SH",
+          "title": "中证1000",
+          "enabled": true
+        },
+        {
+          "key": "i_399006_SZ",
+          "title": "创业板指",
+          "enabled": true
+        },
+        {
+          "key": "i_000688_SH",
+          "title": "科创50",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "key": "futures",
+      "num": "02",
+      "title": "期货 · 基差",
+      "sub": "IF / IC / IM / IH 升贴水与 MA20 拐头警告",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "realestate",
+      "num": "03",
+      "title": "地产",
+      "sub": "销售 / 投资 / 房价 / 地产债 —— 本机暂无任务落库",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "macro",
+      "num": "04",
+      "title": "宏观",
+      "sub": "M2 / GDP / CPI / PPI / 社融 + 美元与人民币",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "liquidity",
+      "num": "05",
+      "title": "流动性",
+      "sub": "资金价格 · 国债利差 · 两融杠杆",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "bond",
+      "num": "06",
+      "title": "债券 · 理财",
+      "sub": "国债曲线 / 期限结构 / 信用利差 / 类理财收益（货币基金口径）",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "option",
+      "num": "07",
+      "title": "期权 · 波动率",
+      "sub": "IV / 偏度 / PCR / 波动率曲面 / 杨康平顶底",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "risk",
+      "num": "08",
+      "title": "风险 · 结构",
+      "sub": "综合风险评分 / CDI / 风险释放 / 风格漂移 / 中线偏好",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "modules",
+      "num": "09",
+      "title": "模块管理",
+      "sub": "每个模块 = 一个脚本 + 一条自己的定时任务",
+      "enabled": true,
+      "subs": []
+    }
+  ]
+}
