@@ -25,7 +25,10 @@
 | `us_treasury_weekly` | bond | 美债监控周报 |
 | `volume_wavelet` | stock | 成交量小波信号 |
 
-## internal（12）
+## internal（12）—— 已迁出至私有仓库 `precious-task`
+
+> 目录已从本仓库删除，代码在 https://github.com/baizhiwei9/precious-task （commit 62e074c）。
+> 本清单仅作记录，改可见性请到私有仓库改 `task.json`。
 
 | 任务 | 原标签 | 说明 |
 |---|---|---|

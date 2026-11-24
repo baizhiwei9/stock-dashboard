@@ -172,7 +172,9 @@ def load_tasks(base: Optional[str] = None, only_enabled: bool = False) -> List[D
             t["_dir"] = d
             t["source"] = "case" if root_dir == CASE_DIR else "case-external"
             if name in seen:
-                errs.append("key 与 %s 重复，本次忽略" % seen[name])
+                msg = "key 重复：%s 已由 %s 提供，本次忽略 %s" % (name, seen[name], d)
+                print("[case_registry] " + msg, file=sys.stderr)
+                errs.append(msg)
                 t["_errors"] = errs
                 continue
             seen[name] = d

@@ -245,3 +245,6 @@ python3 case/_lib/runner.py --task my_task --dry-run
 ```
 
 分类清单维护在 **`case/_seed/visibility.md`**，改可见性只改 `task.json`，清单同步更新即可。
+
+12 个 `internal` 任务已迁到独立私有仓库 **precious-task**（`case/<key>/`，commit 62e074c），
+本仓库只保留 17 个 `public` 任务。挂载命令见该仓库 README，或用 `CASE_EXTRA_DIRS` 指过去。
