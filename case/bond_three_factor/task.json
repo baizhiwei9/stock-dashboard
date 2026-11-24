@@ -25,5 +25,44 @@
   "entry": "",
   "needs_llm": false,
   "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
-  "import_note": "包模式（-m 模块入口），收集包内全部 .py"
+  "import_note": "包模式（-m 模块入口），收集包内全部 .py",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 10,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/*.html",
+        "out/*.md",
+        "out/*.png",
+        "out/*.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 1800,
+        "optional": true
+      }
+    ]
+  },
+  "legacy_cmd": "BOND_FEISHU_ROUTER_DIR=\"${FEISHU_ROUTER_DIR:-../feishu_router}\" BOND_EMAIL_PUSH_DIR=\"${BOND_EMAIL_PUSH_DIR:-.}\" PYTHONPATH=. python3 -u -m commodities_strategies.bond_strategies.run --push"
 }

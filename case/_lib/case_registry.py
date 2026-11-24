@@ -28,6 +28,9 @@ SECTIONS = ("stock", "futures", "realestate", "macro", "liquidity", "bond",
             "option", "risk", "modules")
 KEY_RE = re.compile(r"^[a-z0-9_]{2,40}$")
 AT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+# 框架生命周期：有 pipeline 的任务由 case/_lib/runner.py 按这几个阶段驱动
+PIPELINE_STAGES = ("fetch", "check", "render", "emit", "dispatch")
+RUNNER = os.path.join(HERE, "runner.py")
 
 
 def _read_json(path: str, default):
@@ -36,6 +39,35 @@ def _read_json(path: str, default):
             return json.load(f)
     except (OSError, ValueError):
         return default
+
+
+def _validate_pipeline(p) -> List[str]:
+    """pipeline 结构校验：阶段名合法、每阶段有 cmd 或内置实现。"""
+    errs: List[str] = []
+    if p is None:
+        return errs
+    if not isinstance(p, dict):
+        return ["pipeline 必须是对象"]
+    if p.get("on_fail") not in (None, "stop", "continue"):
+        errs.append("pipeline.on_fail 只能是 stop/continue")
+    ratio = p.get("min_ok_ratio")
+    if ratio is not None and not (isinstance(ratio, (int, float)) and 0 <= ratio <= 1):
+        errs.append("pipeline.min_ok_ratio 必须在 0-1")
+    stages = p.get("stages")
+    if not (isinstance(stages, list) and stages):
+        return errs + ["pipeline.stages 必须是非空数组"]
+    for i, st in enumerate(stages):
+        if not isinstance(st, dict):
+            errs.append("pipeline.stages[%d] 不是对象" % i)
+            continue
+        name = st.get("name")
+        if name not in PIPELINE_STAGES:
+            errs.append("pipeline.stages[%d].name 非法：%r（可选 %s）"
+                        % (i, name, "/".join(PIPELINE_STAGES)))
+        if (not st.get("cmd") and not st.get("builtin") and not st.get("hook")
+                and name not in ("check", "emit")):
+            errs.append("pipeline.stages[%d]（%s）缺 cmd/builtin/hook" % (i, name))
+    return errs
 
 
 def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
@@ -52,8 +84,9 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
         errs.append("缺 title")
     if t.get("section") not in SECTIONS:
         errs.append("section 非法：%r（可选 %s）" % (t.get("section"), "/".join(SECTIONS)))
-    if not str(t.get("cmd") or "").strip():
-        errs.append("缺 cmd")
+    if not str(t.get("cmd") or "").strip() and not isinstance(t.get("pipeline"), dict):
+        errs.append("缺 cmd（或给一个 pipeline 让 runner 分阶段执行）")
+    errs.extend(_validate_pipeline(t.get("pipeline")))
     s = t.get("sched")
     if not isinstance(s, dict):
         errs.append("sched 必须是对象")
@@ -123,9 +156,18 @@ def _resolve_cwd(t: Dict) -> str:
 
 
 def as_modules(base: Optional[str] = None) -> List[Dict]:
-    """转成 scheduler 认的模块结构（key/title/desc/domains/cwd/cmd/timeout/enabled/sched）。"""
+    """转成 scheduler 认的模块结构（key/title/desc/domains/cwd/cmd/timeout/enabled/sched）。
+
+    有 pipeline 的任务，cmd 统一换成 runner 入口，由框架按阶段驱动；
+    没有 pipeline 的沿用原 cmd 直跑（兼容尚未改造的任务）。
+    """
     mods: List[Dict] = []
     for t in load_tasks(base):
+        pipe = t.get("pipeline") if isinstance(t.get("pipeline"), dict) else None
+        if pipe:
+            cmd = "%s %s --task %s" % (_q(sys.executable), _q(RUNNER), _q(t["key"]))
+        else:
+            cmd = t["cmd"]
         mods.append({
             "key": t["key"],
             "title": t.get("title") or t["key"],
@@ -133,7 +175,9 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "domains": [t.get("section") or "modules"],
             "section": t.get("section"),
             "cwd": _resolve_cwd(t),
-            "cmd": t["cmd"],
+            "cmd": cmd,
+            "legacy_cmd": t.get("cmd") if pipe else "",
+            "pipeline": bool(pipe),
             "timeout": int(t.get("timeout") or 1800),
             "enabled": bool(t.get("enabled", True)),
             "sched": t.get("sched"),
@@ -142,6 +186,10 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "_errors": t.get("_errors") or [],
         })
     return mods
+
+
+def _q(s: str) -> str:
+    return '"%s"' % str(s).replace('"', '\\"')
 
 
 def as_workers(base: Optional[str] = None) -> List[Dict]:

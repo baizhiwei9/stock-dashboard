@@ -29,5 +29,44 @@
   "entry": "send_daily_summary.py",
   "needs_llm": false,
   "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
-  "import_note": "含动态 import，按入口目录模块集兜底"
+  "import_note": "含动态 import，按入口目录模块集兜底",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/*.html",
+        "out/*.md",
+        "out/*.png",
+        "out/*.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 1800,
+        "optional": true
+      }
+    ]
+  },
+  "legacy_cmd": "python3 -u send_daily_summary.py"
 }
