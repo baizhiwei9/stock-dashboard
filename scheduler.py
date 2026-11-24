@@ -35,6 +35,7 @@ import sys
 import threading
 import time
 import traceback
+import hmac
 from datetime import datetime, timedelta, time as dtime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -51,6 +52,7 @@ INDEX_PATH = os.path.join(HERE, "index.html")
 
 TICK_SEC = 15          # 调度轮询间隔
 GRACE_SEC = 6 * 3600   # 错过超过 6 小时就不补跑
+DEFAULT_PORT = 8767    # 与 modules.json / README 保持一致，避免文档里三个端口打架
 
 LOCK = threading.RLock()
 PROCS = {}             # key -> {proc, started, slot, logf}
@@ -201,20 +203,35 @@ def register_worker(body):
                                        "weekdays": [1, 2, 3, 4, 5]},
         "cwd": str(body.get("cwd") or HERE),
         "cmd": str(body["cmd"]),
-        "timeout": int(body.get("timeout") or 1800),
+        "timeout": 1800,
         "enabled": True,
         "status": "pending",
         "section": body.get("section") or None,
         "registered_at": _now_s(),
         "reviewed_at": None,
     }
-    # 校验 sched.at
+    try:
+        w["timeout"] = int(body.get("timeout") or 1800)
+    except (TypeError, ValueError):
+        return None, "timeout 要写秒数（整数），例如 1800"
+    # 校验 sched
+    if not isinstance(w["sched"], dict):
+        return None, "sched 要写成对象，例如 {\"at\":\"21:30\",\"weekdays\":[1,2,3,4,5]}"
     try:
         hh, mm = [int(x) for x in str(w["sched"].get("at", "")).split(":")]
         if not (0 <= hh < 24 and 0 <= mm < 60):
             raise ValueError
     except (ValueError, TypeError):
         return None, "sched.at 要写成 HH:MM，例如 21:30"
+    wds = w["sched"].get("weekdays")
+    if wds is not None:
+        try:
+            wds = [int(x) for x in wds]
+        except (TypeError, ValueError):
+            return None, "sched.weekdays 要是 1-7 的整数数组"
+        if not wds or any(not (1 <= x <= 7) for x in wds):
+            return None, "sched.weekdays 要是 1-7 的整数数组"
+        w["sched"]["weekdays"] = sorted(set(wds))
 
     reg["workers"] = [x for x in (reg.get("workers") or []) if x.get("key") != key]
     reg["workers"].append(w)
@@ -358,7 +375,8 @@ def _kill_tree(p):
 
 
 def _finish(key, rc, status, st):
-    rec = PROCS.pop(key, None)
+    with LOCK:
+        rec = PROCS.pop(key, None)
     if not rec:
         return
     dur = (datetime.now() - rec["started"]).total_seconds()
@@ -380,35 +398,37 @@ def _finish(key, rc, status, st):
 
 
 def spawn(key, m, slot, st):
-    os.makedirs(LOG_DIR, exist_ok=True)
-    logp = os.path.join(LOG_DIR, "%s.log" % key)
-    f = open(logp, "ab")
-    now = datetime.now()
-    head = ("\n" + "=" * 72 +
-            "\n[%s] 启动 %s（计划点 %s）\n[cmd] %s\n[cwd] %s\n" %
-            (now.strftime("%Y-%m-%d %H:%M:%S"), key,
-             slot.strftime("%Y-%m-%d %H:%M"), m.get("cmd"),
-             m.get("cwd") or HERE))
-    f.write(head.encode())
-    f.flush()
-    try:
-        p = subprocess.Popen(
-            m["cmd"], shell=True, executable="/bin/bash",
-            cwd=m.get("cwd") or HERE,
-            stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-            start_new_session=True)
-    except OSError as e:
-        f.write(("启动失败: %s\n" % e).encode())
-        f.close()
-        with LOCK:
+    """起一个模块子进程。已在跑就返回 False（防 tick 与 HTTP 线程双起）。"""
+    with LOCK:
+        if key in PROCS:
+            return False
+        os.makedirs(LOG_DIR, exist_ok=True)
+        logp = os.path.join(LOG_DIR, "%s.log" % key)
+        f = open(logp, "ab")
+        now = datetime.now()
+        head = ("\n" + "=" * 72 +
+                "\n[%s] 启动 %s（计划点 %s）\n[cmd] %s\n[cwd] %s\n" %
+                (now.strftime("%Y-%m-%d %H:%M:%S"), key,
+                 slot.strftime("%Y-%m-%d %H:%M"), m.get("cmd"),
+                 m.get("cwd") or HERE))
+        f.write(head.encode())
+        f.flush()
+        try:
+            p = subprocess.Popen(
+                m["cmd"], shell=True, executable="/bin/bash",
+                cwd=m.get("cwd") or HERE,
+                stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                start_new_session=True)
+        except OSError as e:
+            f.write(("启动失败: %s\n" % e).encode())
+            f.close()
             st["modules"].setdefault(key, {}).update({
                 "last_status": "fail", "running": False,
                 "note": "启动失败: %s" % e})
             save_state(st)
-        log("启动失败 %s: %s" % (key, e))
-        return
-    PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f}
-    with LOCK:
+            log("启动失败 %s: %s" % (key, e))
+            return False
+        PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f}
         st["modules"].setdefault(key, {}).update({
             "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
             "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
@@ -416,6 +436,7 @@ def spawn(key, m, slot, st):
         })
         save_state(st)
     log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
+    return True
 
 
 def tick():
@@ -425,7 +446,9 @@ def tick():
 
     # ① 回收已结束 / 超时的进程
     for key in list(PROCS.keys()):
-        rec = PROCS[key]
+        rec = PROCS.get(key)          # HTTP 线程可能刚 _finish 掉
+        if not rec:
+            continue
         p = rec["proc"]
         rc = p.poll()
         if rc is None:
@@ -460,9 +483,10 @@ def tick():
         ms["enabled"] = bool(m.get("enabled", True))
         nx = compute_next(m.get("sched") or {}, now)
         ms["next_run"] = nx.strftime("%Y-%m-%d %H:%M") if nx else "—"
-        ms["running"] = key in PROCS
-        if key in PROCS:
-            ms["elapsed"] = round((now - PROCS[key]["started"]).total_seconds())
+        rec = PROCS.get(key)
+        ms["running"] = rec is not None
+        if rec:
+            ms["elapsed"] = round((now - rec["started"]).total_seconds())
     st["scheduler"].update({
         "pid": os.getpid(), "tick": now.strftime("%Y-%m-%d %H:%M:%S"),
         "running": len(PROCS), "mode": st["scheduler"].get("mode", "daemon"),
@@ -527,9 +551,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── 工具 ──
     def _pw_ok(self):
+        """管理密码校验。没配密码时一律拒绝（fail-closed），避免裸奔。"""
         want = str(api_conf().get("password") or "")
-        got = self.headers.get("X-SD-PW", "")
-        return (not want) or (got == want)
+        if not want:
+            return False
+        got = str(self.headers.get("X-SD-PW") or "")
+        return hmac.compare_digest(got, want)
 
     def _body(self):
         try:
@@ -577,7 +604,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/state":
                 return _json_resp(self, self._snapshot())
             if path == "/api/sections":
-                return _json_resp(self, load_sections())
+                sec = load_sections()
+                # 这个接口不鉴权，绝不能把 sections.json 里的管理密码带出去
+                sec.pop("password", None)
+                return _json_resp(self, sec)
             if path == "/api/registry":
                 if not self._pw_ok():
                     return _json_resp(self, {"error": "密码不对"}, 401)
@@ -592,6 +622,8 @@ class Handler(BaseHTTPRequestHandler):
                 })
             m = re.match(r"^/api/log/([A-Za-z0-9_]+)$", path)
             if m:
+                if not self._pw_ok():
+                    return _json_resp(self, {"error": "密码不对"}, 401)
                 key = m.group(1)
                 fp = os.path.join(LOG_DIR, "%s.log" % key)
                 try:
@@ -733,7 +765,7 @@ def load_sections():
 def serve_thread():
     conf = api_conf()
     host = conf.get("host") or "0.0.0.0"
-    port = int(conf.get("port") or 8765)
+    port = int(conf.get("port") or DEFAULT_PORT)
     try:
         srv = ThreadingHTTPServer((host, port), Handler)
     except OSError as e:
@@ -781,7 +813,7 @@ def _http_alive(timeout=2.0) -> bool:
     /proc 判断会误报「未运行」，进而重复起实例。端口是通的，用它兜底。
     """
     import urllib.request
-    port = api_conf().get("port") or 8765
+    port = api_conf().get("port") or DEFAULT_PORT
     try:
         with urllib.request.urlopen("http://127.0.0.1:%d/" % int(port), timeout=timeout) as r:
             return 200 <= r.status < 500
@@ -811,7 +843,7 @@ def cmd_start():
             print("已在运行 pid=%d" % pid)
         else:
             print("已在运行（端口 %s 有响应，进程不在当前命名空间）"
-                  % (api_conf().get("port") or 8765))
+                  % (api_conf().get("port") or DEFAULT_PORT))
         return 0
     os.makedirs(LOG_DIR, exist_ok=True)
     out = open(SELF_LOG, "ab")
@@ -823,7 +855,7 @@ def cmd_start():
     if p.poll() is None:
         print("调度器已启动 pid=%d" % p.pid)
         print("  日志   %s" % SELF_LOG)
-        print("  控制台 http://127.0.0.1:%s" % (api_conf().get("port") or 8765))
+        print("  控制台 http://127.0.0.1:%s" % (api_conf().get("port") or DEFAULT_PORT))
         return 0
     print("启动失败，看 %s" % SELF_LOG)
     return 1
@@ -867,12 +899,12 @@ def cmd_status():
     if pid and pid > 0:
         _desc = "运行中 pid=%d" % pid
     elif pid:
-        _desc = "运行中（端口 %s 有响应）" % (api_conf().get("port") or 8765)
+        _desc = "运行中（端口 %s 有响应）" % (api_conf().get("port") or DEFAULT_PORT)
     else:
         _desc = "未运行"
     print("调度器 %s" % _desc)
     print("  控制台 http://127.0.0.1:%s   tick=%s" %
-          (api_conf().get("port") or 8765, (st.get("scheduler") or {}).get("tick") or "—"))
+          (api_conf().get("port") or DEFAULT_PORT, (st.get("scheduler") or {}).get("tick") or "—"))
     print()
     print("  %-11s %-22s %-16s %-9s %-8s %s" %
           ("KEY", "模块", "下次", "状态", "上次耗时", "数据域"))
