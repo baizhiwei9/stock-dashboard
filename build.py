@@ -1716,8 +1716,8 @@ def render_option_section(latest: Dict, series: Dict,
         cells = []
         for _n, k, d, u in live_cols:
             _vv = v(latest, k, s)
-            # 这个标的天然没有这项（比如中证2000 没有对应期权品种）→ 留空，不摆 NA
-            cells.append("<td>%s</td>" % (num(_vv, d, u) if _vv is not None else ""))
+            # 这个标的天然没有这项（比如中证2000 没有对应期权品种）→ 用 —，不摆 NA
+            cells.append("<td>%s</td>" % (num(_vv, d, u) if _vv is not None else DASH))
         _st = v(latest, "vol.surface_state", s)
         _stt = t(latest, "vol.surface_state", s)
         _lab = _VOL_ST.get(str(_stt or "").strip().lower(), "")
@@ -1775,7 +1775,8 @@ def render_option_section(latest: Dict, series: Dict,
             '<div class="blk"><h4>各标的期权指标</h4>%s'
             '<p class="note">PCR &gt; 1 通常对应认沽占比高、避险情绪偏重；'
             '25D 偏度越大说明虚值认沽越贵。曲面状态由任务自己的'
-            '<code>analyze_surface_risk()</code> 判定，页面只翻译不重算。</p></div>'
+            '<code>analyze_surface_risk()</code> 判定，页面只翻译不重算。'
+            '表中 — = 该标的无对应期权品种（如中证2000）。</p></div>'
             '<div class="blk"><h4>波动率曲面</h4><div class="kvs">%s</div></div>'
             '<div class="blk"><h4>杨康平顶底</h4><div class="kvs">%s</div></div>'
             '%s</div></section>' % (tab, surf_html, bot_html, ch_html)), charts
