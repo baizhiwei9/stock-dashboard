@@ -69,7 +69,6 @@ OPTION_KEYS = ["option.atm_iv", "option.iv_skew", "option.pcr_oi",
                "option.pcr_vol", "option.vix"]
 VOL_KEYS = ["vol.atm_iv", "vol.iv_pctile", "vol.direction",
             "vol.alert", "vol.surface_state", "vol.surface_risk_count"]
-BOTTOM_KEYS = ["bottom.position", "bottom.triggered", "bottom.prediction"]
 
 # 风险 / 结构（分口径落不同标的）
 RISK_ALLA_KEYS = ["risk.score_all_a", "risk.struct_score", "risk.volume_score",
@@ -129,9 +128,9 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
     ext_latest.update(read_latest(BOND_KEYS, [BOND_SEC], asof=asof))
     latest.update(ext_latest)
 
-    # 期权 / 波动率 / 顶底：按标的 + 虚拟标的（空串）
+    # 期权 / 波动率：按标的 + 虚拟标的（空串）
     _o = read_latest(OPTION_KEYS + VOL_KEYS, OPT_IDS, asof=asof)
-    _o.update(read_latest(BOTTOM_KEYS + ["vol.surface_risk_count"], [""], asof=asof))
+    _o.update(read_latest(["vol.surface_risk_count"], [""], asof=asof))
     latest.update(_o)
 
     # 风险 / 结构 / 风格 / 中线
@@ -1670,7 +1669,7 @@ def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
 #
 # 主人 2026-11-25：标签除了股票/期货/地产/宏观/流动性，还可以往上扩。
 # 这里扩「期权」和「风险」两块，数据全部来自指标仓 option.* / vol.* /
-# bottom.* / risk.* / struct.* / style.* / midline.*，
+# risk.* / struct.* / style.* / midline.*，
 # 页面只读不判断，风险等级一律用指标自带的标签（rbadge）。
 # ════════════════════════════════════════════════════════════════
 
@@ -1710,8 +1709,7 @@ def render_option_section(latest: Dict, series: Dict,
     ]
     pairs = [(k, s) for s in OPT_IDS for _n, k, _d, _u in cols]
     pairs += [("vol.surface_state", s) for s in OPT_IDS]
-    pairs += [("bottom.position", ""), ("bottom.triggered", ""),
-              ("bottom.prediction", ""), ("vol.surface_risk_count", "")]
+    pairs += [("vol.surface_risk_count", "")]
     if not any_val(latest, pairs):
         return "", []        # 整块无数据 → 不渲染
 
@@ -1753,13 +1751,6 @@ def render_option_section(latest: Dict, series: Dict,
         _kv_smart("曲面告警", "", latest, "vol.alert", "", 0, ""),
     ) if x)
 
-    # ── 杨康平顶底 ──
-    bot_html = "".join(x for x in (
-        _kv_smart("仓位建议", "11 红线 + 7 顶部信号", latest, "bottom.position", ""),
-        _kv_smart("底部红线触发", "越多越接近底部", latest, "bottom.triggered", "", 0, " 条"),
-        _kv_smart("顶部判断", "", latest, "bottom.prediction", ""),
-    ) if x)
-
     # ── 图表 ──
     charts = [
         ("op_vix", ("option.vix", "000300.SH"), "沪深300 VIX", "#4a9eff", "", 2),
@@ -1791,8 +1782,7 @@ def render_option_section(latest: Dict, series: Dict,
             '<code>analyze_surface_risk()</code> 判定，页面只翻译不重算。'
             '表中 — = 该标的无对应期权品种（如中证2000）。</p></div>'
             '<div class="blk"><h4>波动率曲面</h4><div class="kvs">%s</div></div>'
-            '<div class="blk"><h4>杨康平顶底</h4><div class="kvs">%s</div></div>'
-            '%s</div></section>' % (tab, surf_html, bot_html, ch_html)), charts
+            '%s</div></section>' % (tab, surf_html, ch_html)), charts
 
 
 def render_risk_section(latest: Dict, series: Dict,
