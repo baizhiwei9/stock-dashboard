@@ -244,9 +244,17 @@ def publish_one(key: str, dry: bool, writer_spec: Optional[str],
     if not getattr(publish_one, "_synced", False):
         _sync_out_template(key)
         publish_one._synced = True
+    # 真实落库行数：writer 返回 (n_ok, n_missing) 时以它为准，不能拿「准备写的行数」充数。
+    # 一行都没写进去还报 ok=True，下游 runner/scheduler 会把 rc=0 记成成功，
+    # health 连败清零、看板永远全绿 —— 失败静默的反面就是假成功。
+    written = got_ok if got_ok is not None else n_ok
+    if got_ok is not None and len(rows) > 0 and got_ok <= 0:
+        return {"key": key, "ok": False,
+                "msg": "写入 0 行（准备 %d 行，ok 0 / 非 ok %d）via %s，回填 metrics +%d"
+                       % (len(rows), n_missing, label, added)}
     return {"key": key, "ok": True,
-            "msg": "写入 %d 行（ok %d）via %s，回填 metrics +%d"
-                   % (len(rows), got_ok if got_ok is not None else n_ok, label, added)}
+            "msg": "写入 %d 行（ok %s）via %s，回填 metrics +%d"
+                   % (len(rows), written, label, added)}
 
 
 def _sync_out_template(key: str) -> None:

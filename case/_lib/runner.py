@@ -57,6 +57,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import traceback
 from datetime import datetime
@@ -168,14 +169,25 @@ class Ctx:
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                              stdin=subprocess.DEVNULL, text=True, bufsize=1,
                              start_new_session=True)
+        # 读 stdout 必须放独立线程：子进程只要不关 stdout（卡住 / 一直输出），
+        # 主线程里 `for line in p.stdout` 就永远不返回，后面 p.wait(timeout) 根本没机会跑，
+        # timeout 形同虚设。改成「线程转发输出 + 主线程 wait(timeout)」，
+        # 超时在主线程里 killpg 整组（start_new_session=True，子进程的孙进程一起收）。
+        def _pump(pipe) -> None:
+            try:
+                for line in pipe:
+                    print("   " + line.rstrip("\n"), flush=True)
+                    try:
+                        self.logf.write("   " + line)
+                    except (OSError, ValueError):
+                        pass
+            except (OSError, ValueError):
+                pass
+
+        assert p.stdout is not None
+        reader = threading.Thread(target=_pump, args=(p.stdout,), daemon=True)
+        reader.start()
         try:
-            assert p.stdout is not None
-            for line in p.stdout:
-                print("   " + line.rstrip("\n"), flush=True)
-                try:
-                    self.logf.write("   " + line)
-                except (OSError, ValueError):
-                    pass
             rc = p.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             try:
@@ -184,6 +196,15 @@ class Ctx:
                 p.kill()
             rc = -1
             self.log("超时（%ss）已终止" % timeout)
+            try:
+                p.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                pass
+        reader.join(timeout=5)
+        try:
+            p.stdout.close()
+        except (OSError, ValueError):
+            pass
         self.log("退出码 %s，耗时 %.1fs" % (rc, time.time() - t0))
         if check and rc != 0:
             raise RuntimeError("命令退出码 %s：%s" % (rc, cmd))
