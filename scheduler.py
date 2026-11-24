@@ -326,22 +326,25 @@ def _config_alert(key, errs):
     if not key:
         return
     msg = "；".join(errs or [])
-    if msg:
-        if _CONFIG_ALERTED.get(key) == msg:
-            return
-        _CONFIG_ALERTED[key] = msg
-        _CONFIG_CLEARED.discard(key)
-        log("case 任务 %s 配置错误，已停用（不是静默跳过）：%s" % (key, msg))
-        ok, threshold, err = False, 1, "配置错误: %s" % msg
-    else:
-        if key not in _CONFIG_ALERTED:
-            return
-        _CONFIG_ALERTED.pop(key, None)
-        if key in _CONFIG_CLEARED:
-            return
-        _CONFIG_CLEARED.add(key)
-        log("case 任务 %s 配置恢复正常，健康计数清零" % key)
-        ok, threshold, err = True, 1, None
+    # tick 线程和 HTTP 线程都会走到这里，去重表必须在锁里改，否则同一个错误
+    # 可能被两个线程各记一次（连败 +2）。
+    with LOCK:
+        if msg:
+            if _CONFIG_ALERTED.get(key) == msg:
+                return
+            _CONFIG_ALERTED[key] = msg
+            _CONFIG_CLEARED.discard(key)
+            log("case 任务 %s 配置错误，已停用（不是静默跳过）：%s" % (key, msg))
+            ok, threshold, err = False, 1, "配置错误: %s" % msg
+        else:
+            if key not in _CONFIG_ALERTED:
+                return
+            _CONFIG_ALERTED.pop(key, None)
+            if key in _CONFIG_CLEARED:
+                return
+            _CONFIG_CLEARED.add(key)
+            log("case 任务 %s 配置恢复正常，健康计数清零" % key)
+            ok, threshold, err = True, 1, None
 
     def _run():
         # record() 在触发阈值时会同步发 SMTP（最坏 60s），不能卡住 tick。
