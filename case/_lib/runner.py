@@ -94,12 +94,22 @@ def _write_json(path: str, obj) -> None:
 
 
 def load_task(key: str) -> Optional[Dict]:
-    tdir = os.path.join(CASE_DIR, key)
-    t = _read_json(os.path.join(tdir, "task.json"), None)
-    if not isinstance(t, dict):
-        return None
-    t["_dir"] = tdir
-    return t
+    """按 key 找任务：先 case/，再 CASE_EXTRA_DIRS 里的私有目录。"""
+    dirs = [CASE_DIR]
+    try:
+        import case_registry as CR
+        dirs = CR.task_dirs(None)
+    except Exception:                                     # noqa: BLE001
+        extra = (os.environ.get("CASE_EXTRA_DIRS") or "").replace(";", ":")
+        dirs += [x.strip() for x in extra.split(":") if x.strip() and os.path.isdir(x.strip())]
+    for base in dirs:
+        tdir = os.path.join(base, key)
+        t = _read_json(os.path.join(tdir, "task.json"), None)
+        if isinstance(t, dict):
+            t["_dir"] = tdir
+            t["source"] = "case" if base == CASE_DIR else "case-external"
+            return t
+    return None
 
 
 def load_pipeline(task: Dict):
@@ -227,7 +237,7 @@ class Ctx:
         return _read_json(os.path.join(self.data_dir, name), default)
 
     def warn(self, title: str, lines: List[str], level: str = "warn") -> Dict:
-        rec = alert_mod.send(self.key, title, lines, level, dry=self.dry)
+        rec = alert_mod.send(self.key, title, lines, level, dry=self.dry, task_dir=self.dir)
         self.alerts.append(rec)
         return rec
 
@@ -364,6 +374,54 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
             "detail": detail}
 
 
+def _check_depends(ctx: Ctx, task: Dict) -> List[str]:
+    """检查 depends_on 的上游产物：存在、非空、够新、ok 占比达标。
+
+    任一条不满足就返回问题列表，调用方据此跳过执行并报警——下游不拿过期数据硬算。
+    """
+    deps = task.get("depends_on") or []
+    if not deps:
+        return []
+    try:
+        sys.path.insert(0, HERE)
+        import case_registry as CR
+        ups = {t["key"]: t for t in CR.load_tasks(None)}
+    except Exception as e:                                 # noqa: BLE001
+        return ["无法读取任务注册表：%s" % e]
+    pipe = task.get("pipeline") or {}
+    fresh_days = int(pipe.get("freshness_days") or 3)
+    min_ratio = float(pipe.get("min_ok_ratio", 0.5))
+    bad: List[str] = []
+    for key in deps:
+        up = ups.get(key)
+        if not up:
+            bad.append("%s：上游任务不存在（检查 key 或 CASE_EXTRA_DIRS）" % key)
+            continue
+        d = _read_json(os.path.join(up["_dir"], "out", "latest.json"), None)
+        pts = (d or {}).get("points") if isinstance(d, dict) else None
+        if not isinstance(pts, list) or not pts:
+            bad.append("%s：没有 out/latest.json 或 points 为空（上游还没跑）" % key)
+            continue
+        asof = str(d.get("as_of") or "")
+        if not asof:
+            asof = max((str((it or {}).get("obs_date") or "") for it in pts), default="")
+        try:
+            age = (datetime.now().date() - datetime.strptime(asof[:10], "%Y-%m-%d").date()).days
+            if age > fresh_days:
+                bad.append("%s：产物 as_of=%s，落后 %d 天（上限 %d）" % (key, asof, age, fresh_days))
+        except ValueError:
+            bad.append("%s：as_of 缺失或格式不对（%r）" % (key, asof))
+        ok_n = sum(1 for it in pts if (isinstance(it, dict)
+                                       and (it.get("quality") or "ok") == "ok"))
+        ratio = ok_n / float(len(pts))
+        if ratio < min_ratio:
+            bad.append("%s：ok %d/%d（%.0f%%），低于门槛 %.0f%%"
+                       % (key, ok_n, len(pts), ratio * 100, min_ratio * 100))
+    if bad:
+        ctx.warn("上游依赖不满足", bad, "error")
+    return bad
+
+
 def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", required=True)
@@ -411,8 +469,16 @@ def main(argv: List[str]) -> int:
                 sys.path.insert(0, d)
             ctx.log("依赖 pylibs → %s" % d)
 
-    mod = load_pipeline(task)
+    # 依赖检查：上游产物不满足就不进入 fetch，也不发报告
     results: List[Dict] = []
+    dep_problems = [] if a.dry_run else _check_depends(ctx, task)
+    if dep_problems:
+        results.append({"name": "depends", "ok": False, "rc": 1, "sec": 0.0,
+                        "detail": "；".join(dep_problems)[:200], "hard": True})
+        ctx.log("依赖不满足，跳过全部阶段")
+        stages = []
+
+    mod = load_pipeline(task)
     failed = False
     for name in stages:
         hook = getattr(mod, name, None) if mod is not None else None

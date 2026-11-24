@@ -1,8 +1,8 @@
 {
   "key": "analytical_mechanics",
   "title": "分析力学量化日报",
-  "desc": "",
-  "section": "stock",
+  "desc": "分析力学日报（中间算法，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -70,5 +70,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_report.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_report.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

@@ -1,7 +1,7 @@
 {
   "key": "pmi_export",
   "title": "pmi 出口 月度展望报告推送",
-  "desc": "",
+  "desc": "PMI 出口展望",
   "section": "macro",
   "metrics": [],
   "sched": {
@@ -63,5 +63,6 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u run_monthly.py"
+  "legacy_cmd": "python3 -u run_monthly.py",
+  "visibility": "public"
 }

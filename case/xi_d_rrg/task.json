@@ -1,8 +1,8 @@
 {
   "key": "xi_d_rrg",
   "title": "ξ+D结构风控×扩散+RRG每日报告（行业轮动+宽基分析）",
-  "desc": "",
-  "section": "stock",
+  "desc": "ξ+D 结构风控 × 扩散 + RRG（行业轮动，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -70,5 +70,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_tda_rrg_report.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_tda_rrg_report.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

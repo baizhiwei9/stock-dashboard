@@ -1,7 +1,7 @@
 {
   "key": "m1_pmi_monthly",
   "title": "M1+PMI月度监测",
-  "desc": "",
+  "desc": "M1+PMI 月度监测",
   "section": "macro",
   "metrics": [],
   "sched": {
@@ -63,5 +63,6 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u run_monitor_monthly.py"
+  "legacy_cmd": "python3 -u run_monitor_monthly.py",
+  "visibility": "public"
 }

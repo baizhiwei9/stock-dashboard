@@ -1,8 +1,8 @@
 {
   "key": "factor_rotation",
   "title": "因子旋转周报",
-  "desc": "",
-  "section": "stock",
+  "desc": "因子旋转周报（内部研究）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "weekly",
@@ -66,5 +66,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u raw/fetch_all.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u raw/fetch_all.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

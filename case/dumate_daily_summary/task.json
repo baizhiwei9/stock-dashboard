@@ -1,8 +1,8 @@
 {
   "key": "dumate_daily_summary",
   "title": "DoMate每日总结-飞书推送",
-  "desc": "",
-  "section": "modules",
+  "desc": "DoMate 每日总结（推送汇总，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -68,5 +68,7 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u send_daily_summary.py"
+  "legacy_cmd": "python3 -u send_daily_summary.py",
+  "visibility": "internal",
+  "section_domain": "modules"
 }

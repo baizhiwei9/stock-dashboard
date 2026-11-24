@@ -1,7 +1,7 @@
 {
   "key": "rmt_cgap",
   "title": "市场临界监测 C(t) & Gap 日报（含全A）",
-  "desc": "",
+  "desc": "市场临界 C(t) 与 Gap",
   "section": "stock",
   "metrics": [],
   "sched": {
@@ -70,5 +70,6 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u rmt_cgap_daily.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u rmt_cgap_daily.py",
+  "visibility": "public"
 }

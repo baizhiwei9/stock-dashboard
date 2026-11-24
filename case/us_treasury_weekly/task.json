@@ -1,7 +1,7 @@
 {
   "key": "us_treasury_weekly",
   "title": "美债监控周报",
-  "desc": "",
+  "desc": "美债监控周报",
   "section": "bond",
   "metrics": [],
   "sched": {
@@ -63,5 +63,6 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u run_treasury_weekly.py"
+  "legacy_cmd": "python3 -u run_treasury_weekly.py",
+  "visibility": "public"
 }

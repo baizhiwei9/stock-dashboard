@@ -30,6 +30,7 @@ KEY_RE = re.compile(r"^[a-z0-9_]{2,40}$")
 AT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 # 框架生命周期：有 pipeline 的任务由 case/_lib/runner.py 按这几个阶段驱动
 PIPELINE_STAGES = ("fetch", "check", "render", "emit", "dispatch")
+VISIBILITIES = ("public", "internal")
 RUNNER = os.path.join(HERE, "runner.py")
 
 
@@ -39,6 +40,23 @@ def _read_json(path: str, default):
             return json.load(f)
     except (OSError, ValueError):
         return default
+
+
+def visibility_of(t: Dict) -> str:
+    """任务的可见性：public 上牌面，internal 只跑与落库。缺省按 public。"""
+    v = str(t.get("visibility") or "public").strip().lower()
+    return v if v in VISIBILITIES else "public"
+
+
+def task_dirs(base: Optional[str] = None) -> List[str]:
+    """任务根目录列表：case/ 在前，CASE_EXTRA_DIRS 里的私有目录追加在后。"""
+    dirs = [base or CASE_DIR]
+    extra = (os.environ.get("CASE_EXTRA_DIRS") or "").replace(";", ":")
+    for p in extra.split(":"):
+        p = p.strip()
+        if p and os.path.isdir(p) and p not in dirs:
+            dirs.append(p)
+    return dirs
 
 
 def _validate_pipeline(p) -> List[str]:
@@ -82,8 +100,21 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
         errs.append("key 与目录名不一致：%s != %s" % (k, dir_key))
     if not str(t.get("title") or "").strip():
         errs.append("缺 title")
-    if t.get("section") not in SECTIONS:
-        errs.append("section 非法：%r（可选 %s）" % (t.get("section"), "/".join(SECTIONS)))
+    vis = t.get("visibility") or "public"
+    if vis not in VISIBILITIES:
+        errs.append("visibility 非法：%r（可选 %s）" % (vis, "/".join(VISIBILITIES)))
+    sec = t.get("section")
+    if vis == "public":
+        if sec not in SECTIONS:
+            errs.append("section 非法：%r（public 必须给 %s 之一）"
+                        % (sec, "/".join(SECTIONS)))
+    elif sec and sec not in SECTIONS:
+        errs.append("section 非法：%r（internal 可以留空，给了就必须在 %s 内）"
+                    % (sec, "/".join(SECTIONS)))
+    dep = t.get("depends_on")
+    if dep is not None:
+        if not isinstance(dep, list) or not all(isinstance(x, str) and KEY_RE.match(x) for x in dep):
+            errs.append("depends_on 必须是由任务 key 组成的数组")
     if not str(t.get("cmd") or "").strip() and not isinstance(t.get("pipeline"), dict):
         errs.append("缺 cmd（或给一个 pipeline 让 runner 分阶段执行）")
     errs.extend(_validate_pipeline(t.get("pipeline")))
@@ -115,33 +146,41 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
 
 
 def load_tasks(base: Optional[str] = None, only_enabled: bool = False) -> List[Dict]:
-    """扫描 case/*/task.json。坏配置跳过并写进 errors（不中断整体）。"""
-    base = base or CASE_DIR
+    """扫描任务目录（case/ + CASE_EXTRA_DIRS）。坏配置记错误但不中断整体。
+
+    同一个 key 出现在多个目录时，先扫描到的生效（case/ 优先），后出现的记一条冲突。
+    """
     out: List[Dict] = []
-    try:
-        names = sorted(os.listdir(base))
-    except OSError:
-        return out
-    for name in names:
-        if name.startswith("_") or name.startswith("."):
+    seen: Dict[str, str] = {}
+    for root_dir in task_dirs(base):
+        try:
+            names = sorted(os.listdir(root_dir))
+        except OSError:
             continue
-        d = os.path.join(base, name)
-        tj = os.path.join(d, "task.json")
-        if not os.path.isfile(tj):
-            continue
-        t = _read_json(tj, None)
-        if not isinstance(t, dict):
-            continue
-        errs = validate_task(t, name)
-        t = dict(t)
-        t["_dir"] = d
-        t["_errors"] = errs
-        t["source"] = "case"
-        t.setdefault("cwd", d)
-        elif_off = not bool(t.get("enabled", True))
-        if only_enabled and (errs or elif_off):
-            continue
-        out.append(t)
+        for name in names:
+            if name.startswith("_") or name.startswith("."):
+                continue
+            d = os.path.join(root_dir, name)
+            tj = os.path.join(d, "task.json")
+            if not os.path.isfile(tj):
+                continue
+            t = _read_json(tj, None)
+            if not isinstance(t, dict):
+                continue
+            errs = validate_task(t, name)
+            t = dict(t)
+            t["_dir"] = d
+            t["source"] = "case" if root_dir == CASE_DIR else "case-external"
+            if name in seen:
+                errs.append("key 与 %s 重复，本次忽略" % seen[name])
+                t["_errors"] = errs
+                continue
+            seen[name] = d
+            t["_errors"] = errs
+            t.setdefault("cwd", d)
+            if only_enabled and (errs or not bool(t.get("enabled", True))):
+                continue
+            out.append(t)
     return out
 
 
@@ -193,11 +232,16 @@ def _q(s: str) -> str:
 
 
 def as_workers(base: Optional[str] = None) -> List[Dict]:
-    """转成 build.py 的 worker 结构，用于在对应 section 渲染 case 任务结果。"""
+    """转成 build.py 的 worker 结构，用于在对应 section 渲染 case 任务结果。
+
+    只出 visibility=public 且有 section 的任务：internal 任务照跑照落库，但不上牌面。
+    """
     out: List[Dict] = []
     for t in load_tasks(base, only_enabled=True):
         if not t.get("metrics"):
             continue                      # 首跑还没回填指标的任务不上面板
+        if visibility_of(t) != "public" or not t.get("section"):
+            continue                      # 私有任务：运行与落库照旧，只是不展示
         out.append({
             "key": t["key"],
             "app_id": "case:%s" % t["key"],

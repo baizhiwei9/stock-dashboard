@@ -1,7 +1,7 @@
 {
   "key": "bond_three_factor",
   "title": "利率三因子周度预测和 Slope交易",
-  "desc": "",
+  "desc": "利率三因子与 Slope 信号",
   "section": "bond",
   "metrics": [],
   "sched": {
@@ -64,5 +64,6 @@
       }
     ]
   },
-  "legacy_cmd": "BOND_FEISHU_ROUTER_DIR=\"${FEISHU_ROUTER_DIR:-../feishu_router}\" BOND_EMAIL_PUSH_DIR=\"${BOND_EMAIL_PUSH_DIR:-.}\" PYTHONPATH=. python3 -u -m commodities_strategies.bond_strategies.run --push"
+  "legacy_cmd": "BOND_FEISHU_ROUTER_DIR=\"${FEISHU_ROUTER_DIR:-../feishu_router}\" BOND_EMAIL_PUSH_DIR=\"${BOND_EMAIL_PUSH_DIR:-.}\" PYTHONPATH=. python3 -u -m commodities_strategies.bond_strategies.run --push",
+  "visibility": "public"
 }

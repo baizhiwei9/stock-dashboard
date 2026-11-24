@@ -1,8 +1,8 @@
 {
   "key": "tda_spd",
   "title": "TDA-SPD 黎曼流形策略日报(22因子v5-TDA状态+SPD漂移选行业)",
-  "desc": "",
-  "section": "stock",
+  "desc": "TDA-SPD 黎曼流形策略（选行业，内部信号）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -72,5 +72,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_daily_22f.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_daily_22f.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

@@ -6,7 +6,6 @@
   "required": [
     "key",
     "title",
-    "section",
     "metrics",
     "sched"
   ],
@@ -26,6 +25,23 @@
       "type": "string",
       "description": "一句话说明"
     },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "internal"
+      ],
+      "default": "public",
+      "description": "public：跑完写指标仓并按 section 上牌面；internal：跑完只写指标仓，不展示（私有任务用）"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]{2,40}$"
+      },
+      "description": "上游任务 key 列表；fetch 前检查上游 out/latest.json 的存在、新鲜度与 ok 占比，不满足则报警并停止"
+    },
     "section": {
       "type": "string",
       "enum": [
@@ -39,7 +55,7 @@
         "option",
         "risk"
       ],
-      "description": "面板标签，对应 sections.json 的 key"
+      "description": "面板标签，对应 sections.json 的 key；visibility=internal 时必须为空或不写，visibility=public 时必填"
     },
     "metrics": {
       "type": "array",

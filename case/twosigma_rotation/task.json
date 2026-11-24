@@ -1,8 +1,8 @@
 {
   "key": "twosigma_rotation",
   "title": "Two Sigma 行业动量",
-  "desc": "",
-  "section": "stock",
+  "desc": "Two Sigma 行业动量（选行业，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "weekly",
@@ -66,5 +66,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_weekly.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_weekly.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

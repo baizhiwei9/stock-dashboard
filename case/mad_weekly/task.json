@@ -1,8 +1,8 @@
 {
   "key": "mad_weekly",
   "title": "MAD 均线指选股（每周日早晨）",
-  "desc": "",
-  "section": "stock",
+  "desc": "MAD 均线选股（选股，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "weekly",
@@ -63,5 +63,7 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u weekly_run.py"
+  "legacy_cmd": "python3 -u weekly_run.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

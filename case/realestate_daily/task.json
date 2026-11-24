@@ -1,7 +1,7 @@
 {
   "key": "realestate_daily",
   "title": "土狗付鹏地产日报",
-  "desc": "",
+  "desc": "地产基础数据：北京/上海成交、土狗状态机、付鹏周期",
   "section": "realestate",
   "metrics": [],
   "sched": {
@@ -65,5 +65,6 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u daily_canghai_fupeng.py"
+  "legacy_cmd": "python3 -u daily_canghai_fupeng.py",
+  "visibility": "public"
 }

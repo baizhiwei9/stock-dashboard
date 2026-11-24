@@ -1,8 +1,8 @@
 {
   "key": "ot_unified",
   "title": "最优传输OT统一日报（靠岸+多空+资金）",
-  "desc": "",
-  "section": "stock",
+  "desc": "最优传输 OT 统一日报（靠岸/多空，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -70,5 +70,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u ot_unified_daily.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u ot_unified_daily.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

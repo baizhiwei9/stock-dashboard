@@ -1,7 +1,7 @@
 {
   "key": "bond_yield_daily",
   "title": "国债收益率四维预测+曲线监控日报",
-  "desc": "",
+  "desc": "国债收益率曲线监控",
   "section": "bond",
   "metrics": [],
   "sched": {
@@ -67,5 +67,6 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u bond_yield_daily/run_daily.py"
+  "legacy_cmd": "python3 -u bond_yield_daily/run_daily.py",
+  "visibility": "public"
 }

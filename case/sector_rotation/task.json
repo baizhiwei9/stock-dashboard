@@ -1,8 +1,8 @@
 {
   "key": "sector_rotation",
   "title": "行业轮动机会风险日报",
-  "desc": "",
-  "section": "stock",
+  "desc": "行业轮动机会风险（选行业，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -70,5 +70,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_daily_sector_rotation.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_daily_sector_rotation.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

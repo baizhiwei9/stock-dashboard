@@ -1,7 +1,7 @@
 {
   "key": "option_risk_cn_us",
   "title": "中美期权风险释放汇总",
-  "desc": "",
+  "desc": "中美期权偏度与风险释放",
   "section": "stock",
   "metrics": [],
   "sched": {
@@ -70,5 +70,6 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u 中美期权风险释放汇总.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u 中美期权风险释放汇总.py",
+  "visibility": "public"
 }

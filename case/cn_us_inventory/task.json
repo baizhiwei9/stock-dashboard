@@ -1,7 +1,7 @@
 {
   "key": "cn_us_inventory",
   "title": "中美库存周期月度预测与切换提醒",
-  "desc": "",
+  "desc": "中美库存周期",
   "section": "macro",
   "metrics": [],
   "sched": {
@@ -66,5 +66,6 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u inventory_monthly.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u inventory_monthly.py",
+  "visibility": "public"
 }

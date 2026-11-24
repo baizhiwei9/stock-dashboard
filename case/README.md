@@ -109,6 +109,7 @@ case/
 | `EDB_REPO` | 部分任务 | 指到含 `data_hub` 的 EDB 仓库目录（`margin_flow` / `margin_detail` 等） |
 | `CASE_DATA_SRC` | 部分任务 | 上游输入数据目录（周/月度任务） |
 | `CASE_CJK_FONT` | 可选 | 指定中文字体文件，覆盖自动查找 |
+| `CASE_EXTRA_DIRS` | 私有任务 | 额外任务根目录（冒号分隔），用于挂载私有仓库的 case 目录 |
 | `CASE_ALERT_WEBHOOK` | 可选 | 报警外发地址（飞书/钉钉机器人），不配则只落盘 |
 | `CASE_NO_PUBLISH` | 可选 | 置 1 只写 `out/latest.json`、不落库（离线调试） |
 
@@ -196,3 +197,51 @@ python3 case/_tools/make_pipeline.py --only rmt_daily --force
   `CASE_DATA_SRC` 注入或用上游任务产出补到 `data/`。
 - 自动抽取的指标键名（`<task>.<文件>.<字段>`）只是过渡命名，真正上海报前建议按业务语义
   改成 `chanlun.bull_score` 这类规范键，并在 DataHub registry 登记。
+---
+
+## 九、可见性与私有任务
+
+接口契约单独一份：**`case/CONTRACT.md`**（v1）。写任务的人只看它，不用读 runner 实现。
+
+### 一条规则
+
+`task.json` 的 `visibility` 决定这个任务**上不上牌面**：
+
+| visibility | 定时跑 | 写指标仓 | 上牌面 | 用途 |
+|---|---|---|---|---|
+| `public`（默认） | ✓ | ✓ | ✓（按 `section` 归 Tab） | 基础数据、结构图这类可以给人看的 |
+| `internal` | ✓ | ✓ | ✗ | 选行业/选股/中间算法这类只自己用的 |
+
+`internal` 任务必须把 `section` 留空（原标签挪到 `section_domain` 备查）。
+看板通过 `case_registry.as_workers()` 拿数据，它只返回 `public` 且 `section` 非空的；
+索引与调度走 `as_modules()`，两种可见性都在，只是 `internal` 在模块管理页带标记。
+
+### 私有仓库怎么接
+
+私有任务放**独立私有仓库**，不复制框架代码，只按契约写 `task.json` + 脚本：
+
+```bash
+export CASE_EXTRA_DIRS=/srv/private-tasks/case
+python3 scheduler.py status          # 私有任务和 case/ 下的任务一起排期
+python3 case/_lib/runner.py --task tda_structure --dry-run
+```
+
+`case_registry.task_dirs()` 先扫 `case/` 再扫 `CASE_EXTRA_DIRS`；同一个 key 重复时先命中的生效，
+后出现的记一条冲突。`runner.load_task()` 同样按这个顺序找任务，所以私有任务可以直接用
+`runner --task <key>` 跑，报警与日志也写在它自己的 `out/` 与 `logs/` 下。
+
+### 依赖上游
+
+`depends_on: ["option_skew"]` 会在 `fetch` 之前检查上游：`out/latest.json` 存在且非空、
+`as_of` 不超 `freshness_days`、`quality=ok` 占比不低于 `min_ok_ratio`。任一条不满足就写一条
+`error` 报警并跳过全部阶段——下游不拿过期数据硬算，也不会把报告发出去。跨仓库依赖一样适用。
+
+### 新建一个任务
+
+```bash
+cp -r case/_template case/my_task
+# 改 task.json：key（=目录名）、title、section、visibility、sched、depends_on
+python3 case/_lib/runner.py --task my_task --dry-run
+```
+
+分类清单维护在 **`case/_seed/visibility.md`**，改可见性只改 `task.json`，清单同步更新即可。

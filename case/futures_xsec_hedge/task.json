@@ -1,7 +1,7 @@
 {
   "key": "futures_xsec_hedge",
   "title": "期货横截面多空对冲·模拟盘",
-  "desc": "",
+  "desc": "期货横截面多空对冲模拟盘",
   "section": "futures",
   "metrics": [],
   "sched": {
@@ -70,5 +70,6 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_sim_daily.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u run_sim_daily.py",
+  "visibility": "public"
 }

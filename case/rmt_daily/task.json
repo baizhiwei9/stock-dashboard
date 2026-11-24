@@ -1,7 +1,7 @@
 {
   "key": "rmt_daily",
   "title": "RMT每日市场监测报告",
-  "desc": "",
+  "desc": "RMT 市场结构（噪音/共振）",
   "section": "stock",
   "metrics": [],
   "sched": {
@@ -70,5 +70,6 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u rmt_daily_monitor.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u rmt_daily_monitor.py",
+  "visibility": "public"
 }

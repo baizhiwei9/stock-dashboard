@@ -1,7 +1,7 @@
 {
   "key": "volume_wavelet",
   "title": "成交量小波信号监控",
-  "desc": "",
+  "desc": "成交量小波信号",
   "section": "stock",
   "metrics": [],
   "sched": {
@@ -70,5 +70,6 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_wavelet_monitor.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_wavelet_monitor.py",
+  "visibility": "public"
 }

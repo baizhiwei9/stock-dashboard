@@ -37,8 +37,8 @@ KEEP = 100
 LEVELS = ("info", "warn", "error")
 
 
-def _dirs(key: str) -> Dict[str, str]:
-    base = os.path.join(CASE_DIR, key)
+def _dirs(key: str, task_dir: Optional[str] = None) -> Dict[str, str]:
+    base = task_dir or os.path.join(CASE_DIR, key)
     out = os.path.join(base, "out")
     return {"base": base, "out": out, "log": os.path.join(out, "alerts"),
             "json": os.path.join(out, "alerts.json")}
@@ -78,7 +78,7 @@ def _post_webhook(rec: Dict) -> Optional[str]:
 
 
 def send(key: str, title: str, lines: List[str], level: str = "warn",
-         dry: bool = False) -> Dict:
+         dry: bool = False, task_dir: Optional[str] = None) -> Dict:
     """发一条报警。返回落盘记录（含 level/title/lines/ts）。"""
     level = level if level in LEVELS else "warn"
     lines = [str(x) for x in (lines or []) if str(x).strip()]
@@ -90,10 +90,9 @@ def send(key: str, title: str, lines: List[str], level: str = "warn",
             print("        " + ln)
         return rec
 
-    d = _dirs(key)
+    d = _dirs(key, task_dir)
     if not os.path.isdir(d["base"]):
-        print("[alert] 任务目录不存在，跳过：%s" % d["base"])
-        return rec
+        os.makedirs(d["base"], exist_ok=True)
 
     hist = _read_json(d["json"], [])
     if not isinstance(hist, list):

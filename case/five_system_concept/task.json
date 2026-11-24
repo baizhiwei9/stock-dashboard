@@ -1,8 +1,8 @@
 {
   "key": "five_system_concept",
   "title": "五系统扩展概念轮动日报",
-  "desc": "",
-  "section": "stock",
+  "desc": "五系统概念轮动（选概念，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -70,5 +70,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_concept_report.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u daily_concept_report.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }

@@ -1,8 +1,8 @@
 {
   "key": "hodge_laplacian",
   "title": "Hodge Laplacian 2",
-  "desc": "",
-  "section": "stock",
+  "desc": "Hodge/曲率结构（中间算法，内部）",
+  "section": "",
   "metrics": [],
   "sched": {
     "mode": "daily",
@@ -70,5 +70,7 @@
       }
     ]
   },
-  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u hlm_daily_monitor.py"
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:.\" python3 -u hlm_daily_monitor.py",
+  "visibility": "internal",
+  "section_domain": "stock"
 }
