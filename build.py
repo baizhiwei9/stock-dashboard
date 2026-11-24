@@ -2026,9 +2026,15 @@ def _all_modules(cfg: Dict) -> list:
 def render_health_section() -> str:
     """任务健康块 —— 读 task_health 表，连败排前、正常折叠。
 
-    只读不判断：不在这层算任何阈值（fails >= 5 是 health.py 发邮件的口径），
+    只读不判断：不在这层算任何阈值（fails >= THRESHOLD 是 health.py 发邮件的口径），
     这里只展示计数。task_health 空 → 整块不渲染（没数据不显示）。
     """
+    # 分色阈值跟着 health.py 走，不硬编码：health 的 THRESHOLD 改成几，
+    # 看板这边就同步变成几，避免「邮件已发、看板还是橙」的两边不一致。
+    try:
+        from data_hub.tech.health import THRESHOLD
+    except Exception:                                         # noqa: BLE001
+        THRESHOLD = 5
     try:
         from data_hub.tech import store as _store
         conn = _store.connect()
@@ -2056,7 +2062,7 @@ def render_health_section() -> str:
     def _row(r):
         key = str(r.get("task_key") or "—")
         fails = int(r.get("fails") or 0)
-        cls = "up" if fails >= 5 else ("mid" if fails > 0 else "down")
+        cls = "up" if fails >= THRESHOLD else ("mid" if fails > 0 else "down")
         err = str(r.get("last_error") or "")
         err_cell = ('<span class="sm" title="%s">%s</span>'
                     % (html.escape(err),
@@ -2078,10 +2084,10 @@ def render_health_section() -> str:
     fail_html = ""
     if failing:
         fail_html = ('<div class="blk"><h4>连败中 '
-                     '<em>fails &gt; 0 · 连续 5 次才发邮件</em></h4>'
+                     '<em>fails &gt; 0 · 连续 %d 次才发邮件</em></h4>'
                      '<table class="mod-tab"><thead>%s</thead>'
                      '<tbody>%s</tbody></table></div>'
-                     % (thead, "".join(_row(r) for r in failing)))
+                     % (THRESHOLD, thead, "".join(_row(r) for r in failing)))
 
     ok_html = ""
     if healthy:
@@ -2097,10 +2103,10 @@ def render_health_section() -> str:
             '<div class="idx-body">%s%s'
             '<div class="blk" style="grid-column:1/-1"><p class="note">计数由任务侧 '
             '<code>data_hub.tech.health</code> 在每次跑任务时顺带记录，'
-            '看板只读展示、不重算阈值：连续 5 次失败发一封邮件，'
+            '看板只读展示、不重算阈值：连续 %d 次失败发一封邮件，'
             '成功一次立刻清零。这里不建任何巡检 crontab。</p></div>'
             '</div></section>'
-            % (len(rows), len(failing), fail_html, ok_html))
+            % (THRESHOLD, len(rows), len(failing), fail_html, ok_html))
 
 
 def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
