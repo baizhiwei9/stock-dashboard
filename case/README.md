@@ -173,10 +173,10 @@ python3 case/_tools/make_pipeline.py --only tech_consensus --force
 | `sched` | ✓ | `{"mode":"daily\|weekly\|monthly","at":"HH:MM","weekdays":[...],"days":[...]}` |
 | `cmd` | 有 `pipeline` 时可省 | 直跑命令；有 pipeline 时由 registry 换成 runner 入口，原命令存 `legacy_cmd` |
 | `pipeline` | 推荐 | `{on_fail, freshness_days, min_ok_ratio, require_data/report/metrics, artifacts, stages[]}` |
-| `metrics` | ✓（可空） | 面板展示的指标；首跑后由 `publish.py` 回填 |
+| `metrics` | ✓（可空） | 面板展示的指标；首次 `publish.py` 前允许为空，之后从产出回填，不手工编造 |
 | `deliver` | | `{"report": true, "email": false}`，只做声明与看板标注 |
 | `requires` | | 外部依赖名（如 `pylibs`），靠环境变量找 |
-| `timeout` / `enabled` | | 超时秒数 / 是否参与调度 |
+| `timeout` / `enabled` | | 超时秒数（>=60 整数，默认 1800）/ 是否参与调度（布尔） |
 
 `pipeline.stages[]` 每项：`name`（五阶段之一）、`cmd` 或 `builtin`（`artifacts`/`emit`）
 或 `hook: true`（用任务目录 `pipeline.py` 的同名函数）、`timeout`、`optional`（失败只报警）、`as_of`。

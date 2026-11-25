@@ -8,11 +8,26 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 CTX = ssl.create_default_context(); CTX.check_hostname=False; CTX.verify_mode=ssl.CERT_NONE
 UA={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"}
 
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import datahub_root, py_deps
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import datahub_root, py_deps
+
+
 # ---- DataHub 期货模块（取数统一入口）----
-HUB_ROOT = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-three-tier"
-HUB_DEPS = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/py_deps"
+HUB_ROOT = datahub_root()      # 不再写死：统一走 case/_lib/paths.py
+HUB_DEPS = py_deps()
 for _p in (HUB_DEPS, HUB_ROOT):
-    if _p not in sys.path:
+    if _p and os.path.isdir(_p) and _p not in sys.path:
         sys.path.insert(0, _p)
 
 UNIVERSE = {

@@ -5,7 +5,9 @@
 import os
 import sys
 
-BASEDIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5f28eb4508ffeXvGpuDQNknTjQn/tech_consensus_daily"
+# BASEDIR 就是本目录（daily_views / signals / data_ic 都在 tech_consensus 里）。
+# 原指向的 ses_.../tech_consensus_daily 已不存在。
+BASEDIR = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.insert(0, BASEDIR)
 sys.path.insert(0, os.path.join(BASEDIR, "signals"))

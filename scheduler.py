@@ -695,9 +695,14 @@ def _day_ok(sched, day):
 
 
 def _span(sched, back=False):
-    """回看 / 前瞻的天数：monthly 最多跨一个月。"""
+    """回看 / 前瞻的天数。
+
+    monthly 的前瞻不能按 31 天算：例如 days=[31]，4 月 1 日往后找，
+    下一个 31 号是 5 月 31 日（60 天后）。40 天会让 compute_next 直接返回
+    None，管理页的「下次」永远是 —。回看 40 天足够覆盖上一个月的 31 号。
+    """
     if (sched or {}).get("mode") == "monthly":
-        return 40
+        return 40 if back else 62
     return 9 if back else 10
 
 
@@ -771,6 +776,94 @@ def _finish(key, rc, status, st):
         })
         save_state(st)
     log("模块结束 %s status=%s exit=%s 耗时 %.1fs" % (key, status, rc, dur))
+    # 主动停用不是失败：管理页面 toggle 关掉正在跑的任务会走 _finish(-9,
+    # "stopped")，照记就会算成连败 +1，手动停 5 次就收到"连续失败 5 次"的
+    # 邮件，还污染真实连败计数。timeout 是任务自己没跑完，仍算失败。
+    if status != "stopped":
+        _health_async(key, rc, rec.get("mod") or {})
+
+
+def _datahub_dir():
+    """DataHub 根目录 —— 两个环境变量名都认。
+
+    scheduler 原来只读 DATAHUB_DIR，build.py 读的是 DATA_HUB_PATH；默认值
+    相同所以平时不出问题，但用户只设其中一个时两边会指向不同目录，health
+    记账和看板读数就分叉了。先 DATAHUB_DIR 再 DATA_HUB_PATH，都没有才用默认。
+    """
+    return (os.environ.get("DATAHUB_DIR")
+            or os.environ.get("DATA_HUB_PATH")
+            or "/opt/coze/.fuse_drive/dataHub_三级体系")
+
+
+def _health_preload():
+    """启动时预热 data_hub.tech.health 的 import。
+
+    这个 import 会一路拉进 data_hub/__init__.py → collectors.misc →
+    option_metrics_history，后者在模块顶层执行 _migrate_legacy_cache_once()，
+    在 FUSE 云盘上扫 os.path 实测要 20 秒上下；第二次命中 sys.modules 是 0 秒。
+    放在启动阶段预热，第一次记账就不用干等；预热自己也丢后台，不拖慢启动。
+    """
+    def _warm():
+        try:
+            dh = _datahub_dir()
+            if dh not in sys.path:
+                sys.path.insert(0, dh)
+            t0 = time.time()
+            from data_hub.tech import health             # noqa: F401
+            log("健康度模块预热完成（%.1fs）" % (time.time() - t0))
+        except Exception as e:                           # noqa: BLE001
+            log("健康度模块预热失败: %s: %s" % (type(e).__name__, e))
+    threading.Thread(target=_warm, daemon=True).start()
+
+
+def _health_async(key, rc, m, err=None, force=False):
+    """health 记账丢到后台线程 —— record() 在第 5 次失败会同步发 SMTP。
+
+    send_email 的 SMTP_SSL timeout=30s、subprocess 兜底 timeout=60s，同步跑
+    最坏能把 tick 卡一分多钟，后面的模块全部顺延。tick 本身串行，并发量很小，
+    一个 daemon 线程足够；进程退出时最坏丢一次记账，下次成功即清零，可接受。
+    """
+    def _run():
+        try:
+            _health_record(key, rc, m, err, force)
+        except Exception:                                   # noqa: BLE001
+            pass
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _health_record(key, rc, m, err=None, force=False):
+    """把模块结果记进 task_health，与 crontab 侧的 health_run 共用同一张表。
+
+    scheduler 是 modules.json + registry.json + case/ 三类任务的统一执行者，
+    在这里收口比给每条 cmd 套 health_run 外壳更彻底：一处覆盖全部模块，
+    手动 run / HTTP 触发也不会漏，case/ 的 task.json 契约也不用动。
+
+    三条边界：
+      ① cmd 里已经带 health_run 的跳过 —— 否则同一次执行会记两遍，
+         fails 双倍计数，连败 5 天的阈值等于被砍半。用子串判断够用：
+         约定 health_run 只作为命令里的包装器出现，没有别的模块名带它。
+      ② 主动停用（status=stopped）由 _finish 侧跳过，不进这里。
+      ③ 记不了健康度绝不能影响调度本身，异常只打日志。
+    """
+    # force=True 用在 spawn 失败：那时 health_run 包装器根本没启动，不可能
+    # 自己记过账，跳过就等于这类模块永远静默。
+    if not force and "health_run" in (m.get("cmd") or ""):
+        return
+    try:
+        dh = _datahub_dir()
+        if dh not in sys.path:
+            sys.path.insert(0, dh)
+        from data_hub.tech.health import record
+        r = record(key, ok=(rc == 0),
+                   error=err or (None if rc == 0 else "退出码 %s" % rc))
+        if rc == 0:
+            log("健康度 %s 成功，失败计数清零" % key)
+        else:
+            log("健康度 %s 失败，连败 %s/%s%s" % (
+                key, r.get("fails"), r.get("threshold"),
+                "，已发提醒邮件" if r.get("alerted") else "，未到提醒阈值"))
+    except Exception as e:
+        log("健康度记录失败 %s: %s: %s" % (key, type(e).__name__, e))
 
 
 def spawn(key, m, slot, st, pulled=False):
@@ -779,6 +872,7 @@ def spawn(key, m, slot, st, pulled=False):
     pulled=True 表示「提前执行」：slot 仍是该任务当天的计划点（`last_slot` 记它，当天不重复跑），
     只是实际启动时间早于计划点 —— 报告早于计划点交付。
     """
+    _spawn_err = None
     with LOCK:
         if key in PROCS:
             return False
@@ -811,23 +905,38 @@ def spawn(key, m, slot, st, pulled=False):
             f.write(("启动失败: %s\n" % e).encode())
             f.close()
             st["modules"].setdefault(key, {}).update({
+                # last_slot 必须写：tick 的 slot 去重就靠它。不写的话每个
+                # 轮询（15s）都会重新 spawn 一次、每次失败都记一次 health，
+                # 6h 宽限内最坏 1440 次，threshold=5 时等于 288 封提醒邮件，
+                # 第一次 75 秒就到 —— 直接违反"单次失败静默"。
+                "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
                 "last_status": "fail", "running": False,
                 "note": "启动失败: %s" % e})
             save_state(st)
             log("启动失败 %s: %s" % (key, e))
-            return False
-        PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f}
-        ORPHANS.pop(key, None)          # 该任务已由本进程接管，孤儿登记作废
-        ms = st["modules"].setdefault(key, {})
-        ms.pop("queued", None)          # 起跑即退出排队
-        ms.pop("orphan_pid", None)
-        ms.update({
-            "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
-            "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "last_status": "running", "running": True, "note": "",
-            "pid": p.pid, "pulled_forward": bool(pulled),
-        })
-        save_state(st)
+            _spawn_err = e
+        else:
+            PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f,
+                          "mod": m}             # mod 供 _finish 记账时判断模块定义
+            ORPHANS.pop(key, None)          # 该任务已由本进程接管，孤儿登记作废
+            ms = st["modules"].setdefault(key, {})
+            ms.pop("queued", None)          # 起跑即退出排队
+            ms.pop("orphan_pid", None)
+            ms.update({
+                "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
+                "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "last_status": "running", "running": True, "note": "",
+                "pid": p.pid, "pulled_forward": bool(pulled),
+            })
+            save_state(st)
+    if _spawn_err is not None:
+        # 起不来 = 每次都失败，必须记进 task_health。cwd 不存在 / 权限错这类
+        # "永远起不来"的任务根本进不了 _finish，不在这里补就是永久静默 ——
+        # 正好是"失败静默但连败 5 次要说"的反面。放在 LOCK 外：发邮件不能卡 tick。
+        # force=True：cmd 里带 health_run 的模块，包装器压根没跑起来，
+        # 不可能自己记过账，这里必须记，否则这批模块永久静默。
+        _health_async(key, -1, m, err="启动失败: %s" % _spawn_err, force=True)
+        return False
     log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
     return True
 
@@ -1549,6 +1658,7 @@ def _daemon():
     signal.signal(signal.SIGTERM, _bye)
     signal.signal(signal.SIGINT, _bye)
 
+    _health_preload()
     t = threading.Thread(target=serve_thread, daemon=True)
     t.start()
     try:
@@ -1650,6 +1760,7 @@ def main(argv):
         signal.signal(signal.SIGTERM, _bye)
         signal.signal(signal.SIGINT, _bye)
 
+        _health_preload()
         threading.Thread(target=loop, daemon=True).start()
         try:
             serve_thread()

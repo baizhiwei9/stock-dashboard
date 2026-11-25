@@ -177,21 +177,34 @@ def case_toggle(key: str, on: bool) -> int:
 # ── crontab ─────────────────────────────────────────────────────────
 
 def sched_text(m) -> str:
-    """把 modules.json 的 sched 结构格式化成可读文本。
+    """把 modules.json / case task.json 的 sched 结构格式化成可读文本。
 
     调度已统一由 scheduler.py 管理，不再有 crontab 表达式字段。
     """
     s = m.get("sched") or {}
     mode = s.get("mode")
+    at = s.get("at", "?")
+    names = "一二三四五六日"
+
+    def _wd_text(wd) -> str:
+        wd = sorted(int(x) for x in wd if str(x).isdigit() and 1 <= int(x) <= 7)
+        if wd == [1, 2, 3, 4, 5]:
+            return "工作日"
+        if wd == [1, 2, 3, 4, 5, 6, 7]:
+            return "每天"
+        if wd == [6, 7]:
+            return "周末"
+        return "周" + "、".join(names[x - 1] for x in wd) if wd else "每天"
+
     if mode == "daily":
-        wd = s.get("weekdays") or [1, 2, 3, 4, 5]
-        if sorted(wd) == [1, 2, 3, 4, 5]:
-            wd_txt = "工作日"
-        elif len(wd) == 7:
-            wd_txt = "每天"
-        else:
-            wd_txt = "周" + ",".join(str(x) for x in sorted(wd))
-        return "每日 %s %s" % (s.get("at", "?"), wd_txt)
+        return "每日 %s %s" % (at, _wd_text(s.get("weekdays") or [1, 2, 3, 4, 5]))
+    if mode == "weekly":
+        wd = sorted(int(x) for x in (s.get("weekdays") or [1])
+                    if str(x).isdigit() and 1 <= int(x) <= 7)
+        return "每周%s %s" % ("、".join(names[x - 1] for x in wd) or "?", at)
+    if mode == "monthly":
+        days = sorted(int(x) for x in (s.get("days") or []) if str(x).isdigit())
+        return "每月 %s 日 %s" % ("、".join(str(x) for x in days) or "?", at)
     if mode == "interval":
         return "每 %s 分钟" % s.get("every", "?")
     if mode == "cron":

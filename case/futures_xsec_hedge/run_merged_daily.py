@@ -25,15 +25,31 @@ import datetime
 import json
 import subprocess
 import sys
+import os
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-ARB_ROOT = Path("/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/"
-                "workspace/ses_gffe5f1ccd0618ffeKX1Rj18bKwesPI/commodity_spread_scanner")
-sys.path.insert(0, str(ARB_ROOT))
+# 跨品种套利单元依赖外部仓库 commodity_spread_scanner。
+# 原写死的 ses_gffe5f1ccd.../commodity_spread_scanner 在现环境下不存在，
+# 之前是静默 sys.path 加一个空路径 → import 时才炸，报错信息还指不到根因。
+# 改成：候选位置逐个探测，都没有就明确告警并跳过套利单元（横截面对冲不受影响）。
+_ARB_CANDS = [
+    os.environ.get("ARB_ROOT", ""),
+    str(Path(__file__).resolve().parent / "commodity_spread_scanner"),
+    str(Path(__file__).resolve().parent.parent.parent / "commodity_spread_scanner"),
+]
+ARB_ROOT = next((Path(p) for p in _ARB_CANDS
+                 if p and (Path(p) / "commodity_spread_scanner").is_dir()
+                 or p and Path(p).is_dir() and (Path(p) / "__init__.py").exists()
+                 or p and Path(p).is_dir() and any(Path(p).glob("*.py"))), None)
+if ARB_ROOT is not None:
+    sys.path.insert(0, str(ARB_ROOT))
+else:
+    print("[warn] 未找到 commodity_spread_scanner，跨品种套利单元将跳过"
+          "（横截面对冲不受影响）。需要时用 ARB_ROOT 环境变量指定。")
 
 
 # --------------------------------------------------------------------------
@@ -236,7 +252,7 @@ def save_merged_csv(cross: dict, arb: dict, date_: str):
                 "reason": od.get("reason", ""),
             })
     for otype in ("open", "close", "hold"):
-        for od in arb["orders"][otype]:
+        for od in (arb["orders"][otype] if arb else []):
             rows.append({
                 "unit": "价差套利", "date": date_, "action": otype,
                 "variety": "", "pair": od.get("pair"),
@@ -256,7 +272,7 @@ def save_merged_csv(cross: dict, arb: dict, date_: str):
     for h in cross["res"]["acc"]["history"]:
         hist.append({"unit": "横截面对冲", "date": h["date"],
                      "nav": h.get("nav_total"), "pnl_day": h.get("pnl_day")})
-    for h in arb["history"]:
+    for h in (arb["history"] if arb else []):
         hist.append({"unit": "价差套利", "date": h["date"],
                      "nav": h.get("nav"), "pnl_day": h.get("pnl_day")})
     if hist:
@@ -377,22 +393,31 @@ def main():
     # 横截面对冲单元
     cross = run_cross_section(args.no_fetch, args.reset)
 
-    # 套利单元
-    if args.reset_arb:
-        import arb_sim_daily
-        arb_sim_daily.save_account(arb_sim_daily.new_account())
-        print("[arb-sim] 套利账户已重置为 20 万")
+    # 套利单元（依赖外部 commodity_spread_scanner；缺失则整段跳过，只出横截面报告）
     target = str(cross["last"].date())
-    if not args.no_arb_update:
-        update_arb_data(target)
-    import arb_sim_daily
-    arb = arb_sim_daily.run_daily(latest=target)
-    print(f"== 套利推进完成：净值 {arb['nav']:,.2f}，当日盈亏 {arb['pnl_day']:+,.2f}，"
-          f"持仓 {len(arb['positions'])} 对，开 {len(arb['orders']['open'])} 平 {len(arb['orders']['close'])}")
+    arb = None
+    if ARB_ROOT is None:
+        if args.reset_arb:
+            print("[warn] --reset-arb 已忽略：套利单元不可用")
+    else:
+        if args.reset_arb:
+            import arb_sim_daily
+            arb_sim_daily.save_account(arb_sim_daily.new_account())
+            print("[arb-sim] 套利账户已重置为 20 万")
+        if not args.no_arb_update:
+            update_arb_data(target)
+        import arb_sim_daily
+        arb = arb_sim_daily.run_daily(latest=target)
+        print(f"== 套利推进完成：净值 {arb['nav']:,.2f}，当日盈亏 {arb['pnl_day']:+,.2f}，"
+              f"持仓 {len(arb['positions'])} 对，开 {len(arb['orders']['open'])} 平 {len(arb['orders']['close'])}")
 
     # 合并报告
-    date_ = str(cross["last"].date())
-    text = build_merged_text(cross, arb)
+    date_ = target
+    if arb is None:
+        from sim_trade.report import build_daily_report
+        text = build_daily_report(cross["res"])
+    else:
+        text = build_merged_text(cross, arb)
     out_dir = ROOT / "output" / "merged"
     out_dir.mkdir(parents=True, exist_ok=True)
     md_path = out_dir / f"merged_report_{date_}.md"
@@ -401,7 +426,9 @@ def main():
     save_merged_csv(cross, arb, date_)
 
     # 飞书卡片
-    if push:
+    if push and arb is None:
+        print("== 跳过飞书推送（套利单元依赖缺失，合并卡片需要两个单元）")
+    elif push:
         from sim_trade.feishu_pusher import send_feishu_card
         card = build_merged_card(cross, arb)
         (out_dir / f"feishu_card_{date_}.json").write_text(
@@ -415,12 +442,13 @@ def main():
     summary = {
         "date": date_,
         "cross_nav": cross["res"]["acc"]["total_nav"], "cross_pnl": cross["res"]["pnl_day"],
-        "arb_nav": arb["nav"], "arb_pnl": arb["pnl_day"],
-        "arb_n_pos": len(arb["positions"]),
+        "arb_nav": arb["nav"] if arb else None, "arb_pnl": arb["pnl_day"] if arb else None,
+        "arb_n_pos": len(arb["positions"]) if arb else 0,
         "cross_open": len(cross["res"]["orders"]["open"]),
         "cross_close": len(cross["res"]["orders"]["close"]),
-        "arb_open": len(arb["orders"]["open"]), "arb_close": len(arb["orders"]["close"]),
-        "pushed": push,
+        "arb_open": len(arb["orders"]["open"]) if arb else 0,
+        "arb_close": len(arb["orders"]["close"]) if arb else 0,
+        "pushed": push and arb is not None,
     }
     (ROOT / "output" / "merged" / "last_run.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")

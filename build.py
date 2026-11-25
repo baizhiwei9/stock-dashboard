@@ -86,6 +86,11 @@ RISK_VIRT_KEYS = ["risk.daily_composite", "risk.gsratio_cross",
 # 股债性价比（ERP）：沪深300 口径
 ERP_KEYS = ["stock.erp_300", "stock.ey_300", "stock.pe_300", "stock.erp_300_pct"]
 
+# 环流日报 · 告警汇总（a_circulation 转录，security 用空串虚拟标的）
+# 这几个 key 必须进白名单，否则 load_all() 静默不装载，看板拿不到值。
+FLOW_KEYS = ["flow.alert_count", "flow.warn_count",
+             "flow.tighten_score", "flow.top_contrib"]
+
 ALLA_SEC = "881001.WI"        # 万得全 A：全市场口径
 RISK_IDX_SEC = "000852.SH"    # 中证1000：多数结构指标落这个标的
 RISK_HS3_SEC = "000300.SH"    # 沪深300：风险释放走这个标的
@@ -153,6 +158,9 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
 
     # 股债性价比（ERP）：沪深300 口径，卡片挂在股票栏
     latest.update(read_latest(ERP_KEYS, [ERP_SEC], asof=asof))
+
+    # 环流日报告警汇总：任务侧已判完阈值，这里只转录展示
+    latest.update(read_latest(FLOW_KEYS, [""], asof=asof))
 
     series: Dict[Tuple[str, str], List[Dict]] = {}
     for sid in INDEX_ORDER:
@@ -859,6 +867,12 @@ nav.jump .sub::before{content:"· "}
 .mod-tab td:first-child code{color:var(--mid);font-size:12px}
 .mod-tab td code{font-size:11.5px;color:var(--tx2)}
 .note{font-size:11.5px;color:var(--tx3);line-height:1.65;margin:10px 0 0}
+details.hl-fold summary{cursor:pointer;font-size:13px;font-weight:600;
+color:var(--tx);list-style:none;padding:2px 0}
+details.hl-fold summary::-webkit-details-marker{display:none}
+details.hl-fold summary::before{content:"▸ ";color:var(--tx3)}
+details.hl-fold[open] summary::before{content:"▾ "}
+details.hl-fold .mod-tab{margin-top:10px}
 
 /* 侧栏 */
 .side-card{background:var(--card);border:1px solid var(--line);border-radius:12px;
@@ -1932,6 +1946,26 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
                          num(v(latest, k, MARGIN_SEC), d, u))
                       for n, k, d, u, note in mg)
 
+    # 环流日报告警汇总：报警/警告计数 + 流动性收紧评分 + 首位嫌疑贡献。
+    # 阈值全由任务侧 alert_book 判完，这里只转录，不重算、不降级。
+    flow_rows = [
+        ("环流报警", "flow.alert_count", 0, " 项", "任务侧判定需处置"),
+        ("环流警告", "flow.warn_count", 0, " 项", "数据缺失 / 关注项"),
+        ("流动性收紧评分", "flow.tighten_score", 1, " /10", "越低越紧"),
+    ]
+    flow_html = ""
+    if any_val(latest, [(k, "") for _n, k, _d, _u, _x in flow_rows]
+                          + [("flow.top_contrib", "")]):
+        flow_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
+                                num(v(latest, k, ""), d, u))
+                            for n, k, d, u, note in flow_rows)
+        _tn = t(latest, "flow.top_contrib", "") or "—"
+        _tv = v(latest, "flow.top_contrib", "")
+        flow_html += kvh("首位嫌疑 <span class=\"sm\">流动性收紧主因</span>",
+                         "<span>%s %s</span>" % (html.escape(_tn), num(_tv, 0, " 分")))
+        flow_html = ('<div class="blk"><h4>环流告警（日报判定）</h4>'
+                     '<div class="kvs">%s</div></div>' % flow_html)
+
     charts = [
         ("lq_dr", ("liquidity.dr001", LIQ_SEC), "DR001", "#4a9eff", "%", 3),
         ("lq_us", ("liquidity.spread_cn_us", LIQ_SEC), "中美10Y利差", "#e0a33e", "bp", 1),
@@ -1961,7 +1995,8 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
             '<div class="blk"><h4>两融与杠杆（两市账户口径）</h4><div class="kvs">%s</div>'
             '<p class="note">两融用 <code>margin_account.db</code> 两市合计口径，'
             '不用只有沪市的 <code>margin_history.db</code>。</p></div>'
-            '%s</div></section>' % (rate_html, sp_html, mg_html, ch_html)), charts
+            '%s%s</div></section>' % (rate_html, sp_html, mg_html,
+                                      flow_html, ch_html)), charts
 
 
 def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple:
@@ -2467,12 +2502,15 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
         '<div class="blk"><h4>%s</h4><div class="chart" id="%s"></div></div>' % (nm, cid)
         for cid, _k, nm, _c, _u, _d in charts)
     badge = ""
-    meta_txt = "注册 Worker %s" % html.escape(str(w.get("app_id") or ""))
-    if str(w.get("app_id") or "").startswith("case:"):
-        meta_txt = "任务 %s" % html.escape(str(key))
+    is_case = (w.get("source") == "case"
+               or str(w.get("app_id") or "").startswith("case:"))
+    if is_case:
+        meta_txt = "case 任务 %s" % html.escape(str(key))
         if w.get("visibility") == "private":
             # 私有页（build_private.py）才需要标记；公开页整页都是 public，不加徽标、保持原样
             badge = '<span class="tag">私有</span> '
+    else:
+        meta_txt = "注册 Worker %s" % html.escape(str(w.get("app_id") or ""))
     meta = ('%s<span class="sm">%s · %s</span>'
             % (badge, meta_txt, html.escape(_sched_txt(w.get("sched")))))
     note = html.escape(w.get("desc") or "")
@@ -2488,10 +2526,13 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
 
 
 def _sched_txt(sched: Optional[Dict]) -> str:
-    """{"at":"21:00","weekdays":[1..5]} → 工作日 21:00"""
+    """{"at":"21:00","weekdays":[1..5]} → 工作日 21:00；monthly 用 days。"""
     if not sched:
         return "—"
     at = str(sched.get("at") or "").strip() or "—"
+    if sched.get("mode") == "monthly":
+        days = sorted(int(x) for x in (sched.get("days") or []) if str(x).isdigit())
+        return "每月 %s 日 %s" % ("/".join(str(x) for x in days) or "?", at)
     wd = sorted(int(x) for x in (sched.get("weekdays") or []) if str(x).isdigit())
     if not wd or len(wd) == 7:
         d = "每天"
@@ -2534,15 +2575,24 @@ def _case_workers() -> list:
 def _case_modules() -> list:
     """case 任务清单（含 metrics 还没回填的），用于模块管理页。
 
-    只列 public：私有任务在私有页（build_private.py）里看，不混进公开页。
+    配置错误的也留着（标「配置错误」、不算启用），别让它在页面上悄悄消失。
     """
     lib = os.path.join(HERE, "case", "_lib")
     try:
         if lib not in sys.path:
             sys.path.insert(0, lib)
         import case_registry
-        return [m for m in case_registry.as_modules(os.path.join(HERE, "case"))
-                if not m.get("_errors") and m.get("visibility") != "private"]
+        mods = []
+        for m in case_registry.as_modules(os.path.join(HERE, "case")):
+            if m.get("visibility") == "private":
+                continue                  # 私有任务在 private.html 里看，不混进公开页
+            errs = m.get("_errors") or []
+            if errs:
+                m = dict(m)
+                m["enabled"] = False
+                m["_config_error"] = "；".join(errs)
+            mods.append(m)
+        return mods
     except Exception:                                         # noqa: BLE001
         return []
 
@@ -2572,6 +2622,96 @@ def _all_modules(cfg: Dict) -> list:
             mods.append(w)
             seen.add(k)
     return mods
+
+
+def render_health_section() -> str:
+    """任务健康块 —— 读 task_health 表，连败排前、正常折叠。
+
+    只读不判断：不在这层算任何阈值（fails >= THRESHOLD 是 health.py 发邮件的口径），
+    这里只展示计数。task_health 空 → 整块不渲染（没数据不显示）。
+    """
+    # 分色阈值跟着 health.py 走，不硬编码：health 的 THRESHOLD 改成几，
+    # 看板这边就同步变成几，避免「邮件已发、看板还是橙」的两边不一致。
+    # 注意：import data_hub.tech.health 首次会拖进 collectors.misc →
+    # option_metrics_history（顶层 _migrate_legacy_cache_once 扫 FUSE），
+    # 冷启动实测 19~34s、二次命中 0s。build.py 顶层 from data_hub.tech 已付
+    # 这笔，这里命中 sys.modules；若在长驻进程用 health，先预热一次，别在 tick 里首次 import。
+    try:
+        from data_hub.tech.health import THRESHOLD
+    except Exception:                                         # noqa: BLE001
+        THRESHOLD = 5
+    try:
+        from data_hub.tech import store as _store
+        conn = _store.connect()
+    except Exception:                                         # noqa: BLE001
+        return ""
+    try:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT task_key, fails, first_fail_at, last_fail_at, last_ok_at, "
+            "last_error, last_alert_at FROM task_health "
+            "ORDER BY fails DESC, last_fail_at DESC").fetchall()]
+    except Exception:                                         # noqa: BLE001
+        rows = []
+    finally:
+        try:
+            conn.close()
+        except Exception:                                     # noqa: BLE001
+            pass
+
+    if not rows:
+        return ""
+
+    failing = [r for r in rows if int(r.get("fails") or 0) > 0]
+    healthy = [r for r in rows if int(r.get("fails") or 0) <= 0]
+
+    def _row(r):
+        key = str(r.get("task_key") or "—")
+        fails = int(r.get("fails") or 0)
+        cls = "up" if fails >= THRESHOLD else ("mid" if fails > 0 else "down")
+        err = str(r.get("last_error") or "")
+        err_cell = ('<span class="sm" title="%s">%s</span>'
+                    % (html.escape(err),
+                       html.escape(err[:60] + ("…" if len(err) > 60 else "")))) \
+            if err else '<span class="sm">—</span>'
+        return ('<tr><td class="nw"><code>%s</code></td>'
+                '<td class="nw"><b class="bd %s">%d</b></td>'
+                '<td class="nw sm">%s</td>'
+                '<td class="nw sm">%s</td>'
+                '<td>%s</td></tr>'
+                % (html.escape(key), cls, fails,
+                   html.escape(str(r.get("last_fail_at") or "—")),
+                   html.escape(str(r.get("last_ok_at") or "—")), err_cell))
+
+    thead = ('<tr><th class="nw">任务</th><th class="nw">连败</th>'
+             '<th class="nw">最后失败</th><th class="nw">最后成功</th>'
+             '<th>最近错误</th></tr>')
+
+    fail_html = ""
+    if failing:
+        fail_html = ('<div class="blk"><h4>连败中 '
+                     '<em>fails &gt; 0 · 连续 %d 次才发邮件</em></h4>'
+                     '<table class="mod-tab"><thead>%s</thead>'
+                     '<tbody>%s</tbody></table></div>'
+                     % (THRESHOLD, thead, "".join(_row(r) for r in failing)))
+
+    ok_html = ""
+    if healthy:
+        ok_html = ('<details class="blk hl-fold"><summary>正常任务 '
+                   '<span class="sm">%d 个 · 已清零 · 点击展开</span></summary>'
+                   '<table class="mod-tab"><thead>%s</thead>'
+                   '<tbody>%s</tbody></table></details>'
+                   % (len(healthy), thead, "".join(_row(r) for r in healthy)))
+
+    return ('<section class="idx-card sec" id="health">'
+            '<header><h3>任务健康 <em>连续失败计数 · 成功清零</em></h3>'
+            '<div class="obs">%d 条 · %d 连败中</div></header>'
+            '<div class="idx-body">%s%s'
+            '<div class="blk" style="grid-column:1/-1"><p class="note">计数由任务侧 '
+            '<code>data_hub.tech.health</code> 在每次跑任务时顺带记录，'
+            '看板只读展示、不重算阈值：连续 %d 次失败发一封邮件，'
+            '成功一次立刻清零。这里不建任何巡检 crontab。</p></div>'
+            '</div></section>'
+            % (THRESHOLD, len(rows), len(failing), fail_html, ok_html))
 
 
 def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
@@ -2638,7 +2778,7 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
         if m.get("_config_error"):
             st_cls, st_txt = "down", "配置错误"
         dur = ("%ss" % ms["duration"]) if ms.get("duration") else "—"
-        src = "注册" if m.get("source") == "registered" else "内置"
+        src = {"case": "case", "registered": "注册"}.get(m.get("source"), "内置")
         rows.append(
             '<tr><td><code>%s</code></td><td>%s</td>'
             '<td class="nw"><span class="sm">%s</span></td>'
@@ -2817,6 +2957,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         liq_charts = list(liq_charts or []) + list(rate_charts or [])
     bond_sec, bond_charts = render_bond_section(latest, series, obs)
     mod_sec = render_modules_panel(os.path.join(HERE, "modules.json"), st)
+    health_sec = render_health_section()
 
     # ── 外部注册的 model：按所属大类分组 ──
     KNOWN_TABS = ("stock", "futures", "realestate", "macro", "liquidity",
@@ -2847,7 +2988,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     for _w in _rws:
         _h, _cs = render_registered_model(_w, latest, series)
         reg_charts.extend(_cs)
-        _tab = _w.get("tab") or ""
+        _tab = _w.get("tab") or ""     # case 任务的 tab 由 as_workers 按 section 填好
         if _tab in KNOWN_TABS:
             reg_in[_tab].append(_h)
         else:
@@ -2910,7 +3051,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
             ("liquidity", "流动性"), ("liquidity_rate", "利率"),
             ("bond", "债券 · 理财"),
             ("option", "期权 · 波动率"), ("risk", "风险 · 结构"),
-            ("modules", "模块管理")]
+            ("health", "任务健康"), ("modules", "模块管理")]
     _has = {
         "stock": bool((erp_html or "").strip() or cards or reg_in.get("stock")),
         "futures": bool((futures_sec or "").strip() or reg_in.get("futures")),
@@ -2921,6 +3062,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         "bond": bool((bond_sec or "").strip() or reg_in.get("bond")),
         "option": bool((opt_sec or "").strip() or reg_in.get("option")),
         "risk": bool((risk_sec or "").strip() or reg_in.get("risk")),
+        "health": bool((health_sec or "").strip()),
         "modules": True,
     }
     jump = "".join('<a href="#%s">%s</a>' % (k, t) for k, t in _NAV
@@ -2993,6 +3135,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     {wrap("option", opt_sec, reg_in['option'], opt_obs)}
 
     {wrap("risk", risk_sec, reg_in['risk'], risk_obs)}
+
+    {wrap("health", health_sec, "", None)}
 
     {extra_secs}
 

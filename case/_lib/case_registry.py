@@ -47,6 +47,14 @@ def _read_json(path: str, default):
         return default
 
 
+def _safe_int(v, default: int) -> int:
+    """timeout 之类做一次防御式转换；非法值回退默认，别让一个坏字段拖垮全部任务。"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
 def visibility_of(t: Dict) -> str:
     """任务的可见性：public / private。缺省按 public。
 
@@ -148,6 +156,11 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
     if not str(t.get("cmd") or "").strip() and not isinstance(t.get("pipeline"), dict):
         errs.append("缺 cmd（或给一个 pipeline 让 runner 分阶段执行）")
     errs.extend(_validate_pipeline(t.get("pipeline")))
+    if not isinstance(t.get("enabled", True), bool):
+        errs.append("enabled 必须是布尔值")
+    to = t.get("timeout", 1800)
+    if not isinstance(to, int) or isinstance(to, bool) or to < 60:
+        errs.append("timeout 必须是 >=60 的整数秒")
     s = t.get("sched")
     if not isinstance(s, dict):
         errs.append("sched 必须是对象")
@@ -250,7 +263,7 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "cmd": cmd,
             "legacy_cmd": t.get("cmd") if pipe else "",
             "pipeline": bool(pipe),
-            "timeout": int(t.get("timeout") or 1800),
+            "timeout": _safe_int(t.get("timeout"), 1800),
             "enabled": bool(t.get("enabled", True)),
             "sched": t.get("sched"),
             # not_before 是 scheduler 的「不许提前拉」闸门（见 _not_before_time）。
@@ -327,8 +340,8 @@ def as_workers(base: Optional[str] = None, visibility: str = "public",
         if visibility != "all" and vis != visibility:
             continue                      # 两套页面各取自己那一半，不混排
         sec = section_of(t)
-        if sec not in SECTIONS:
-            continue
+        if not sec or sec == "modules" or sec not in SECTIONS:
+            continue                      # 工具类任务只进模块管理页，不单独占一个数据板块
         if t.get("build_workers") is False:
             continue                      # 已有专用 render_* 页面的任务，不再出通用 case 块
         metrics = _metrics_declared(t) or _metrics_from_latest(t)
@@ -343,6 +356,7 @@ def as_workers(base: Optional[str] = None, visibility: str = "public",
             "sec": sec,
             "tab": sec,
             "visibility": vis,
+            "source": "case",
             "sched": t.get("sched"),
             # not_before 是 scheduler 的「不许提前拉」闸门（见 _not_before_time）。
             # 不透传的话，pipeline 任务即使写了 not_before 也会被 pull_forward 提前起。
