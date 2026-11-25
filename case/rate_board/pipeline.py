@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """rate_board 的框架适配：fetch 跑 run.py，emit 把 run.py 落盘的 points 交给指标仓。
 
-run.py 一次取完 EDB / 土狗 / CDS 并写 out/points.json，emit 阶段只做"取回 + 落库"，
+run.py 一次取完 EDB / 土狗并写 out/points.json，emit 阶段只做"取回 + 落库"，
 不再重复联网，避免同一天两次打 FedWatch 与 EDB。
 """
 from __future__ import annotations
