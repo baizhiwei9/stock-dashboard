@@ -50,3 +50,7 @@ modules.json.bak_*
 case/_lib/.alert_quota.json
 .switches.local.json
 case/manning_flow/weekly_report_*.json
+
+# 模拟盘账户状态与产出（每次跑都在变，属本机运行数据）
+case/*/sim_trade/state/
+case/*/sim_trade/output/
