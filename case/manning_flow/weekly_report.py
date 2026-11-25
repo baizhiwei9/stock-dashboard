@@ -703,7 +703,13 @@ def main():
         print("\n[3] --no-send 模式：跳过飞书推送（仅验证取数和计算）")
     else:
         print("\n[3] 发送飞书报告...")
-        send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, latest_date, index_views, mom5_row)
+        send_ok = send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, latest_date, index_views, mom5_row)
+        if not send_ok:
+            # 发送失败必须反映到退出码：runner 的 fetch 靠 rc 判断成败，
+            # 调度器再靠 health 连败感知。只打日志、进程退出 0，等于把
+            # 「没发出去的日报」当正常结束（issue #53）。
+            print("\n[!] 飞书发送失败，进程以非零退出（供调度器 / runner 感知）")
+            raise SystemExit(2)
     
     # 5. 保存JSON
     result = {

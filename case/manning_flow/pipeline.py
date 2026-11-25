@@ -25,7 +25,11 @@ TIMEOUT = 1800
 
 
 def fetch(ctx):
-    ctx.sh(CMD_FETCH, timeout=TIMEOUT, check=False)
+    # check=True：weekly_report.py 发送失败会 SystemExit(2)（issue #53 后）。
+    # 发送内嵌在 fetch 里（dispatch 不重复发），所以发送失败必须在这里失败，
+    # runner 才能把 rc 传导给 scheduler → health 连败。原来 check=False 会把
+    # 「没发出去的日报」当成 fetch 正常结束。
+    ctx.sh(CMD_FETCH, timeout=TIMEOUT, check=True)
 
 
 def emit(ctx):
