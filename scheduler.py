@@ -225,6 +225,33 @@ def _queue_ahead(g, key, cands):
 
 
 # ────────────────────────────── 基础读写 ──────────────────────────────
+#: 单个日志文件到 20MB 就轮转（issue #80）；历史文件由 case/_lib/cleanup.py 按 30 天清理
+MAX_LOG_BYTES = 20 * 1024 * 1024
+LOG_KEEP = 5
+
+
+def _rotate_log(path):
+    """日志超过 ``MAX_LOG_BYTES`` 时改名成 ``<name>.<时间戳>``，只留最近 LOG_KEEP 个。
+
+    原来 ``logs/<key>.log`` 只有 append，跑几个月就是几百 MB 的单文件，既不好查也
+    不好清。轮转出来的 ``<key>.log.<时间戳>`` 由 cleanup 的「轮转日志」规则按 30 天删。
+    """
+    try:
+        if not os.path.exists(path) or os.path.getsize(path) < MAX_LOG_BYTES:
+            return
+        os.replace(path, "%s.%s" % (path, datetime.now().strftime("%Y%m%d-%H%M%S")))
+        prefix = os.path.basename(path) + "."
+        olds = sorted((os.path.join(LOG_DIR, n) for n in os.listdir(LOG_DIR)
+                       if n.startswith(prefix)), key=os.path.getmtime, reverse=True)
+        for old in olds[LOG_KEEP:]:
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 def log(msg):
     """只写文件 —— stdout 本身可能就重定向到同一个文件，避免重复。"""
     line = "[%s] %s" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg)
@@ -897,6 +924,7 @@ def spawn(key, m, slot, st, pulled=False):
                 % (type(e).__name__, e))
         os.makedirs(LOG_DIR, exist_ok=True)
         logp = os.path.join(LOG_DIR, "%s.log" % key)
+        _rotate_log(logp)                     # 超 20MB 先轮转，别让单文件无限长（#80）
         f = open(logp, "ab")
         now = datetime.now()
         head = ("\n" + "=" * 72 +
@@ -1492,6 +1520,7 @@ def cmd_start():
                   % (api_conf().get("port") or DEFAULT_PORT))
         return 0
     os.makedirs(LOG_DIR, exist_ok=True)
+    _rotate_log(SELF_LOG)                     # 守护进程自己的日志同样封顶（#80）
     out = open(SELF_LOG, "ab")
     p = subprocess.Popen([sys.executable, os.path.abspath(__file__), "_daemon"],
                          cwd=HERE, stdin=subprocess.DEVNULL,

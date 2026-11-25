@@ -462,10 +462,35 @@
       "timeout": 2100,
       "enabled": false,
       "depends": []
+    },
+    {
+      "key": "cleanup",
+      "title": "产物清理（保留期）",
+      "desc": "按 case/_lib/cleanup_rules.json 删过期产物：取数缓存 30 天、报告/图片 90 天、告警 MD 30 天、轮转日志 30 天；默认 dry-run，这里是 --apply。git 跟踪的文件永不删。",
+      "domains": [],
+      "sched": {
+        "mode": "daily",
+        "at": "04:30",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "cwd": "{{REPO_ROOT}}",
+      "cmd": "python3 case/_lib/cleanup.py --apply",
+      "timeout": 1800,
+      "enabled": true,
+      "depends": []
     }
   ],
   "_placeholders": {
     "{{DATAHUB_ROOT}}": "datahub-multi-tier 仓库在本机的绝对路径",
+    "{{REPO_ROOT}}": "stock-dashboard 仓库在本机的绝对路径（cleanup 等框架自带模块用）",
     "{{WORKSPACE_A}}": "运行 risk_v52 / vol_surface_vix 的工作目录",
     "{{WORKSPACE_B}}": "运行 five_strategy / factor_daily / limit_up_* 的工作目录",
     "{{FEISHU_CLI_DIR}}": "lark-cli 配置目录（含凭据，勿入库）",
