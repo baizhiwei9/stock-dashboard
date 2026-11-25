@@ -31,9 +31,12 @@ REPO_PATHS = [ROOT, os.path.join(ROOT, "case"), os.path.join(ROOT, "case", "_lib
 
 def _search_dirs(task_dir: str) -> list:
     dirs = [task_dir] + REPO_PATHS
-    # PYLIBS_DIR 支持多目录（冒号分隔），与 runner.py 的解析口径一致
-    for pl in (os.environ.get("PYLIBS_DIR") or "").split(":"):
-        pl = pl.strip()
+    # 与 runner.py 同口径：PYLIBS_DIR（冒号分隔，可留空）+ 任务自带 _shared + 全局 _shared
+    extra = (os.environ.get("PYLIBS_DIR") or "").split(":")
+    extra += [os.path.join(task_dir, "_shared"),
+              os.path.join(CASE_DIR, "_shared", "pylibs")]
+    for pl in extra:
+        pl = (pl or "").strip()
         if pl and os.path.isdir(pl) and pl not in dirs:
             dirs.append(pl)
     return dirs

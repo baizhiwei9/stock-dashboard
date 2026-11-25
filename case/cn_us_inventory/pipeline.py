@@ -18,8 +18,8 @@ for _p in (HERE, LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:." python3 -u inventory_monthly.py --no-feishu --no-email'
-CMD_SEND = 'PYTHONPATH="${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:." python3 -u inventory_monthly.py'
+CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u inventory_monthly.py --no-feishu --no-email'
+CMD_SEND = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u inventory_monthly.py'
 SEC = 'CN.MACRO'
 TIMEOUT = 1800
 

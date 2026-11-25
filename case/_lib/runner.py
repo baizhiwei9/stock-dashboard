@@ -468,16 +468,28 @@ def main(argv: List[str]) -> int:
     ctx = Ctx(task, run_dir, logf, started, do_publish=not a.no_publish, dry=a.dry_run)
     ctx.log("任务 %s（%s）开始，阶段：%s" % (task["key"], task.get("section"), " → ".join(stages)))
     for req in task.get("requires") or []:
-        if req == "pylibs" and os.environ.get("PYLIBS_DIR"):
-            # PYLIBS_DIR 支持多目录（冒号分隔）：22 个任务的第三方依赖原本分散在
-            # 不同会话目录（options_utility 的 calc/、momentum-risk-control 的
-            # feishu_config.py 等），一个 pylibs 目录覆盖不了。多目录按书写顺序
-            # 倒着 insert，保证列表里靠前的目录优先级更高。
-            dirs = [d for d in os.environ["PYLIBS_DIR"].split(":") if d]
+        if req == "pylibs":
+            # 依赖不要求装在一起，三种来源都收（顺序：PYLIBS_DIR 靠前优先）：
+            #   1) PYLIBS_DIR：冒号分隔的多个外挂目录（可留空）
+            #   2) case/<key>/_shared：任务自带的依赖（import_py.py --with-shared）
+            #   3) case/_shared/pylibs：跨任务共享的一份
+            dirs = [d.strip() for d in (os.environ.get("PYLIBS_DIR") or "").split(":") if d.strip()]
             for d in reversed(dirs):
                 if os.path.isdir(d) and d not in sys.path:
                     sys.path.insert(0, d)
-            ctx.log("依赖 pylibs → %s" % ":".join(dirs))
+            shared = [os.path.join(task["_dir"], "_shared"),
+                      os.path.join(CASE_DIR, "_shared", "pylibs")]
+            usable = [d for d in dirs + shared if os.path.isdir(d)]
+            for d in reversed(usable):
+                if d not in sys.path:
+                    sys.path.insert(0, d)
+            # 阶段命令都是子进程（ctx.sh → bash -c），sys.path 传不过去，
+            # 必须同时写进 PYTHONPATH 环境变量，子进程才看得到。
+            if usable:
+                old_pp = os.environ.get("PYTHONPATH") or ""
+                parts = usable + ([old_pp] if old_pp else [])
+                os.environ["PYTHONPATH"] = ":".join(parts)
+            ctx.log("依赖 pylibs → %s" % (":".join(usable) or "(未设 PYLIBS_DIR，任务目录内也无可用的 _shared)"))
 
     # 依赖检查：上游产物不满足就不进入 fetch，也不发报告
     results: List[Dict] = []
