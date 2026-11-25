@@ -258,6 +258,8 @@ def as_workers(base: Optional[str] = None) -> List[Dict]:
             continue                      # 首跑还没回填指标的任务不上面板
         if visibility_of(t) != "public" or not t.get("section"):
             continue                      # 私有任务：运行与落库照旧，只是不展示
+        if t.get("build_workers") is False:
+            continue                      # 已有专用 render_* 页面的任务，不再出通用 case 块
         out.append({
             "key": t["key"],
             "app_id": "case:%s" % t["key"],
