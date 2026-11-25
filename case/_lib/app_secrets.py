@@ -620,6 +620,45 @@ def persist_env(path=None, keys=None):
     return _persist_env_required(path or write_target(), keys)
 
 
+# 常见弱口令（小写比较）。交互录入和门禁共用这一张表 ——
+# 之前 setup.py 有一份、_cmd_init 自己写了个 len<10，两边口径分裂：
+# 10~11 位能录进去，随后被 --check 拒掉。
+_WEAK_PW = {
+    "123456", "1234567", "12345678", "123456789", "1234567890",
+    "password", "passwd", "admin", "admin123", "root", "test",
+    "qwerty", "abc123", "111111", "000000", "888888", "666666",
+    "stock-dashboard", "stockdashboard", "feishu",
+}
+
+
+def is_weak_pw(pw):
+    """是不是表里的常见弱口令（不看长度）。提示文案要区分「太短」和「太常见」时用。"""
+    return str(pw or "").strip().lower() in _WEAK_PW
+
+
+def pw_problem(pw):
+    """管理密码强度校验。返回问题描述，合格返回 None。
+
+    这是唯一口径：门禁（setup.py --check）、交互录入（_cmd_init）、以及任何
+    让用户设密码的入口都必须调它。分开写就会像以前那样 —— 录入放宽到 10 位、
+    门禁卡 12 位，用户照着提示录完，下一步安装却中止。
+    """
+    pw = str(pw or "")
+    if len(pw) < 12:
+        return "至少 12 位（当前 %d 位）" % len(pw)
+    if pw.strip().lower() in _WEAK_PW:
+        return "这是常见弱口令，必须换掉"
+    kinds = sum([
+        any(c.islower() for c in pw),
+        any(c.isupper() for c in pw),
+        any(c.isdigit() for c in pw),
+        any(not c.isalnum() for c in pw),
+    ])
+    if kinds < 2:
+        return "至少包含小写字母 / 大写字母 / 数字 / 符号中的两类"
+    return None
+
+
 def _cmd_init():
     path = config_path()
     if not os.path.isfile(path) and os.path.isfile(example_path()):
@@ -645,8 +684,9 @@ def _cmd_init():
                 break
             val = val.strip()
             if key == "api.password":
-                if len(val) < 10:
-                    print("  api.password 至少 10 位，且不要用 123456。")
+                prob = pw_problem(val)
+                if prob:
+                    print("  api.password %s。" % prob)
                     continue
                 confirm = _prompt("再输入一次 %s（不回显）：" % key, secret=True)
                 if confirm is None:
