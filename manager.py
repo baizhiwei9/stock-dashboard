@@ -429,9 +429,15 @@ def cmd_toggle(key: str, on: bool) -> int:
         raise SystemExit("未知模块: %s（内置与 case 都没有）" % key)
     if m.get("source") == "case":
         return case_toggle(key, on)
-    m["enabled"] = on
+    # find_mod 拿到的是 all_mods() 里 expand_module() 的**副本**（datahub_path 明确
+    # 返回 dict(module)），改副本不会落到 cfg，save_cfg 写回的还是原值 —— 打印
+    # 「启用成功」但 modules.json 里仍是 false，任务永远不跑。必须在 cfg["modules"]
+    # 的原始 dict 上改：get_mod 只返回原值、不做展开。
+    raw = get_mod(cfg, key)
+    raw["enabled"] = on
     save_cfg(cfg)
-    print("%s %s（%s）→ %s" % ("启用" if on else "停用", key, m["title"],
+    print("%s %s（%s）→ %s" % ("启用" if on else "停用", key,
+                              raw.get("title") or m.get("title"),
                               "enabled=true" if on else "enabled=false"))
     print("scheduler.py 会热加载 modules.json，无需 install")
     return 0
@@ -477,19 +483,22 @@ def cmd_sections(argv: List[str]) -> int:
 
     a = argv[0]
     if a == "pw":
+        # 原来这一整段缩进在 `if len(argv) < 2:` 的报错分支里（raise 之后），
+        # 带参数执行时既不校验强度也不写凭据、静默退出 0 —— 用户以为密码已轮换，
+        # 旧密码继续可用。必须放在正常路径上。
         if len(argv) < 2:
             raise SystemExit("用法: manager.py sections pw <新密码>")
-            if len(argv[1]) < 10:
-                raise SystemExit("新密码至少 10 位（不要用 123456）")
-            _sec = _secrets()
-            if _sec is None:
-                raise SystemExit("读不到 case/_lib/app_secrets.py，无法写统一凭据")
-            path = _sec.set_value("scheduler", "password", argv[1])
-            print("管理密码已写入 %s（权限 600，未落任何仓库文件，不回显）" % path)
-            if os.environ.get("SCHEDULER_PASSWORD") or os.environ.get("COZE_SEC_API_PASSWORD"):
-                print("%s注意%s：检测到 SCHEDULER_PASSWORD / COZE_SEC_API_PASSWORD 环境变量，"
-                      "运行时仍以环境变量为准，请一并改掉或清除。" % (YEL, RST))
-            print("调度器每次请求都会重读凭据，无需重启。")
+        if len(argv[1]) < 10:
+            raise SystemExit("新密码至少 10 位（不要用 123456）")
+        _sec = _secrets()
+        if _sec is None:
+            raise SystemExit("读不到 case/_lib/app_secrets.py，无法写统一凭据")
+        path = _sec.set_value("scheduler", "password", argv[1])
+        print("管理密码已写入 %s（权限 600，未落任何仓库文件，不回显）" % path)
+        if os.environ.get("SCHEDULER_PASSWORD") or os.environ.get("COZE_SEC_API_PASSWORD"):
+            print("%s注意%s：检测到 SCHEDULER_PASSWORD / COZE_SEC_API_PASSWORD 环境变量，"
+                  "运行时仍以环境变量为准，请一并改掉或清除。" % (YEL, RST))
+        print("调度器每次请求都会重读凭据，无需重启。")
         return 0
     if a in ("on", "off"):
         if len(argv) < 2:

@@ -2711,7 +2711,10 @@ def render_health_section() -> str:
             '看板只读展示、不重算阈值：连续 %d 次失败发一封邮件，'
             '成功一次立刻清零。这里不建任何巡检 crontab。</p></div>'
             '</div></section>'
-            % (THRESHOLD, len(rows), len(failing), fail_html, ok_html))
+            # 实参顺序必须和占位符顺序一一对应：%d(条) %d(连败) %s%s ... %d(阈值)。
+            # THRESHOLD 是给末尾那个 %d 的，不能提到最前面 —— 提到最前面就整体错位
+            # 一位，末尾 %d 收到 ok_html（str）直接 TypeError，整站构建失败。
+            % (len(rows), len(failing), fail_html, ok_html, THRESHOLD))
 
 
 def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:

@@ -64,12 +64,15 @@ def _ts_code(code):
 
 import akshare as ak
 
-from config import DATA_START, DATA_END, DATA_DIR, SOURCE_ORDER, \
+from config import DATA_START, data_end, DATA_DIR, SOURCE_ORDER, \
     TK_CSV_CANDIDATES, TS_CFG_DIRS, TS_DEFAULT_HTTP_URL
 
 _CTX = ssl.create_default_context()
 _CTX.check_hostname = False
 _CTX.verify_mode = ssl.CERT_NONE
+
+# 新鲜度告警阈值：最新数据日旧于今日 5 个自然日就告警（覆盖周末 + 一两天小长假）。
+STALE_DAYS = 5
 
 
 # ---------------- 各层级取数 ----------------
@@ -101,9 +104,12 @@ def fetch_sina(code):
     e = _hub()
     if e is not None:
         try:
-            hub = e.get_dataset("CN.MARKET.ETF.PRICE", codes=[_ts_code(code)],
-                                start_date=DATA_START.replace("-", ""),
-                                end_date=DATA_END.replace("-", ""))
+            kw = {"codes": [_ts_code(code)],
+                  "start_date": DATA_START.replace("-", "")}
+            _end = data_end("compact")
+            if _end:                       # None=不设上界：不传 end_date，别塞 None
+                kw["end_date"] = _end
+            hub = e.get_dataset("CN.MARKET.ETF.PRICE", **kw)
             if hub is not None and len(hub):
                 h = pd.DataFrame({
                     "date": pd.to_datetime(hub["trade_date"].astype(str)),
@@ -129,9 +135,12 @@ def fetch_sina(code):
 def fetch_em(code):
     """L2 东财源：akshare.fund_etf_hist_em，symbol=纯数字（如 510300 / 159915）"""
     num = code[2:]
+    # akshare 自己的「不设上界」默认值就是 20500101：data_end() 返 None 时用它，
+    # 不能把 None 传进去（akshare 会直接拿它拼请求参数）。
+    _end = data_end("compact") or "20500101"
     df = ak.fund_etf_hist_em(symbol=num, period="daily",
                              start_date=DATA_START.replace("-", ""),
-                             end_date=DATA_END.replace("-", ""),
+                             end_date=_end,
                              adjust="qfq")
     if df is None or df.empty:
         return None
@@ -271,10 +280,13 @@ def fetch_ts(code):
         return None
     ts_code = _ts_code(code)
     start = DATA_START.replace("-", "")
-    end = DATA_END.replace("-", "")
+    kw = {"ts_code": ts_code, "start_date": start}
+    _end = data_end("compact")
+    if _end:                               # None=不设上界：不传 end_date
+        kw["end_date"] = _end
     for api in ("fund_daily", "daily"):
         try:
-            raw = getattr(pro, api)(ts_code=ts_code, start_date=start, end_date=end)
+            raw = getattr(pro, api)(**kw)
         except Exception as e:  # noqa: BLE001
             print(f"  [!] ts {api} {ts_code} 失败: {type(e).__name__} {str(e)[:80]}")
             continue
@@ -302,15 +314,24 @@ SOURCE_FETCHERS = {
 
 # ---------------- 统一入口 ----------------
 
-def fetch_kline(code, start=DATA_START, end=DATA_END):
+def fetch_kline(code, start=DATA_START, end=None):
     """按 SOURCE_ORDER 多级回退拉取单标的日线，返回 DataFrame 或 None。
-    AK 筛在前、TS 筛兜底：上一层缺数据自动落到下一层。"""
+    AK 筛在前、TS 筛兜底：上一层缺数据自动落到下一层。
+
+    end 不传（默认 None）→ 用 config.data_end() 的上界（默认当天，跨年自动跟上）；
+    要完全不设上界，显式传 end=""，过滤条件只留起始日。
+    """
+    if end is None:
+        end = data_end("dash")
     for src in SOURCE_ORDER:
         try:
             df = SOURCE_FETCHERS[src](code)
             if df is None or len(df) < 100:
                 continue
-            df = df[(df["date"] >= start) & (df["date"] <= end)]
+            mask = df["date"] >= start
+            if end:                                   # None/""=不设上界
+                mask &= df["date"] <= end
+            df = df[mask]
             df = df.dropna(subset=["open", "close", "high", "low"])
             df = df.drop_duplicates("date", keep="last").sort_values("date").reset_index(drop=True)
             if len(df) >= 100:
@@ -388,7 +409,27 @@ def load_all(target="both", use_cache=True, save=True):
         else:
             print(f"  [!] {code} 数据不足: {None if df is None else len(df)}")
         time.sleep(0.3)  # 限速保护
+    _warn_stale(out, expected)
     return out
+
+
+def _warn_stale(data, expected=None):
+    """新鲜度核对：最新数据日 vs 今日。数据源停更/取数上界配错时报告会静默变旧。
+
+    只告警不改数据：拿不到新数据时仍按旧值出报告，但必须留下「哪天开始旧的」。
+    """
+    latest = max((df["date"].max() for df in data.values() if len(df)), default=None)
+    if latest is None:
+        return None
+    today = pd.Timestamp.now().normalize()
+    lag = int((today - latest.normalize()).days)
+    exp = expected if expected is not None else _last_expected_trade_date()
+    if lag > STALE_DAYS:
+        print(f"  [!] 数据新鲜度告警：最新数据日 {latest.date()}，距今 {lag} 天，"
+              f"期望 {exp.date()} —— 上游可能停更或取数上界配置有误，报告内容已偏旧")
+    else:
+        print(f"  [i] 数据新鲜度：最新数据日 {latest.date()}，距今 {lag} 天（期望 {exp.date()}）")
+    return latest
 
 
 def aligned_panel(dict_of_df, codes=None):
