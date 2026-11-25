@@ -1,0 +1,25 @@
+{
+  "key": "house_watch",
+  "title": "京沪楼市监控：取数与告警判定",
+  "desc": "京沪网签成交（面积/套数）+ 中国房价行情挂牌均价与挂牌数量 + 70 城房价指数；按 >10%、KDJ/MACD、VWAP ±1σ/2σ 判定后落 data/market.json，供私有任务 house_watch_chart 出图与发信",
+  "section": "realestate",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "18:35"
+  },
+  "cmd": "python3 -u run.py",
+  "cwd": ".",
+  "timeout": 900,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "visibility": "public",
+  "requires": [
+    "data_hub"
+  ],
+  "needs_llm": false,
+  "note": "本任务只做数据与判定，不发信、不出图：图与邮件在私有任务 house_watch_chart（单向依赖，读这里的 data/market.json）"
+}
