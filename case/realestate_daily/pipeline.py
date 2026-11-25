@@ -194,7 +194,7 @@ def dispatch(ctx):
         parts += ["", "[inline:%s]" % os.path.basename(png)]
     content = "\n".join(parts)
 
-    ok, msg = PT.send_mail(subject, content, inline_png=png, dry_run=not PT.allow_send())
+    ok, msg = PT.send_notice(subject, content, inline_png=png, dry_run=not PT.allow_send())
     if ok:
         PT.send_state(state)      # 只有真发成功才推进去重状态，免得演练把信号吃掉
         ctx.log(msg)

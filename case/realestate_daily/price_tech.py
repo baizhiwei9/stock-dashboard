@@ -10,10 +10,10 @@
 
 发信通道
 --------
-不新写 SMTP：用项目里默认的 `dws mail message send`（钉钉企业邮箱 CLI），它支持
-`--inline-attachment` 把图片内联进正文（正文里放 `[inline:price_tech.png]` 占位符，
-CLI 自动转 HTML 并注入 `<img>`）。发件人/收件人沿用 `macro_monthly_report/config.py`
-的既有配置，不复制凭据。
+走**统一通知库** `data_hub.notify`（飞书、邮件两个通道一个入口）。真实 token/key/收件人
+只在部署侧 `notify.json`（或 `NOTIFY_*` 环境变量），库里只有字段名与脱敏打印，本文件不含凭据。
+邮件通道用 `dws mail message send --inline-attachment` 内联图（正文占位 `[inline:price_tech.png]`），
+dws 不可用时库内自动退 SMTP；本任务的飞书日报仍走自己的交互卡片（统一库只发文本，发不了卡片）。
 
 默认真发：调度器跑任务就该发（用户口径「一起发邮件」）。要演练时显式设
 `RE_PRICE_TECH_SEND=0`，或调用方传 `dry_run=True`——测试一律走这两个开关，
@@ -23,35 +23,15 @@ from __future__ import annotations
 
 import json
 import os
-import smtplib
-import subprocess
 import sys
-from email.header import Header
-from email.mime.text import MIMEText
-from email.utils import formataddr
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "out")
 STATE = os.path.join(OUT, ".price_tech_state.json")
 PNG = os.path.join(OUT, "price_tech.png")
 
-MACRO_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/macro_monthly_report"
-if MACRO_DIR not in sys.path:
-    sys.path.insert(0, MACRO_DIR)
-
 LEVEL_CN = {"bull": "转多", "bear": "转空", "warn": "超买", "watch": "超卖"}
 LEVEL_ORDER = {"bear": 0, "warn": 1, "bull": 2, "watch": 3}
-
-
-def _creds():
-    """发件/收件人取自 macro_monthly_report 的既有配置；取不到就返回空，由调用方报清楚。"""
-    try:
-        from config import DWS_CLI, EMAIL_FROM, EMAIL_TO  # noqa: PLC0415
-        return {"dws": DWS_CLI, "from": EMAIL_FROM, "to": EMAIL_TO}
-    except Exception:
-        return {"dws": os.path.expanduser("~/.local/bin/dws"),
-                "from": os.environ.get("EMAIL_FROM", ""),
-                "to": os.environ.get("EMAIL_TO", "")}
 
 
 def collect(cities=None):
@@ -182,64 +162,24 @@ def plain_md(text, skip_first_heading=False):
     return "\n".join(out)
 
 
-def send_mail(subject, content, inline_png=None, dry_run=True, timeout=180):
-    """用 dws 发一封（可带一张内联图）。返回 ``(ok, message)``。"""
-    cfg = _creds()
-    if not cfg["dws"] or not os.path.exists(cfg["dws"]):
-        return (False, "邮件未发送：dws CLI 不存在（%s）" % cfg["dws"])
-    if not cfg["from"] or not cfg["to"]:
-        return (False, "邮件未发送：缺发件人或收件人（macro_monthly_report/config.py 的 "
-                       "EMAIL_FROM / EMAIL_TO）")
+def send_notice(subject, content, inline_png=None, dry_run=True):
+    """走统一通知库发一封（含内联图）。返回 ``(ok, message)``。
 
-    png = inline_png if (inline_png and os.path.exists(inline_png)) else None
-    cmd = [cfg["dws"], "mail", "message", "send",
-           "--from", cfg["from"], "--to", cfg["to"],
-           "--subject", subject, "--content", content, "--format", "json"]
-    if png:
-        cmd += ["--inline-attachment", png]
+    只走邮件通道：本任务的飞书日报是交互卡片，由 dispatch 里的卡片脚本负责；
+    统一库的飞书通道只发文本，替代不了卡片。
 
+    ``dry_run=True`` 时返回 ``ok=False``——让调用方知道「没真发」，别推进去重状态。
+    """
+    try:
+        from data_hub import notify
+    except ImportError as exc:
+        return (False, "统一通知库不可用：%s" % exc)
+    res = notify.send(subject, content, channels=("email",),
+                      images=[inline_png] if inline_png else None, dry_run=dry_run)
+    ch = (res.get("channels") or {}).get("email") or {"ok": False, "msg": "邮件通道无返回"}
     if dry_run:
-        return (False, "dry-run 未发送｜to=%s｜subject=%s｜正文 %d 字｜内联图 %s"
-                % (cfg["to"], subject, len(content), os.path.basename(png) if png else "无"))
-
-    try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    except Exception as exc:
-        return (False, "邮件发送异常：%s: %s" % (type(exc).__name__, exc))
-    out = (p.stdout or "") + (p.stderr or "")
-    if '"success": "true"' in out or '"success":"true"' in out:
-        return (True, "邮件发送成功 → %s（内联图 %s）"
-                % (cfg["to"], os.path.basename(png) if png else "无"))
-    # dws 失败再退 163 SMTP（与 margin_detail 等任务同一套回退口径）。回退只发纯文本，无内联图。
-    ok2, msg2 = _send_via_smtp(subject, content)
-    if ok2:
-        return (True, "dws 通道失败（%s），%s" % (out.strip()[:120], msg2))
-    return (False, "邮件发送失败：dws=%s｜%s" % (out.strip()[:200], msg2))
-
-
-def _send_via_smtp(subject, content, timeout=30):
-    """回退通道：163 SMTP，纯文本（无内联图）。配置与授权码沿用 macro 既有口径。"""
-    try:
-        from config import (EMAIL_HOST, EMAIL_PORT, EMAIL_TO, EMAIL_USER,
-                            get_auth_code)  # noqa: PLC0415
-    except Exception as exc:
-        return (False, "回退不可用：读不到 SMTP 配置（%s）" % exc)
-    code = get_auth_code()
-    if not code or not EMAIL_USER or not EMAIL_TO:
-        return (False, "回退不可用：缺 163 授权码或账号")
-    try:
-        msg = MIMEText(content, "plain", "utf-8")
-        msg["Subject"] = Header(subject, "utf-8")
-        msg["From"] = formataddr((str(Header("土狗付鹏地产周报", "utf-8")), EMAIL_USER))
-        msg["To"] = EMAIL_TO
-        srv = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT, timeout=timeout)
-        srv.starttls()
-        srv.login(EMAIL_USER, code)
-        srv.sendmail(EMAIL_USER, [EMAIL_TO], msg.as_string())
-        srv.quit()
-        return (True, "已用 163 SMTP 回退通道发出 → %s（纯文本，无内联图）" % EMAIL_TO)
-    except Exception as exc:
-        return (False, "SMTP 回退失败：%s: %s" % (type(exc).__name__, exc))
+        return (False, ch["msg"])
+    return (bool(ch["ok"]), ch["msg"])
 
 
 def send_state(state):
