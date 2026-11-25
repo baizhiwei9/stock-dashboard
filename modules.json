@@ -9,7 +9,10 @@
   },
   "queue": {
     "max_parallel": 1,
-    "note": "全局并发上限：1=一次只跑一个任务（串行），到点遇忙则排队等空档；groups 可给某组单独放开"
+    "note": "max_parallel=1 串行；pull_forward=队列空着就把后面的任务提前拉进来串着跑（16:00 之后生效，最多提前 pull_ahead_min 分钟）",
+    "pull_forward": true,
+    "pull_forward_from": "16:00",
+    "pull_ahead_min": 240
   },
   "modules": [
     {

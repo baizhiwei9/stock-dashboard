@@ -209,7 +209,13 @@ ls -l --time-style=full-iso logs/watchdog.hb
 
 ```jsonc
 // modules.json 顶层
-"queue": { "max_parallel": 1, "groups": { "fetch": 2 } }   // 默认 1＝全局串行
+"queue": {
+  "max_parallel": 1,            // 默认 1＝全局串行
+  "groups": { "fetch": 2 },     // 可选：给某组单独放开并发
+  "pull_forward": true,         // 队列空着就把后面的任务提前拉进来串着跑
+  "pull_forward_from": "16:00", // 只在这个时刻之后允许提前（早间任务不受影响）
+  "pull_ahead_min": 240         // 最多提前 4 小时，防止把深夜任务拉到下午
+}
 ```
 
 | 行为 | 说明 |
@@ -221,6 +227,8 @@ ls -l --time-style=full-iso logs/watchdog.hb
 | 排队可见 | `scheduler.py status` 状态列「排队」；`state.scheduler.queue` = `{max_parallel, used, orphans}` |
 | 分组 | 任务写 `queue`（`task.json` 或 `modules.json`）；组上限取 `queue.groups.<组名>`，缺省随全局 |
 | 孤儿占位 | 调度器被 kill 后子进程仍存活 → 登记 `orphans` 占名额，等它结束才放行 |
+| 空档提前跑 | 16:00 后队列空着时，把后面的任务提前拉进来（最多 `pull_ahead_min`）；任务可用 `not_before` 声明数据就绪下限 |
+| 提前跑去重 | 仍以**当天计划点**写 `last_slot`，到点不重复；`state.modules.<key>.pulled_forward=true`，`status` 显示「成功(提前)」 |
 
 ```bash
 # 看队列现状（有任务在跑/排队时）

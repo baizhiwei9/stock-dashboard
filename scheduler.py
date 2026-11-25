@@ -95,23 +95,66 @@ _STOP = threading.Event()
 
 
 def _queue_conf():
-    """读 modules.json 的 queue 配置：{"max_parallel": int, "groups": {组名: int}}。
+    """读 modules.json 的 queue 配置。
 
-    缺省即「全局串行」（max_parallel=1）：一次只跑一个任务，其余排队等空档。
-    想让某组单独放开并发，写 queue.groups.<组名>；任务用 `queue` 字段归组（默认 default）。
+    {"max_parallel": int, "groups": {组名: int},
+     "pull_forward": bool, "pull_forward_from": "HH:MM", "pull_ahead_min": int}
+
+    缺省即「全局串行」（max_parallel=1）+「16:00 后允许提前拉取」（最多提前 240 分钟）：
+    队列空着且离下一个任务计划点还有很长的空档时，把那个任务提前拉进来串着跑，
+    不硬等它自己的计划点；报告比计划点早交付也接受，只要当天跑掉。
     """
     q = (load_cfg() or {}).get("queue") or {}
-    try:
-        mx = int(q.get("max_parallel") or QUEUE_MAX_DEFAULT)
-    except (TypeError, ValueError):
-        mx = QUEUE_MAX_DEFAULT
+
+    def _int(v, d):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return d
+
+    mx = _int(q.get("max_parallel"), QUEUE_MAX_DEFAULT)
     groups = {}
     for k, v in (q.get("groups") or {}).items():
         try:
             groups[str(k)] = max(0, int(v))
         except (TypeError, ValueError):
             continue
-    return {"max_parallel": max(0, mx), "groups": groups}
+    pf = q.get("pull_forward")
+    pull_forward = True if pf is None else bool(pf)
+    try:
+        _hh, _mm = [int(x) for x in str(q.get("pull_forward_from") or "16:00").split(":")]
+        pull_from = dtime(_hh, _mm)
+    except (ValueError, TypeError):
+        pull_from = dtime(16, 0)
+    ahead = max(0, _int(q.get("pull_ahead_min"), 240))
+    return {"max_parallel": max(0, mx), "groups": groups,
+            "pull_forward": pull_forward, "pull_from": pull_from,
+            "pull_ahead_sec": ahead * 60}
+
+
+def _not_before_time(m):
+    """任务声明的「数据最早几点就绪」（HH:MM）；没配返回 None。提前拉取时用作下限。"""
+    s = str((m or {}).get("not_before") or "").strip()
+    if not s:
+        return None
+    try:
+        hh, mm = [int(x) for x in s.split(":")]
+        return dtime(hh, mm)
+    except (ValueError, TypeError):
+        return None
+
+
+def _next_run_after(sched, now, last_slot):
+    """下一次该跑的时间点，跳过已经跑过的计划点（提前跑完后不能还显示今天那个点）。"""
+    probe = now
+    for _ in range(64):
+        nx = compute_next(sched, probe)
+        if nx is None:
+            return None
+        if nx.strftime("%Y-%m-%d %H:%M") != (last_slot or ""):
+            return nx
+        probe = nx + timedelta(minutes=1)
+    return None
 
 
 def _queue_of(m):
@@ -541,8 +584,12 @@ def _finish(key, rc, status, st):
     log("模块结束 %s status=%s exit=%s 耗时 %.1fs" % (key, status, rc, dur))
 
 
-def spawn(key, m, slot, st):
-    """起一个模块子进程。已在跑就返回 False（防 tick 与 HTTP 线程双起）。"""
+def spawn(key, m, slot, st, pulled=False):
+    """起一个模块子进程。已在跑就返回 False（防 tick 与 HTTP 线程双起）。
+
+    pulled=True 表示「提前执行」：slot 仍是该任务当天的计划点（`last_slot` 记它，当天不重复跑），
+    只是实际启动时间早于计划点 —— 报告早于计划点交付。
+    """
     with LOCK:
         if key in PROCS:
             return False
@@ -551,9 +598,10 @@ def spawn(key, m, slot, st):
         f = open(logp, "ab")
         now = datetime.now()
         head = ("\n" + "=" * 72 +
-                "\n[%s] 启动 %s（计划点 %s）\n[cmd] %s\n[cwd] %s\n" %
+                "\n[%s] 启动 %s（计划点 %s%s）\n[cmd] %s\n[cwd] %s\n" %
                 (now.strftime("%Y-%m-%d %H:%M:%S"), key,
-                 slot.strftime("%Y-%m-%d %H:%M"), m.get("cmd"),
+                 slot.strftime("%Y-%m-%d %H:%M"),
+                 "，提前执行" if pulled else "", m.get("cmd"),
                  m.get("cwd") or HERE))
         f.write(head.encode())
         f.flush()
@@ -581,7 +629,7 @@ def spawn(key, m, slot, st):
             "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
             "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
             "last_status": "running", "running": True, "note": "",
-            "pid": p.pid,
+            "pid": p.pid, "pulled_forward": bool(pulled),
         })
         save_state(st)
     log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
@@ -608,27 +656,42 @@ def tick():
             continue
         _finish(key, rc, "ok" if rc == 0 else "fail", st)
 
-    # ② 到点的起新任务：串行队列 —— 名额没空就排队等（到点遇忙顺延，不跳过、不并发）
+    # ② 到点的起新任务：串行队列 —— 名额没空就排队等；队列空着时把后面的任务提前拉进来串着跑
     st.setdefault("modules", {})
     for _ms in st["modules"].values():
         _ms.pop("queued", None)              # 每 tick 重算排队状态，避免残留
     conf = _queue_conf()
+    pull_on = conf["pull_forward"] and now.time() >= conf["pull_from"]
     cands = []
     for idx, (key, m) in enumerate(mods.items()):
         if not m.get("enabled", True) or key in PROCS:
             continue
         sched = m.get("sched") or {}
-        slot = compute_slot(sched, now)
-        if slot is None:
-            continue
-        slotkey = slot.strftime("%Y-%m-%d %H:%M")
+        slot, pulled = compute_slot(sched, now), False
         ms = st["modules"].setdefault(key, {})
-        if (now - slot).total_seconds() > GRACE_SEC:
-            if ms.get("missed_slot") != slotkey:      # 超宽限只记一次，不再每 15 秒刷日志
-                ms["missed_slot"] = slotkey
-                ms["note"] = "超过宽限未执行（计划 %s，一直没轮到空档）" % slotkey
-                log("跳过 %s：计划点 %s 超出 %.0f 小时宽限" % (key, slotkey, GRACE_SEC / 3600))
-            continue
+        # compute_slot 会回看若干天：今天的点还没到时会返回「昨天」那个点。
+        # 昨天的点既不该补跑、也不该天天刷「超宽限」提醒 —— 直接当作没有待跑点。
+        if slot is not None and (now - slot).total_seconds() > GRACE_SEC:
+            if slot.date() == now.date():
+                slotkey = slot.strftime("%Y-%m-%d %H:%M")
+                if ms.get("missed_slot") != slotkey:   # 今天到点却超宽限：只记一次
+                    ms["missed_slot"] = slotkey
+                    ms["note"] = "超过宽限未执行（计划 %s，一直没轮到空档）" % slotkey
+                    log("跳过 %s：计划点 %s 超出 %.0f 小时宽限" % (key, slotkey, GRACE_SEC / 3600))
+                continue
+            slot = None
+        if slot is None:
+            # 还没到点：空档够长就把后面的任务提前拉进来（不卡点，只求当天跑掉）
+            if not pull_on:
+                continue
+            nx = compute_next(sched, now)
+            if nx is None or (nx - now).total_seconds() > conf["pull_ahead_sec"]:
+                continue
+            nb = _not_before_time(m)
+            if nb is not None and now.time() < nb:
+                continue                     # 数据还没就绪，不许提前
+            slot, pulled = nx, True
+        slotkey = slot.strftime("%Y-%m-%d %H:%M")
         if ms.get("last_slot") == slotkey:
             continue
         deps = m.get("depends") or []
@@ -636,7 +699,7 @@ def tick():
         if waiting:
             ms["note"] = "等依赖 %s 跑完" % "/".join(waiting)
             continue
-        cands.append({"slot": slot, "idx": idx, "key": key, "mod": m})
+        cands.append({"slot": slot, "idx": idx, "key": key, "mod": m, "pulled": pulled})
 
     # 先到先跑：按计划点，再按配置顺序；名额未满才起，其余标排队等下一个 tick 接着试
     cands.sort(key=lambda c: (c["slot"], c["idx"]))
@@ -650,13 +713,13 @@ def tick():
             ms["note"] = "排队第 %d（等 %s 跑完）" % (
                 _queue_ahead(g, key, cands), _queue_blocker(g, mods))
             continue
-        spawn(key, m, c["slot"], st)
+        spawn(key, m, c["slot"], st, pulled=c["pulled"])
 
     # ③ 刷新状态
     for key, m in mods.items():
         ms = st["modules"].setdefault(key, {})
         ms["enabled"] = bool(m.get("enabled", True))
-        nx = compute_next(m.get("sched") or {}, now)
+        nx = _next_run_after(m.get("sched") or {}, now, ms.get("last_slot"))
         ms["next_run"] = nx.strftime("%Y-%m-%d %H:%M") if nx else "—"
         rec = PROCS.get(key)
         ms["running"] = rec is not None
@@ -1156,6 +1219,8 @@ def cmd_status():
             state = "运行中 %ss" % ms.get("elapsed", 0)
         elif ms.get("queued"):
             state = "排队"
+        elif ms.get("pulled_forward") and ms.get("last_status") == "ok":
+            state = "成功(提前)"
         print("  %-11s %-22s %-16s %-9s %-8s %s" %
               (k, (m.get("title") or "")[:20],
                ms.get("next_run") or "—",
