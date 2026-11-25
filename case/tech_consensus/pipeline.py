@@ -12,6 +12,7 @@ pipeline 决定。改流程时优先改这里，不要在两处各写一套。
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import sys
@@ -61,6 +62,19 @@ def fetch(ctx):
     ctx.market = data
     ctx.asof = asof
     ctx.log("标的 %d 个，最新交易日 %s" % (len(data), asof))
+    # 新鲜度：最新数据日 vs 今日。DATA_END 曾写死成 2026-12-31（#76-6），上游有新数据
+    # 也会被截断、报告照常生成只是越来越旧 —— 这里补一条显式告警，别让它静默。
+    try:
+        lag = (datetime.date.today()
+               - datetime.date.fromisoformat(asof)).days
+    except (TypeError, ValueError):
+        lag = None
+    if lag is not None and lag > data_fetch.STALE_DAYS:
+        ctx.warn("数据新鲜度偏低",
+                 ["最新数据日 %s，距今 %d 天（阈值 %d 天）"
+                  % (asof, lag, data_fetch.STALE_DAYS),
+                  "上游可能停更，或 TC_DATA_END 把取数上界配成了旧日期"],
+                 "warn")
 
 
 def render(ctx):

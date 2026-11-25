@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """宽基指数技术分析多空平日报 · 配置"""
+import datetime
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +22,36 @@ ETF_POOL = [
 
 # 数据范围（留足 EMA200 / MA160 / VMD60 / LAGS252 的预热）
 DATA_START = "2021-01-01"
-DATA_END = "2026-12-31"
+# 取数上界**不再写死日期**：DATA_END 同时是上游取数上界（dataHub/东财/tushare 的
+# end_date）和本地过滤上界，写死 "2026-12-31" 就等于给 2027 年以后的每一天都装了个
+# 时间炸弹 —— 上游明明有新数据，这里只取到 2026-12-31，报告照常生成、内容越来越旧。
+# 现在默认 = 当天（每次调用现算，跨年自动跟上），见 data_end()。
+# 需要固定窗口复现历史结果：环境变量 TC_DATA_END=YYYY-MM-DD；
+# 设为空字符串表示完全不设上界（下游按 None 处理，不会把 None 塞进接口参数）。
+DATA_END = os.environ.get("TC_DATA_END")
+
+
+def data_end(fmt="dash"):
+    """取数/过滤上界。默认当天；DATA_END 显式覆盖时以它为准。
+
+    fmt="dash"    → YYYY-MM-DD（本地过滤用）
+    fmt="compact" → YYYYMMDD  （上游接口 end_date 用）
+    返回 None = 不设上界：调用方按 None 决定**是否传这个参数**，不能把 None
+    直接交给 dataHub / akshare / tushare 的 end_date（它们不做 None 兜底）。
+    """
+    raw = DATA_END
+    if raw is None:
+        d = datetime.date.today()
+    else:
+        raw = str(raw).strip()
+        if not raw:
+            return None
+        try:
+            d = datetime.date.fromisoformat(raw.replace("/", "-"))
+        except ValueError:
+            raise SystemExit("TC_DATA_END 不是合法日期（YYYY-MM-DD）：%r" % raw)
+    return d.isoformat() if fmt == "dash" else d.strftime("%Y%m%d")
+
 
 # ---------------- 数据源：多级代理回退体系 ----------------
 # 顺序固定：新浪 -> 东方财富 -> 同花顺（AKShare 系） -> Tushare（TS 兜底）
