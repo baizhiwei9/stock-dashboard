@@ -1457,12 +1457,76 @@ def _re_md_bold(s: str) -> str:
                    for i, p in enumerate(html.escape(s).split("**")))
 
 
+def _re_fetch_meta() -> Dict:
+    """取 fetch_input.py 落盘的取数元数据（data/fetch_meta.json）。
+
+    用来判断本期真取了哪些字段、基准取数日是哪天；文件缺失就退回今天，
+    不阻断渲染——没跑过自动取数的旧部署也得能出页面。
+    """
+    import json as _json
+    p = os.path.join(HERE, "case", "realestate_daily", "data", "fetch_meta.json")
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = _json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _re_ref_date(meta: Dict):
+    """取数基准日：优先 fetch_meta.fetched_at，否则今天。"""
+    import datetime as _dt
+    s = str((meta or {}).get("fetched_at") or "")[:10]
+    try:
+        return _dt.date(int(s[:4]), int(s[5:7]), int(s[8:10]))
+    except (ValueError, IndexError):
+        return _dt.date.today()
+
+
+_RE_STALE_STYLE = ("font-style:normal;font-size:11px;color:#b03a2e;"
+                   "border:1px solid #e6b0aa;border-radius:3px;"
+                   "padding:0 5px;margin-left:6px;white-space:nowrap")
+
+
+def _re_stale(text: str, ref) -> str:
+    """按行内「截至 YYYY-MM-DD / YYYY-MM」判断过期，返回标记 HTML。
+
+    日频超 14 天、月频超 2 个月才算过期（月频数据 20 多天前是正常的，
+    拿日频阈值套月频会把正常的月度数据全标成过期）。
+    没有截止日的行同样标出来——读者无从判断它是什么时候的数。
+    「数据基准」是说明行而非数据行，跳过不标。
+    """
+    import datetime as _dt
+    import re as _re
+    if text.startswith("数据基准"):
+        return ""
+    m = _re.search(r"截至\s*(\d{4})-(\d{2})-(\d{2})", text)
+    if m:
+        try:
+            d = _dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return ""
+        days = (ref - d).days
+        if days <= 14:
+            return ""
+        return '<em style="%s">未更新 · %d 天前</em>' % (_RE_STALE_STYLE, days)
+    m = _re.search(r"截至\s*(\d{4})-(\d{2})(?!\d)", text)
+    if m:
+        months = (ref.year - int(m.group(1))) * 12 + (ref.month - int(m.group(2)))
+        if months <= 2:
+            return ""
+        return '<em style="%s">未更新 · %d 个月前</em>' % (_RE_STALE_STYLE, months)
+    return '<em style="%s">未标注截止日</em>' % _RE_STALE_STYLE
+
+
 def render_realestate_section() -> str:
     """地产栏 —— 按城市分两张子卡片：北京 / 上海。
 
     内容取自 ``case/realestate_daily/out/report.md`` 的「## 【北京】」「## 【上海】」
-    两节（每行自带数据截止日期，不另做加工）。子页在 sections.json 的
-    ``realestate.subs`` 里登记，``enabled`` 决定默认显隐。
+    两节（每行自带数据截止日期）。自动取数只覆盖汇率/利率/CPI/70 城，网签、
+    挂牌、租金仍是人工快照，所以对过期行显式标「未更新」，并在卡片顶部写明
+    本期取数日——宁可明说没有，也不让旧数混在新数里冒充最新。
+    子页在 sections.json 的 ``realestate.subs`` 里登记，``enabled`` 决定默认显隐。
     整块无数据 → 整块不渲染，与其它板块口径一致。
     """
     cities = _re_report_sections()
@@ -1474,21 +1538,31 @@ def render_realestate_section() -> str:
             subs = {x.get("key"): x for x in (s.get("subs") or [])}
             break
 
+    meta = _re_fetch_meta()
+    ref = _re_ref_date(meta)
+    fetched = str(meta.get("fetched_at") or "")[:10]
+    head = ('<div style="font-size:12px;color:#666;line-height:1.7;margin:0 0 10px 0">'
+            '自动更新：汇率 / 利率 / CPI / 70 城房价%s；'
+            '网签、挂牌量价、租金暂无自动源，标「未更新」的行沿用人工快照，'
+            '以行内截止日为准。</div>'
+            % ("（本期取数 %s）" % fetched if fetched else ""))
+
     cards = []
     for city, key in RE_CITY_SUBS:
         items = cities.get(city) or []
         if not items:
             continue
         d = 1 if (subs.get(key) or {}).get("enabled", True) else 0
-        lis = "".join('<li style="margin:0 0 10px 0">%s</li>' % _re_md_bold(x)
+        lis = "".join('<li style="margin:0 0 10px 0">%s%s</li>'
+                      % (_re_md_bold(x), _re_stale(x, ref))
                       for x in items)
         cards.append(
             '<section class="idx-card sec" id="%s" data-sec="%s" data-def="%d">'
             '<header><h3>%s <em>地产 · 城市基础数据</em></h3></header>'
-            '<div class="idx-body"><div class="blk">'
+            '<div class="idx-body"><div class="blk">%s'
             '<ul style="margin:0;padding-left:18px;line-height:1.75">%s</ul>'
             '</div></div></section>'
-            % (key, key, d, html.escape(city), lis))
+            % (key, key, d, html.escape(city), head, lis))
     return "".join(cards)
 
 
