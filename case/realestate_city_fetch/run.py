@@ -15,7 +15,7 @@
 
 **不再用 2 表达「部分成功」**：本任务是 cmd 模式，`scheduler._finish` 只看 `rc == 0`，
 2 同样会被记 fail。部分失败改由 `out/fetch.json` 的 `partial` / `failed` 与摘要顶部的
-「部分口径失败」提醒表达。
+「部分口径失败」/「本次无可用产出」提醒表达。
 """
 from __future__ import annotations
 
@@ -65,9 +65,14 @@ def _exit_code(res):
 def build_summary(res):
     """把库里的周度/月度拼成人读摘要。数据不足时明说不足，不四舍五入成整数糊过去。"""
     lines = ["# 京沪房产成交取数 %s" % (res.get("fetched_at") or "").split(" ")[0], ""]
-    if res.get("failed"):
-        lines.append("> **部分口径失败**：%s。其余口径可用（退出码仍为 0，仅此处提醒）。"
-                     % "、".join(res["failed"]))
+    failed = res.get("failed") or []
+    if failed:
+        if res.get("partial"):
+            lines.append("> **部分口径失败**：%s。其余口径可用（退出码 0，仅此处提醒）。"
+                         % "、".join(failed))
+        else:
+            lines.append("> **本次无可用产出**：%s 失败（退出码 1）。"
+                         % "、".join(failed))
         lines.append("")
 
     for city in ("BJ", "SH", "SH_NEW"):
