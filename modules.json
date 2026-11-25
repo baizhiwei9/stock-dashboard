@@ -7,6 +7,10 @@
     "password": "123456",
     "registry_key": "123456"
   },
+  "queue": {
+    "max_parallel": 1,
+    "note": "全局并发上限：1=一次只跑一个任务（串行），到点遇忙则排队等空档；groups 可给某组单独放开"
+  },
   "modules": [
     {
       "key": "macro",

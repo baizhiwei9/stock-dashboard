@@ -85,9 +85,86 @@ def heartbeat_age():
         return None
     return max(0, int(time.time()) - t)
 
+QUEUE_MAX_DEFAULT = 1   # 全局并发上限，默认 1＝一次只跑一个任务（modules.json 的 queue.max_parallel 可覆盖）
+QUEUE_NAME_DEFAULT = "default"
+ORPHANS = {}            # key -> pid：调度器被杀后仍存活的子进程，仍占队列名额，等它自己结束
+
 LOCK = threading.RLock()
 PROCS = {}             # key -> {proc, started, slot, logf}
 _STOP = threading.Event()
+
+
+def _queue_conf():
+    """读 modules.json 的 queue 配置：{"max_parallel": int, "groups": {组名: int}}。
+
+    缺省即「全局串行」（max_parallel=1）：一次只跑一个任务，其余排队等空档。
+    想让某组单独放开并发，写 queue.groups.<组名>；任务用 `queue` 字段归组（默认 default）。
+    """
+    q = (load_cfg() or {}).get("queue") or {}
+    try:
+        mx = int(q.get("max_parallel") or QUEUE_MAX_DEFAULT)
+    except (TypeError, ValueError):
+        mx = QUEUE_MAX_DEFAULT
+    groups = {}
+    for k, v in (q.get("groups") or {}).items():
+        try:
+            groups[str(k)] = max(0, int(v))
+        except (TypeError, ValueError):
+            continue
+    return {"max_parallel": max(0, mx), "groups": groups}
+
+
+def _queue_of(m):
+    """任务所属队列（默认 default）。"""
+    return str((m or {}).get("queue") or QUEUE_NAME_DEFAULT)
+
+
+def _queue_used(mods):
+    """当前占用：运行中的子进程 + 仍存活的孤儿（调度器被杀前起的那批）。返回 (总数, {组: 数})。"""
+    used, total = {}, 0
+    for key in list(ORPHANS.keys()):
+        if not _pid_alive(ORPHANS[key]):
+            ORPHANS.pop(key, None)
+            continue
+        g = _queue_of(mods.get(key))
+        used[g] = used.get(g, 0) + 1
+        total += 1
+    for key in list(PROCS.keys()):
+        g = _queue_of(mods.get(key))
+        used[g] = used.get(g, 0) + 1
+        total += 1
+    return total, used
+
+
+def _queue_room(g, mods, conf):
+    """该组还有没有名额：全局上限与组上限都得有空位。"""
+    total, used = _queue_used(mods)
+    if total >= conf["max_parallel"]:
+        return False
+    return used.get(g, 0) < conf["groups"].get(g, conf["max_parallel"])
+
+
+def _queue_blocker(g, mods):
+    """排队时说明在等谁：先同组，再全局；孤儿进程也点名（有任务没销毁就等它）。"""
+    same = [k for k in PROCS if _queue_of(mods.get(k)) == g]
+    if same:
+        return "/".join(same)
+    alive = [k for k, pid in ORPHANS.items() if _pid_alive(pid) and _queue_of(mods.get(k)) == g]
+    if alive:
+        return "/".join(alive) + "（孤儿进程）"
+    rest = list(PROCS.keys()) or [k for k, pid in ORPHANS.items() if _pid_alive(pid)]
+    return "/".join(rest) if rest else "前一个任务"
+
+
+def _queue_ahead(g, key, cands):
+    """排队序号：本组里排在自己前面的候选数 + 1（同组串行时的位置）。"""
+    n = 1
+    for c in cands:
+        if c["key"] == key:
+            break
+        if _queue_of(c["mod"]) == g:
+            n += 1
+    return n
 
 
 # ────────────────────────────── 基础读写 ──────────────────────────────
@@ -452,9 +529,12 @@ def _finish(key, rc, status, st):
     except OSError:
         pass
     with LOCK:
-        st["modules"].setdefault(key, {}).update({
+        ms = st["modules"].setdefault(key, {})
+        ms.pop("queued", None)
+        ms.pop("orphan_pid", None)
+        ms.update({
             "last_status": status, "exit": rc,
-            "duration": round(dur, 1), "running": False,
+            "duration": round(dur, 1), "running": False, "pid": None,
             "finished": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         })
         save_state(st)
@@ -493,10 +573,15 @@ def spawn(key, m, slot, st):
             log("启动失败 %s: %s" % (key, e))
             return False
         PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f}
-        st["modules"].setdefault(key, {}).update({
+        ORPHANS.pop(key, None)          # 该任务已由本进程接管，孤儿登记作废
+        ms = st["modules"].setdefault(key, {})
+        ms.pop("queued", None)          # 起跑即退出排队
+        ms.pop("orphan_pid", None)
+        ms.update({
             "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
             "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
             "last_status": "running", "running": True, "note": "",
+            "pid": p.pid,
         })
         save_state(st)
     log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
@@ -523,23 +608,49 @@ def tick():
             continue
         _finish(key, rc, "ok" if rc == 0 else "fail", st)
 
-    # ② 到点的起新任务
-    for key, m in mods.items():
+    # ② 到点的起新任务：串行队列 —— 名额没空就排队等（到点遇忙顺延，不跳过、不并发）
+    st.setdefault("modules", {})
+    for _ms in st["modules"].values():
+        _ms.pop("queued", None)              # 每 tick 重算排队状态，避免残留
+    conf = _queue_conf()
+    cands = []
+    for idx, (key, m) in enumerate(mods.items()):
         if not m.get("enabled", True) or key in PROCS:
             continue
         sched = m.get("sched") or {}
         slot = compute_slot(sched, now)
-        if slot is None or (now - slot).total_seconds() > GRACE_SEC:
+        if slot is None:
             continue
         slotkey = slot.strftime("%Y-%m-%d %H:%M")
-        if (st["modules"].get(key) or {}).get("last_slot") == slotkey:
+        ms = st["modules"].setdefault(key, {})
+        if (now - slot).total_seconds() > GRACE_SEC:
+            if ms.get("missed_slot") != slotkey:      # 超宽限只记一次，不再每 15 秒刷日志
+                ms["missed_slot"] = slotkey
+                ms["note"] = "超过宽限未执行（计划 %s，一直没轮到空档）" % slotkey
+                log("跳过 %s：计划点 %s 超出 %.0f 小时宽限" % (key, slotkey, GRACE_SEC / 3600))
+            continue
+        if ms.get("last_slot") == slotkey:
             continue
         deps = m.get("depends") or []
         waiting = [d for d in deps if d in PROCS]
         if waiting:
-            st["modules"].setdefault(key, {})["note"] = "等 %s 跑完" % "/".join(waiting)
+            ms["note"] = "等依赖 %s 跑完" % "/".join(waiting)
             continue
-        spawn(key, m, slot, st)
+        cands.append({"slot": slot, "idx": idx, "key": key, "mod": m})
+
+    # 先到先跑：按计划点，再按配置顺序；名额未满才起，其余标排队等下一个 tick 接着试
+    cands.sort(key=lambda c: (c["slot"], c["idx"]))
+    for c in cands:
+        key, m = c["key"], c["mod"]
+        g = _queue_of(m)
+        if not _queue_room(g, mods, conf):
+            ms = st["modules"].setdefault(key, {})
+            ms["queued"] = True
+            ms["queue"] = g
+            ms["note"] = "排队第 %d（等 %s 跑完）" % (
+                _queue_ahead(g, key, cands), _queue_blocker(g, mods))
+            continue
+        spawn(key, m, c["slot"], st)
 
     # ③ 刷新状态
     for key, m in mods.items():
@@ -551,9 +662,13 @@ def tick():
         ms["running"] = rec is not None
         if rec:
             ms["elapsed"] = round((now - rec["started"]).total_seconds())
+    _total, _used = _queue_used(mods)
     st["scheduler"].update({
         "pid": os.getpid(), "tick": now.strftime("%Y-%m-%d %H:%M:%S"),
         "running": len(PROCS), "mode": st["scheduler"].get("mode", "daemon"),
+        "queue": {"max_parallel": conf["max_parallel"], "groups": conf["groups"],
+                  "total_used": _total, "used": _used,
+                  "orphans": {k: p for k, p in ORPHANS.items() if _pid_alive(p)}},
     })
     save_state(st)
 
@@ -574,11 +689,22 @@ def _recover_interrupted():
     bad = [k for k, ms in mods.items() if (ms or {}).get("running")]
     if not bad:
         return
+    orphans = []
     for k in bad:
+        try:
+            pid = int(mods[k].get("pid") or 0)
+        except (TypeError, ValueError):
+            pid = 0
+        alive = bool(pid) and _pid_alive(pid)
+        if alive:
+            orphans.append(k)
+            ORPHANS[k] = pid        # 未销毁的子进程仍占队列名额，等它自己结束再放行
         mods[k].update({
             "running": False,
             "last_status": "interrupted",
-            "note": "上次调度器退出时该任务仍在运行（结果未知，已标记中断）",
+            "orphan_pid": pid if alive else None,
+            "note": ("上次调度器退出时该任务仍在运行；子进程 pid=%d 仍存活，继续占队列名额，等它结束后再放行" % pid)
+                    if alive else "上次调度器退出时该任务仍在运行（结果未知，已标记中断）",
         })
     sch = st.setdefault("scheduler", {})
     sch["recovered_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1011,6 +1137,12 @@ def cmd_status():
     print("调度器 %s" % _desc)
     print("  控制台 http://127.0.0.1:%s   tick=%s" %
           (api_conf().get("port") or DEFAULT_PORT, (st.get("scheduler") or {}).get("tick") or "—"))
+    _q = (st.get("scheduler") or {}).get("queue") or {}
+    if _q:
+        print("  队列 max_parallel=%s 在用=%s 孤儿=%s%s" % (
+            _q.get("max_parallel"), _q.get("total_used", 0),
+            len(_q.get("orphans") or {}),
+            ("（%s）" % ",".join(_q.get("orphans") or {})) if _q.get("orphans") else ""))
     print()
     print("  %-11s %-22s %-16s %-9s %-8s %s" %
           ("KEY", "模块", "下次", "状态", "上次耗时", "数据域"))
@@ -1022,6 +1154,8 @@ def cmd_status():
         state = ms.get("last_status") or "未跑"
         if k in PROCS:
             state = "运行中 %ss" % ms.get("elapsed", 0)
+        elif ms.get("queued"):
+            state = "排队"
         print("  %-11s %-22s %-16s %-9s %-8s %s" %
               (k, (m.get("title") or "")[:20],
                ms.get("next_run") or "—",

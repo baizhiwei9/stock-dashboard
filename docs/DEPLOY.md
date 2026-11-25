@@ -203,6 +203,33 @@ ls -l --time-style=full-iso logs/watchdog.hb
   里的 `scheduler.auto_retry_interrupted` 置 `true`，启动时会清空该任务 `last_slot`，
   在 6 小时宽限内补跑一次。
 
+### 7.1 排队与串行（编排）
+
+一次只跑一个任务，其余排队等空档——这样盘后同一段时间到点的几个任务不会并发去抢行情接口。
+
+```jsonc
+// modules.json 顶层
+"queue": { "max_parallel": 1, "groups": { "fetch": 2 } }   // 默认 1＝全局串行
+```
+
+| 行为 | 说明 |
+|---|---|
+| 到点遇忙 | 不跳过、不并发：排队任务不写 `last_slot`，每 15 秒重试，轮到自己才起 |
+| 顺延上限 | `GRACE_SEC` 6 小时；超过后在 `state.modules.<key>.note` 记「超过宽限未执行」并只在日志写一次 |
+| 接力粒度 | 约 `TICK_SEC`（15 秒）：前一个结束到下一个起跑最多隔 15 秒 |
+| 排序 | 按计划点先后，同点按 `modules.json` / `case/` 的配置顺序 |
+| 排队可见 | `scheduler.py status` 状态列「排队」；`state.scheduler.queue` = `{max_parallel, used, orphans}` |
+| 分组 | 任务写 `queue`（`task.json` 或 `modules.json`）；组上限取 `queue.groups.<组名>`，缺省随全局 |
+| 孤儿占位 | 调度器被 kill 后子进程仍存活 → 登记 `orphans` 占名额，等它结束才放行 |
+
+```bash
+# 看队列现状（有任务在跑/排队时）
+python3 scheduler.py status | head -3
+python3 -c "import json;s=json.load(open('state.json'));print(s['scheduler']['queue'])"
+```
+
+要提速就调 `max_parallel` 或按组拆开，别把队列关掉——关掉等于回到并发抢接口的老样子。
+
 ---
 
 ## 8. 私有任务挂载

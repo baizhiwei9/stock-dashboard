@@ -291,6 +291,12 @@
     "original_cwd": {
       "type": "string",
       "description": "迁移前源目录，仅溯源"
+    },
+    "queue": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]{2,20}$",
+      "default": "default",
+      "description": "串行队列名：调度器按 queue.max_parallel 限并发，名额满时同组任务排队等空档（到点遇忙顺延，落在 GRACE_SEC 宽限内仍会跑）"
     }
   }
 }

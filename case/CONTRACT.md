@@ -84,6 +84,12 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 | `requires` | `[]` | 外部依赖名，当前仅 `pylibs`（靠 `PYLIBS_DIR` 找） |
 | `deliver` | — | `{"report":bool,"email":bool}`，仅声明与牌面标注，框架不代发 |
 | `desc` | `""` | 一句话说明 |
+| `queue` | `default` | 串行队列名。调度器按 `modules.json` 的 `queue.max_parallel`（默认 `1`＝全局串行）限并发；名额满时同组任务排队等空档，**到点遇忙顺延，不跳过也不并发** |
+
+> 排队口径：到点但队列占满时不写 `last_slot`，每 15 秒重试，最长等到 `GRACE_SEC`（6 小时）；
+> 超过才放弃，并在 `state.modules.<key>.note` 记一句「超过宽限未执行」。
+> 调度器被 kill 后遗留的子进程（孤儿）同样占名额，等它自己结束才放行。
+> 接力粒度约等于 `TICK_SEC`（15 秒），短任务会有这点等待。
 
 ### pipeline 结构
 
