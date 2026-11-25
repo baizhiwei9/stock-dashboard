@@ -47,7 +47,8 @@ date
 │   ├── sd_watchdog.sh        # 看门狗（由 cron 每分钟调用，见第 7 节）
 │   ├── build.py              # 渲染 index.html
 │   ├── install.sh            # 安装门禁：补齐并校验敏感配置
-│   ├── config/               # 敏感配置（secrets.json 不入库，example 入库）
+│   ├── case/_lib/secrets.example.json  # 敏感配置模板（唯一真源，值不入库）
+│   │                         # 真实值在 ~/.config/stock-dashboard/secrets.json（仓外，600）
 │   ├── case/                 # 任务目录（public 任务）
 │   ├── docs/DEPLOY.md        # 本文
 │   ├── logs/                 # 运行时生成，不入库
@@ -106,7 +107,7 @@ export SD_ALERT_WEBHOOK=                                 # 可选：调度器拉
 | `SD_PYTHON` | 可选 | 看门狗用哪个解释器（默认 `python3`，venv 里要指过去） |
 | `SD_ALERT_WEBHOOK` | 可选 | 调度器连续拉不起来时的告警地址 |
 | `SD_ALERT_AT` | 可选 | 连续失败几次才告警（默认 3） |
-| `COZE_SECRETS` | 可选 | 显式指定敏感配置文件路径（默认 `<仓库>/config/secrets.json`） |
+| `COZE_SECRETS` | 可选 | 显式指定敏感配置文件路径（默认 `~/.config/stock-dashboard/secrets.json`） |
 | `COZE_SEC_<KEY>` | 可选 | 单项覆盖配置，如 `COZE_SEC_TUSHARE_TOKEN`；优先级高于配置文件 |
 
 ---
@@ -338,7 +339,7 @@ python3 scheduler.py status                     # 确认模块还在
 ## 11. 一次部署的自检清单
 
 - [ ] `date` 是 CST +0800
-- [ ] `./install.sh` 通过；`config/secrets.json` 存在且权限为 `600`
+- [ ] `./install.sh` 通过；`~/.config/stock-dashboard/secrets.json` 存在且权限为 `600`
 - [ ] `python3 case/_tools/check_secrets.py` 返回 0
 - [ ] `index.html` 里搜不到明文管理密码 / 注册密钥
 - [ ] `python3 scheduler.py status` 能列出全部 key（含私有任务）
