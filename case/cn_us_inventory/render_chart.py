@@ -44,7 +44,9 @@ def _load_switches(path):
     return out
 
 
-BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7d65e97affeGRaKRrqXn281SL"
+# 原指向 ses_gffe5e7d65...（空目录，无任何数据）。改为本 case 目录，
+# data/ 下的 csv/json 才是实际在用的那一份。
+BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = BASE + "/data"
 OUT_PNG = BASE + "/中美库存周期图表.png"
 FONT = font_path()        # workspace/.fonts → 系统 Noto CJK

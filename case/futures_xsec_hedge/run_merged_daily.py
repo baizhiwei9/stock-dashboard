@@ -25,15 +25,31 @@ import datetime
 import json
 import subprocess
 import sys
+import os
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-ARB_ROOT = Path("/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/"
-                "workspace/ses_gffe5f1ccd0618ffeKX1Rj18bKwesPI/commodity_spread_scanner")
-sys.path.insert(0, str(ARB_ROOT))
+# 跨品种套利单元依赖外部仓库 commodity_spread_scanner。
+# 原写死的 ses_gffe5f1ccd.../commodity_spread_scanner 在现环境下不存在，
+# 之前是静默 sys.path 加一个空路径 → import 时才炸，报错信息还指不到根因。
+# 改成：候选位置逐个探测，都没有就明确告警并跳过套利单元（横截面对冲不受影响）。
+_ARB_CANDS = [
+    os.environ.get("ARB_ROOT", ""),
+    str(Path(__file__).resolve().parent / "commodity_spread_scanner"),
+    str(Path(__file__).resolve().parent.parent.parent / "commodity_spread_scanner"),
+]
+ARB_ROOT = next((Path(p) for p in _ARB_CANDS
+                 if p and (Path(p) / "commodity_spread_scanner").is_dir()
+                 or p and Path(p).is_dir() and (Path(p) / "__init__.py").exists()
+                 or p and Path(p).is_dir() and any(Path(p).glob("*.py"))), None)
+if ARB_ROOT is not None:
+    sys.path.insert(0, str(ARB_ROOT))
+else:
+    print("[warn] 未找到 commodity_spread_scanner，跨品种套利单元将跳过"
+          "（横截面对冲不受影响）。需要时用 ARB_ROOT 环境变量指定。")
 
 
 # --------------------------------------------------------------------------
