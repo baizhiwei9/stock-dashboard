@@ -1,0 +1,166 @@
+{
+  "key": "nowcast_daily",
+  "title": "美国 Nowcast（GDP / 通胀实时预测）",
+  "desc": "每天 23:10（美东 10:10 EST / 11:10 EDT）取 GDPNow / NY Fed / WEI / 克利夫兰通胀 nowcast，指标落 US.NOWCAST；本任务不判阈值、不发预警邮件（预警由 DataHub nowcast_alert 以「较上次取数」口径统一发出）。",
+  "section": "macro",
+  "metrics": [
+    {
+      "key": "nowcast.gdpnow",
+      "sec": "US.NOWCAST",
+      "name": "亚特兰大联储GDPNow",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.nyfed",
+      "sec": "US.NOWCAST",
+      "name": "纽约联储Staff Nowcast",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.nyfed.lb",
+      "sec": "US.NOWCAST",
+      "name": "纽约联储Nowcast 80%下限",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.nyfed.ub",
+      "sec": "US.NOWCAST",
+      "name": "纽约联储Nowcast 80%上限",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.wei",
+      "sec": "US.NOWCAST",
+      "name": "达拉斯联储WEI",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.cpi_yoy",
+      "sec": "US.NOWCAST",
+      "name": "克利夫兰CPI同比nowcast",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.core_cpi_yoy",
+      "sec": "US.NOWCAST",
+      "name": "克利夫兰核心CPI同比nowcast",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.pce_yoy",
+      "sec": "US.NOWCAST",
+      "name": "克利夫兰PCE同比nowcast",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.core_pce_yoy",
+      "sec": "US.NOWCAST",
+      "name": "克利夫兰核心PCE同比nowcast",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.core_pce_qann",
+      "sec": "US.NOWCAST",
+      "name": "克利夫兰核心PCE季折年nowcast",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.gdpnow.chg_1w",
+      "sec": "US.NOWCAST",
+      "name": "GDPNow周变动",
+      "unit": "pp",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.nyfed.chg_1w",
+      "sec": "US.NOWCAST",
+      "name": "纽约联储Nowcast周变动",
+      "unit": "pp",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.wei.chg_1w",
+      "sec": "US.NOWCAST",
+      "name": "WEI周变动",
+      "unit": "pp",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.core_pce_yoy.chg_1m",
+      "sec": "US.NOWCAST",
+      "name": "核心PCE nowcast月变动",
+      "unit": "pp",
+      "dec": 2
+    },
+    {
+      "key": "nowcast.cpi_yoy.chg_1m",
+      "sec": "US.NOWCAST",
+      "name": "CPI nowcast月变动",
+      "unit": "pp",
+      "dec": 2
+    }
+  ],
+  "sched": {
+    "mode": "daily",
+    "at": "23:10",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "not_before": "23:10",
+  "cmd": "python3 -u run.py",
+  "cwd": ".",
+  "timeout": 900,
+  "enabled": true,
+  "visibility": "public",
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "requires": [],
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 40,
+    "min_ok_ratio": 0.5,
+    "require_data": false,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/report.md",
+        "out/points.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 900
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      }
+    ]
+  },
+  "build_workers": false
+}
