@@ -22,7 +22,9 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import html
+import json
 import os
 import shutil
 import sys
@@ -45,13 +47,21 @@ if os.path.join(CASE_DIR, "_lib") not in sys.path:
     sys.path.insert(0, os.path.join(CASE_DIR, "_lib"))
 import case_registry as R                                    # noqa: E402  只读 task.json
 
+# task.json 没写 section / section_domain 的任务：不丢，单独归到「未分板块」
+UNSORTED = "unsorted"
 SECTION_ORDER = ("stock", "futures", "realestate", "macro",
-                 "liquidity", "bond", "option", "risk", "modules")
+                 "liquidity", "bond", "option", "risk", "modules", UNSORTED)
 # 私有任务的 section_domain 可能超出面板板块（如 credit 落在债券信用下）
-SECTION_ALIAS = {"credit": "bond"}
+SECTION_ALIAS = {"credit": "bond", "credit_spread": "bond", "macro_watch": "macro"}
 IMG_DIRS = ("out", "charts", "runs", "output", "figures", "reports", "assets", "data")
 IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif")
 SKIP_DIRS = {"thumb", "__pycache__", ".git", "venv", "node_modules"}
+
+# sections.json 里没有的板块（未归类）在本页的标题
+EXTRA_SECTIONS = {
+    UNSORTED: {"num": "—", "title": "未分板块",
+               "sub": "私有仓里没写 section / section_domain 的任务，先按原样列出"},
+}
 
 EXTRA_CSS = """
 /* ── 私有任务卡 / 图片区 / 灯箱 ── */
@@ -187,24 +197,72 @@ def _metrics_from_latest(task_dir: str) -> List[Dict]:
     return out
 
 
+def _task_roots() -> List[Tuple[str, bool]]:
+    """任务根目录：本仓 case/（public）在前，CASE_EXTRA_DIRS 挂进来的私有仓在后。"""
+    roots: List[Tuple[str, bool]] = [(CASE_DIR, False)]
+    raw = (os.environ.get("CASE_EXTRA_DIRS") or "").replace(";", ":")
+    for p in raw.split(":"):
+        p = p.strip()
+        if p and os.path.isdir(p) and all(os.path.abspath(p) != os.path.abspath(r) for r, _e in roots):
+            roots.append((p, True))
+    return roots
+
+
+def _scan_tasks() -> List[Tuple[str, Dict, bool]]:
+    """扫 `case/<key>/task.json` 与 `case/<群>/<key>/task.json`（两层）。
+
+    私有仓新的组织方式把几个宏观周报收在 `macro_watch/<key>/` 这种容器目录下，所以要多扫一层；
+    容器本身没有 task.json，自然跳过。返回 (任务目录, task.json, 是否来自私有仓)。
+    """
+    seen, out = set(), []
+    for root, is_extra in _task_roots():
+        for pattern in ("*/task.json", "*/*/task.json"):
+            for tj in sorted(glob.glob(os.path.join(root, pattern))):
+                d = os.path.dirname(tj)
+                base = os.path.basename(d)
+                if base.startswith(("_", ".")):
+                    continue
+                try:
+                    with open(tj, encoding="utf-8") as f:
+                        t = json.load(f)
+                except (OSError, ValueError):
+                    continue
+                key = str(t.get("key") or base).strip() or base
+                if key in seen:
+                    continue            # 同名任务先扫到的生效（与本仓 case/ 优先一致）
+                seen.add(key)
+                out.append((d, t, is_extra))
+    return out
+
+
 def workers() -> List[Dict]:
+    """本页只出私有任务：私有仓挂进来的全部任务 + 本仓 case/ 里写了 visibility=private 的。
+
+    私有仓里没写 visibility 的（老任务常见）按私有处理——它本来就不会进公开看板。
+    """
     out: List[Dict] = []
-    for t in R.load_tasks(CASE_DIR, only_enabled=False):
-        if t.get("_errors"):
+    for d, t, is_extra in _scan_tasks():
+        vis = str(t.get("visibility") or "").strip().lower()
+        if vis in ("private", "internal"):
+            is_private = True
+        elif vis == "public":
+            is_private = False
+        else:
+            is_private = is_extra
+        if not is_private:
             continue
-        if R.visibility_of(t) != "private":
-            continue                       # 只展示私有任务，公有任务留在公开看板
-        sec = _section_of(t)
-        if sec not in R.SECTIONS:
-            continue
+        sec = _section_of(t) or UNSORTED
+        if sec not in SECTION_ORDER:
+            continue                    # 板块名不认识（既不是已知 Tab 也不是 unsorted）
         metrics = [m for m in (t.get("metrics") or [])
                    if isinstance(m, dict) and m.get("key")]
-        metrics = metrics or _metrics_from_latest(t["_dir"])
+        metrics = metrics or _metrics_from_latest(d)
         out.append({
-            "key": t["key"], "title": t.get("title") or t["key"],
+            "key": str(t.get("key") or os.path.basename(d)),
+            "title": t.get("title") or os.path.basename(d),
             "desc": t.get("desc") or "", "sec": sec,
             "sched": t.get("sched"), "metrics": metrics,
-            "dir": t["_dir"], "enabled": bool(t.get("enabled", True)),
+            "dir": d, "enabled": bool(t.get("enabled", True)),
         })
     out.sort(key=lambda w: (SECTION_ORDER.index(w["sec"]), w["key"]))
     return out
@@ -396,6 +454,7 @@ def build_view(out_path: str, with_images: bool = True, max_images: int = 6,
 
     cfg = B.load_sections(os.path.join(ROOT, "sections.json"))
     meta = {x["key"]: x for x in (cfg.get("sections") or [])}
+    meta.update(EXTRA_SECTIONS)          # 未分板块等只在本页出现的板块
 
     nav, blocks, n_img = [], [], 0
     for sec in SECTION_ORDER:
