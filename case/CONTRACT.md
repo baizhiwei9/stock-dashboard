@@ -218,6 +218,22 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 
 ---
 
+## 七之二、模型资产与训练兜底
+
+任务依赖模型（权重、元数据、特征工程产物）时，按三条做：
+
+1. **资产随任务入库，且只入私有仓。** `data/` 默认被 `.gitignore` 忽略（那是运行产物的位置）。确实需要入库的任务，在 `.gitignore` 里**显式放行该任务的 `data/` 子目录**并注明是什么模型。模型权重属于策略资产，进 `precious-task`，不进公开仓；公开仓若还留着同名任务，删掉它——预测类任务的产物不需要公开。
+2. **必须有训练/初始化入口。** 任务根下放 `train_model.py`（或 `train.py`），要求：
+   - 产出的文件名与形状**与推理端读取的完全一致**，训练完能直接加载；
+   - 默认跳过已存在的文件，只补缺失部分，`--force` 才全量重训；
+   - 标签数据走**与本任务运行时相同的取数链路**（DataHub），本地文件只作离线回退；
+   - 数据缺失时明确报错说明缺口，不静默产出一个假模型。
+3. **推理入口做兜底，不要直接抛 `FileNotFoundError`。** 读模型前先检查资产是否齐全，缺了就调训练入口补齐再加载。权重没随仓库带过来时任务能自举，而不是整条链路挂掉。
+
+参考实现：`precious-task` 的 `bond_three_factor` —— `data/bond_yield/{assets,features}` + `train_model.py` + `data.ensure_assets()`。
+
+---
+
 ## 八、最小示例
 
 `case/_template/` 是一份可直接复制改名的最小任务：`task.json` + 五个几行的脚本，
