@@ -11,8 +11,7 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | 文件 | 作用 |
 |---|---|
 | `build.py` | 生成 `index.html`（唯一渲染入口，纯 Python，无前端框架） |
-| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑；**业务任务不写 crontab**，只用一条 cron 巡检本进程存活（见「调度与守护」） |
-| `sd_watchdog.sh` | scheduler 看门狗：cron 每分钟调一次，按心跳判定存活，未运行/僵死则拉起、重启，连续失败才告警 |
+| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑，**不用 crontab** |
 | `manager.py` | 命令行运维：模块清单 / 体检 / 手动跑 / 启停 / 板块显隐 |
 | `modules.json` | 模块与调度配置，**含密码与注册密钥**（入库方便改；对外公开前必须先改） |
 | `sections.json` | Tab 与子类结构 |
@@ -21,6 +20,12 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | `run_daily.sh` | 一次性全量刷新 |
 
 ## 快速开始
+
+> **部署到新机器？先看 [DEPLOY.md](DEPLOY.md)，第一步必须跑 `python3 setup.py`。**
+> 飞书凭据（APP ID / APP Secret / Webhook）已从代码中移除，改为安装门禁：凭据没配、
+> 配错、或配了连不通飞书，`setup.py` 返回非 0，安装不应继续。运行期 `runner.py` 也会在
+> 任务启动时预检凭据，避免跑到最后一步的推送阶段才失败。
+
 
 ```bash
 # 改 modules.json 里的 api.password / api.registry_key（初始都是 123456，务必改掉）
@@ -95,15 +100,9 @@ python3 manager.py list                      # 清单里 case 任务标 case
 打包到其他服务器：整目录拷过去，`PYTHONPATH` 指到 DataHub 根，`python3 scheduler.py fg` 即可。
 `cwd` 全部相对，不绑死本机绝对路径。细节见 [case/README.md](case/README.md)。
 
-要脱离终端常驻，别用 `nohup`（工具调用结束会连带清掉派生的子进程），改由 `sd_watchdog.sh`
-加一条 cron 拉起，见「调度与守护」。
-
-新机器从零部署——前置条件、目录布局、环境变量、首次配置、cron 守护、故障排查、升级回滚——
-看 **[docs/DEPLOY.md](docs/DEPLOY.md)**。
-
 ## 调度
 
-业务任务不再逐条写 crontab：`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
+弃用 crontab。`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
 
 | 模块 | 时间 | 说明 |
 |---|---|---|
@@ -124,71 +123,8 @@ python3 manager.py list                      # 清单里 case 任务标 case
 | limit_up_noon | 12:00 | 涨停预测 · 午盘（每日一次） |
 
 后 4 个原来是 crontab 里的独立行，现在归 scheduler 管，统一包一层
-`data_hub.tech.health_run`：单次失败静默、连败 5 次才发一封邮件、成功一次清零。
-
-### 调度与守护（唯一需要的一条 cron）
-
-业务任务不需要巡检 crontab，但 **scheduler 进程本身需要**：它是单点常驻进程，被 kill 后
-所有任务都不会再被触发。所以留一条 cron 专门守护它，每分钟一次：
-
-```bash
-* * * * * /path/to/stock-dashboard/sd_watchdog.sh >/dev/null 2>&1
-```
-
-看门狗不碰业务，只做三件事：
-
-1. 用 `scheduler.py health` 判定：`0`=健康 / `1`=未运行 / `2`=僵死（进程还在，但心跳
-   `logs/scheduler.hb` 超过 3 分钟没更新）。心跳由调度循环每 tick 写，**比 pid 更能代表
-   "真的在调度"**；僵死走 `restart`（`start` 会因「已在运行」而空转）。
-2. 拉起后再查一次；连续 `SD_ALERT_AT` 次（默认 3）拉不起来才告警，避免每分钟刷屏。配了
-   `SD_ALERT_WEBHOOK`（钉钉/飞书自定义机器人）才推送，否则只写 `logs/watchdog.log`。
-3. 健康时只更新 `logs/watchdog.hb`（最后巡检时间），日志保持安静 —— 想确认 cron 这行还在
-   跑，看这个文件的时间即可。
-
-几件容易踩的事：
-
-- **漏跑窗口 = `GRACE_SEC` 6 小时**：scheduler 一分钟内被拉起时任务照常补跑；停摆超过 6 小时
-  才会静默跳过（日志能看到该 slot 未执行）。
-- **半途被杀**：子进程句柄只在内存里，新进程收不回来，`state.json` 会留下 `running=true`。
-  启动时统一标记 `interrupted` 并写 `scheduler.recovered_tasks`，不再让它假装「跑完了」。
-  默认**不自动重跑**（报告类任务重跑会重复推送飞书/邮件）；确认任务幂等后可把 `state.json`
-  里 `scheduler.auto_retry_interrupted` 置 `true`，启动时清空该任务 `last_slot`，在宽限内补跑一次。
-- **看门狗要能拉起自己**：脚本用 `BASH_SOURCE` 定位自身目录，不写死绝对路径；cron 那行的路径
-  换成你的实际部署路径即可，换机器不用改脚本。
-
-### 排队与串行（编排）
-
-原来到点的任务各自起进程，同一分钟到点的几个会并发去抢行情接口。现在默认 **全局串行**：
-一次只跑一个，其余进队列，等前一个结束再跑（`modules.json` 的 `queue.max_parallel`，默认 `1`）。
-
-- **到点遇忙不跳过、不并发**：排队任务不写 `last_slot`，每 15 秒的 tick 重新试，直到轮到自己；
-  最长等到 `GRACE_SEC`（6 小时）才放弃，并在 `state.modules.<key>.note` 留一句
-  「超过宽限未执行（计划 …）」。
-- **接力粒度 ≈ `TICK_SEC`（15 秒）**：前一个任务结束后，下一个最多 15 秒才起；
-  盘后几分钟级以上的任务可忽略，纯秒级短任务会有这点等待。
-- **排队可见**：`scheduler.py status` 的状态列显示「排队」，`state.modules.<key>.note` 写明
-  「排队第 N（等 xxx 跑完）」，`state.scheduler.queue` 汇总 `max_parallel / used / orphans`。
-- **分组**：任务可写 `queue`（`task.json` 或 `modules.json`），要给某组单独放开并发就配
-  `queue.groups.<组名>`；不写则全在 `default` 组（即全局串行）。
-- **孤儿进程也算占用**：调度器被 kill 后子进程还在跑，重启时会登记成孤儿（`orphans`），
-  继续占名额，等它自己结束才放行 —— 也就是「有任务没销毁就等它」。
-
-代价说清楚：串行会让盘后那一串任务排成一条线，整体跑完比并发晚，换来的是不会同时打接口、
-不会两个任务同时写同一份数据。排不下时先调 `max_parallel` 或拆组，而不是关掉队列。
-
-#### 空档提前跑（pull-forward）
-
-不必卡点：队列空着、而下一个任务离自己的计划点还有大段空档时，直接把它提前拉进来跑，
-后面的依次顶上，盘后那一串就串起来了——只要求「当天跑掉、报告拿得到」。
-
-- **生效范围**：`queue.pull_forward`（默认 `true`）+ `queue.pull_forward_from`（默认 `"16:00"`）
-  + `queue.pull_ahead_min`（默认 `240`）。只在 16:00 之后、最多提前 4 小时；早晨/午间任务照旧
-  按点跑，深夜任务不会被拉到下午。
-- **数据就绪兜底**：任务可写 `not_before`（如 `"18:30"`）。早于这个点不提前跑，到自己的
-  `at` 仍照常执行。不确定某任务的数据几点就绪，就给它配上。
-- **去重不变**：提前跑仍以**当天计划点**写 `last_slot`，到点不会再跑第二遍；
-  `state.modules.<key>.pulled_forward=true` 记它这次是提前的，`scheduler.py status` 显示「成功(提前)」。
-- **关掉**：`queue.pull_forward: false` 即回到「严格到点才跑」。
+`data_hub.tech.health_run`：单次失败静默、连败 5 次才发一封邮件、成功一次清零，
+不需要额外的巡检 crontab。
 
 ## 注册机制
 
@@ -198,9 +134,11 @@ python3 manager.py list                      # 清单里 case 任务标 case
 2. 进后台待审批列表
 3. 管理页用管理密码批准 → 出现在看板
 
-双密钥分开：`X-SD-PW` 管管理动作，`X-SD-KEY` 只管注册。两者都在 `modules.json` 的 `api` 段。
+双密钥分开：`X-SD-PW` 管管理动作，`X-SD-KEY` 只管注册。两者都不在 `modules.json` 里——
+统一放在 `~/.config/stock-dashboard/secrets.json` 的 `scheduler` 段（`password` / `registry_key`），
+由安装脚本 `python3 setup.py` 强制录入，弱口令直接拒收。详见 [DEPLOY.md](DEPLOY.md) §3.3。
 
-初始值都是 `123456`，跟仓库一起提交是为了改起来方便——**这个仓库一旦要转公开，先改掉这两个值**。
+改密码：`python3 manager.py sections pw '<新密码>'` → `python3 scheduler.py restart`。
 
 ## 给 Agent 读：JSON 快照
 

@@ -128,7 +128,7 @@ def load_all(asof: Optional[str] = None) -> Tuple[Dict, Dict, Optional[str]]:
     ext_latest.update(read_latest(BOND_KEYS, [BOND_SEC], asof=asof))
     latest.update(ext_latest)
 
-    # 期权 / 波动率：按标的 + 虚拟标的（空串）
+    # 期权 / 波动率 / 顶底：按标的 + 虚拟标的（空串）
     _o = read_latest(OPTION_KEYS + VOL_KEYS, OPT_IDS, asof=asof)
     _o.update(read_latest(["vol.surface_risk_count"], [""], asof=asof))
     latest.update(_o)
@@ -917,7 +917,7 @@ table.mod-tab.fut td:nth-child(2){font-variant-numeric:tabular-nums}
 
 JS_ADMIN = r"""
 (function(){
-  var PW = "__PW__";
+  var PW = __PW__;   // null = 页面不存密码，纯防误触（真实鉴权在服务端 X-SD-PW）
   var KEY = "sd_vis_v1";
   var btn = document.getElementById("admBtn");
   var mask = document.getElementById("admMask");
@@ -961,7 +961,7 @@ JS_ADMIN = r"""
   mask.onclick = function(e){ if (e.target === mask) close(); };
 
   document.getElementById("admGo").onclick = function(){
-    if (pw.value === PW){
+    if (PW === null || pw.value === PW){
       sessionStorage.setItem("sd_adm","1");
       gate.style.display="none"; panel.style.display="block";
       err.textContent=""; pw.value="";
@@ -1435,7 +1435,8 @@ def load_sections(path: str) -> Dict:
         with open(path, encoding="utf-8") as f:
             return _json.load(f)
     except (OSError, ValueError):
-        return {"password": "123456", "sections": []}
+        # 读不到 sections.json 就当作「全部板块默认显示」，绝不带任何密码兜底
+        return {"sections": []}
 
 
 def sec_style(enabled: bool) -> str:
@@ -1669,7 +1670,7 @@ def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
 #
 # 主人 2026-11-25：标签除了股票/期货/地产/宏观/流动性，还可以往上扩。
 # 这里扩「期权」和「风险」两块，数据全部来自指标仓 option.* / vol.* /
-# risk.* / struct.* / style.* / midline.*，
+# bottom.* / risk.* / struct.* / style.* / midline.*，
 # 页面只读不判断，风险等级一律用指标自带的标签（rbadge）。
 # ════════════════════════════════════════════════════════════════
 
@@ -1709,7 +1710,8 @@ def render_option_section(latest: Dict, series: Dict,
     ]
     pairs = [(k, s) for s in OPT_IDS for _n, k, _d, _u in cols]
     pairs += [("vol.surface_state", s) for s in OPT_IDS]
-    pairs += [("vol.surface_risk_count", "")]
+    pairs += [("bottom.position", ""), ("bottom.triggered", ""),
+              ("bottom.prediction", ""), ("vol.surface_risk_count", "")]
     if not any_val(latest, pairs):
         return "", []        # 整块无数据 → 不渲染
 
@@ -2075,11 +2077,9 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
         on = m.get("enabled", True)
         lstat = ms.get("last_status") or ""
         st_cls = {"ok": "up", "timeout": "down", "fail": "down",
-                  "stopped": "down", "interrupted": "mid"}.get(lstat, "sm")
+                  "stopped": "down"}.get(lstat, "sm")
         st_txt = {"ok": "成功", "timeout": "超时", "fail": "失败",
-                  "stopped": "已停", "interrupted": "中断"}.get(lstat, "—")
-        if ms.get("queued"):
-            st_cls, st_txt = "mid", "排队"
+                  "stopped": "已停"}.get(lstat, "—")
         if m.get("_config_error"):
             st_cls, st_txt = "down", "配置错误"
         dur = ("%ss" % ms["duration"]) if ms.get("duration") else "—"
@@ -2333,13 +2333,16 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
                 % (sm["key"], " checked" if sm.get("enabled", True) else "",
                    html.escape(sm["title"])))
     adm_html = "".join(adm_rows)
-    adm_pw = html.escape(str(SEC.get("password") or "123456"))
+    # 页面是公开的（publish.sh 发布），绝不能把管理密码写进 HTML。
+    # 前端门锁只防误触，真实鉴权走服务端 X-SD-PW。
+    adm_pw = "null"
     try:
         _mc = json.load(open(os.path.join(HERE, "modules.json"), encoding="utf-8"))
         _api = _mc.get("api") or {}
     except (OSError, ValueError):
         _api = {}
-    adm_key = html.escape(str(_api.get("registry_key") or _api.get("password") or "123456"))
+    # 注册密钥同样不能进页面：需要的人从控制台 /api/registry（要密码）取
+    adm_key = "向管理员索取"
     adm_port = int(_api.get("port") or 8767)
 
     erp_html, erp_script = render_erp_card(latest, series, obs)
@@ -2485,14 +2488,15 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         <button data-act="reset">恢复默认</button>
         <button data-act="exit" class="adm-primary">完成</button>
       </div>
-      <p class="adm-note">这里是前端门锁（密码 <code>{adm_pw}</code>），只防误触，不是服务端鉴权。<br>
-      要让所有人生效，改 <code>sections.json</code> 后重新构建发布。</p>
+      <p class="adm-note">这里的门锁只防误触，不是服务端鉴权——所以页面里不存任何密码。<br>
+      管理密码与注册密钥统一放在部署机的 <code>~/.config/stock-dashboard/secrets.json</code>，<br>
+      用 <code>python3 manager.py sections pw</code> 修改。要让所有人生效，改 <code>sections.json</code> 后重新构建发布。</p>
 
       <div class="adm-sec-h">外部模块接入 <em>注册密钥 {adm_key}</em></div>
       <div id="regBox"><p class="adm-note">加载中…</p></div>
       <details class="adm-spec">
         <summary>接口规范（POST /api/register）</summary>
-        <p class="adm-note">请求头 <code>X-SD-KEY: {adm_key}</code>，body 为 JSON：</p>
+        <p class="adm-note">请求头 <code>X-SD-KEY: $SD_KEY</code>（密钥向管理员索取），body 为 JSON：</p>
         <table class="mod-tab spec"><tbody>
         <tr><td><code>tab</code></td><td>挂到哪个大类 Tab，如 <code>macro</code>；写新名字就新建一个大类</td></tr>
         <tr><td><code>key</code></td><td>model 唯一键，字母开头，如 <code>my_indicator</code></td></tr>
@@ -2505,7 +2509,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         <tr><td><code>timeout</code></td><td>超时秒数（可选，默认 1800）</td></tr>
         </tbody></table>
         <p class="adm-note">curl 示例：<br>
-        <code>curl -X POST -H 'X-SD-KEY: {adm_key}' -H 'Content-Type: application/json' \\<br>
+        <code>curl -X POST -H "X-SD-KEY: $SD_KEY" -H 'Content-Type: application/json' \\<br>
         &nbsp;&nbsp;-d '{{"tab":"macro","key":"my_ind","title":"我的指标","sched":{{"at":"21:30","weekdays":[1,2,3,4,5]}},"cmd":"python3 /path/x.py"}}' \\<br>
         &nbsp;&nbsp;http://&lt;主机&gt;:8767/api/register</code></p>
         <p class="adm-note">提交后是 <b>pending</b>，在上面的列表点「批准」才会显示和调度。</p>
