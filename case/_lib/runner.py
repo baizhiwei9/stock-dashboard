@@ -459,8 +459,12 @@ def main(argv: List[str]) -> int:
         stages = stages[stages.index(a.from_stage):]
 
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # data/ out/ logs/ 都不入库，新机器上首次跑时目录不存在。
+    # 任务里常见 os.listdir("data/md") 这种写法，目录缺了直接 FileNotFoundError，
+    # 所以进阶段之前统一建好，别让每个任务自己记得 makedirs。
+    for _sub in ("data", "out", "logs"):
+        os.makedirs(os.path.join(task["_dir"], _sub), exist_ok=True)
     run_dir = os.path.join(task["_dir"], "logs")
-    os.makedirs(run_dir, exist_ok=True)
     logp = os.path.join(run_dir, "run-%s.log" % run_id)
     logf = open(logp, "a", encoding="utf-8")
     started = time.time()
