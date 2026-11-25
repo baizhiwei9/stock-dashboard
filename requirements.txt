@@ -1,0 +1,89 @@
+# stock-dashboard · dumate 分支的运行依赖
+#
+# 来源：原 DuMate 环境 pylibs/ 下 84 个 *.dist-info 的快照（2026-11-24，75 个包去重取高版本）
+# 说明：case 任务只用到其中一个子集（akshare/baostock/numpy/pandas/matplotlib/PyEMD/POT/lightgbm 等），
+#       这里给全量快照是为了在一台干净机器上一次装齐，避免跑起来才一个个补。
+#
+# 两种用法选一种：
+#   1) pip install -r requirements.txt
+#   2) export PYLIBS_DIR=/path/to/pylibs    # 指到已有的依赖目录，不重复安装
+#
+# case 里 21 个任务的 task.json 带 "requires": ["pylibs"]，命令前缀是
+#   PYTHONPATH="${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:."
+# 所以走法 2 时必须设 PYLIBS_DIR；走法 1 装进 site-packages 后可把该前缀去掉。
+
+akracer==0.0.14
+akshare==1.18.94
+baostock==0.9.3
+beautifulsoup4==4.15.0
+bs4==0.0.2
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.1
+cloudpickle==3.1.2
+contourpy==1.4.0
+curl_cffi==0.16.3
+cycler==0.12.1
+Cython==3.3.0
+decorator==5.3.1
+Deprecated==3.0.0
+dill==0.4.1
+EMD-signal==1.10.0
+et_xmlfile==2.0.0
+fonttools==4.66.0
+greenlet==3.5.6
+hopcroftkarp==1.2.5
+html5lib==1.1
+idna==3.19
+joblib==1.6.0
+jsonpath==0.82.2
+kiwisolver==1.5.1
+lightgbm==4.7.0
+llvmlite==0.50.0
+lxml==6.1.3
+matplotlib==3.11.2
+multiprocess==0.70.19
+narwhals==2.27.1
+numba==0.68.0
+numpy==2.5.4
+nvidia-nccl-cu13==2.31.2
+openpyxl==3.1.5
+packaging==26.3
+pandas==3.0.6
+pathos==0.3.5
+persim==0.3.8
+pillow==12.3.0
+playwright==1.64.0
+POT==0.9.7.post1
+pox==0.3.7
+ppft==1.7.8
+py-mini-racer==0.6.0
+pycparser==3.0
+pyee==14.0.0
+pyemd==2.0.0
+pynndescent==0.6.0
+pyparsing==3.3.3
+python-dateutil==2.9.0.post0
+PyWavelets==1.10.0
+requests==2.34.2
+ripser==0.6.15
+scikit-learn==1.9.1
+scipy==1.18.1
+shap==0.54.1
+simplejson==4.1.2
+six==1.17.0
+slicer==0.0.8
+soupsieve==2.9.2
+tabulate==0.10.0
+threadpoolctl==3.7.0
+tqdm==4.70.1
+tushare==1.4.29
+typing_extensions==4.16.0
+umap-learn==0.5.12
+urllib3==2.7.0
+vmdpy==0.2
+webencodings==0.6.1
+websocket-client==1.9.2
+wrapt==2.5.0
+xgboost==3.4.1
+xlrd==2.0.2
