@@ -1,0 +1,78 @@
+{
+  "key": "manning_flow",
+  "title": "曼宁资金流日报",
+  "desc": "曼宁资金流",
+  "section": "liquidity",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "19:25",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u weekly_report.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 19,
+  "requires": [
+    "pylibs"
+  ],
+  "root": "{WS}/projects/stock-dashboard/case/manning_flow",
+  "entry": "weekly_report.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
+  "import_note": "含动态 import，按入口目录模块集兜底；外部依赖：pylibs（PYLIBS_DIR）",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/*.html",
+        "out/*.md",
+        "out/*.png",
+        "out/*.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 1800,
+        "optional": true
+      }
+    ]
+  },
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u weekly_report.py",
+  "visibility": "public",
+  "migrated_from": "{WS}/ses_gffe5ffb350a15ffeoIqfEMXyfUcuT9",
+  "migrated_at": "2026-11-25",
+  "migrate_note": "本 case 为唯一运行实体：缓存已统一到 case/manning_flow/data/，dumate 侧定时任务 job_a7aaec47 停用后由 dashboard 调度接管 19:25。验证命令：python3 weekly_report.py --no-send"
+}
