@@ -46,7 +46,9 @@ def fetch_stock(pid, pcc):
     return json.loads(r.read().decode("utf-8"))
 
 def main():
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    # 与 factors_build_2022.py 的读取路径对齐：data/norm/inventory_*.csv。
+    # 原先写 data/，比读取方少一层 norm/，抓下来的文件没有任何代码读得到。
+    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "norm")
     os.makedirs(out_dir, exist_ok=True)
     results = {}
     for code, (pid, name, board) in PRODUCTS.items():
@@ -61,7 +63,12 @@ def main():
                 if isinstance(d, dict) and d.get("list"):
                     rows = d["list"]
                     df = pd.DataFrame(rows)
-                    # 行: [date, close, stock(, stockChange?)]
+                    # 行结构：[date, close, stock(, stockChange?)]。rows 是 list of list，
+                    # 不显式命名就会写成无表头的 0/1/2 列，读取方按 date/stock 取数会读不到。
+                    _names = ["date", "close", "stock"]
+                    if df.shape[1] > len(_names):
+                        _names += ["extra_%d" % i for i in range(df.shape[1] - len(_names))]
+                    df.columns = _names[:df.shape[1]]
                     df.to_csv(os.path.join(out_dir, f"inventory_{code}.csv"), index=False)
                     first, last = rows[0][0], rows[-1][0]
                     results[code] = (name, board, len(rows), first, last)

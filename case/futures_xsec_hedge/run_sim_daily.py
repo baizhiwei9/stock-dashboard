@@ -27,9 +27,32 @@ sys.path.insert(0, str(ROOT))
 from data_update import incremental_fetch, apply_kline_merge  # noqa: E402
 
 
+def fetch_inventory_if_needed(no_fetch: bool) -> bool:
+    """抓期货库存（可选因子）。
+
+    抓不到不影响整条链：factors_build 会把 z_inv 降级成 NaN，robust_score 再把
+    那 35% 权重归一化给其余三项。
+    """
+    if no_fetch:
+        print("==", "跳过库存抓取（--no-fetch），z_inv 将降级为 NaN")
+        return False
+    print("==", "抓取期货库存（99qh）…")
+    try:
+        r = subprocess.run([sys.executable, "fetch_inventory.py"], cwd=ROOT, timeout=300)
+    except subprocess.TimeoutExpired:
+        print("==  库存抓取超时（300s），z_inv 将降级为 NaN，不中断链路", flush=True)
+        return False
+    if r.returncode != 0:
+        print("==  库存抓取失败（退出码 %d），z_inv 将降级为 NaN，不中断链路"
+              % r.returncode, flush=True)
+        return False
+    return True
+
+
 def rebuild_factors(no_fetch: bool):
     """重建 panel 与 factors（工作目录必须在工程根）"""
     t0 = time.time()
+    fetch_inventory_if_needed(no_fetch)
     print("==", "重建 panel_full.csv ...")
     subprocess.run([sys.executable, "panel_build.py"], cwd=ROOT, check=True)
     print("==", "重建 factors_full.csv ...")
