@@ -39,7 +39,9 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import inspect
 import json
+import math
 import os
 import sys
 from typing import Dict, List, Optional, Tuple
@@ -109,6 +111,12 @@ def normalize(points: List[Dict], default_obs: str = "") -> Tuple[List[Dict], Li
         if vnum is not None and not isinstance(vnum, (int, float)):
             errs.append("points[%d] value_num 不是数字" % i)
             continue
+        if isinstance(vnum, float) and not math.isfinite(vnum):
+            errs.append("points[%d] value_num 不是有限数（NaN/Inf）" % i)
+            continue
+        if vnum is None and vtext is None and q == "ok":
+            errs.append("points[%d] quality=ok 但没有 value_num/value_text" % i)
+            continue
         if vnum is None and vtext is None and not q:
             q = "missing"
         raw_lv = it.get("risk_level")
@@ -154,42 +162,64 @@ def load_out(key: str) -> Tuple[Optional[Dict], List[Dict], List[str]]:
 
 
 def resolve_writer(spec: Optional[str] = None):
-    """返回 (writer, 说明)。优先 data_hub.tech 顶层导出的 write_points。"""
+    """返回 (writer, 说明, (start, finish, snapshot))。优先顶层导出，其次 store。"""
     try:
         mod = importlib.import_module("data_hub.tech")
     except Exception as e:                                      # noqa: BLE001
         return None, ("导入 data_hub.tech 失败：%s。把 DataHub 根目录加进 PYTHONPATH"
                       % e), None
+    holders = [("data_hub.tech", mod)]
+    try:
+        store = importlib.import_module("data_hub.tech.store")
+    except Exception:                                           # noqa: BLE001
+        store = getattr(mod, "store", None)
+    if store is not None:
+        holders.append(("data_hub.tech.store", store))
+
+    def _find(name: str):
+        for label, holder in holders:
+            fn = getattr(holder, name, None)
+            if callable(fn):
+                return fn, "%s.%s" % (label, name)
+        return None, ""
+
     start = getattr(mod, "start_run", None)
     finish = getattr(mod, "finish_run", None)
-    snap = getattr(mod, "snapshot", None)
+    snap = getattr(mod, "snapshot", None) or (getattr(store, "snapshot", None)
+                                              if store is not None else None)
+
+    names = (spec,) if spec else WRITER_NAMES
+    for name in names:
+        fn, label = _find(name)
+        if fn is not None:
+            return fn, label, (start, finish, snap)
     if spec:
-        name = spec
-    else:
-        name = ""
-        for holder in (mod, getattr(mod, "store", None)):
-            if holder is None:
-                continue
-            for nm in WRITER_NAMES:
-                if callable(getattr(holder, nm, None)):
-                    name = nm
-                    break
-            if name:
-                break
-    if not name:
-        return None, ("data_hub.tech 没找到写入口（试过 %s）。按 CONTRACT.md 应为 "
-                      "write_points(rows, producer=...)" % "/".join(WRITER_NAMES)), None
-    fn = getattr(mod, name, None)
-    if not callable(fn):
-        return None, "data_hub.tech 没有 %s" % name, None
-    return fn, "data_hub.tech.%s" % name, (start, finish, snap)
+        return None, "data_hub.tech(.store) 没有 %s" % spec, None
+    return None, ("data_hub.tech 没找到写入口（试过 %s）。按 CONTRACT.md 应为 "
+                  "write_points(rows, producer=...)" % "/".join(WRITER_NAMES)), None
+
+
+def _accepts_producer(fn) -> Optional[bool]:
+    """True/False=签名明确；None=拿不到签名（C 函数等），交给 TypeError 判断。"""
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return None
+    if "producer" in sig.parameters:
+        return True
+    return any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values())
 
 
 def call_writer(fn, rows: List[Dict], producer: str) -> Tuple[Optional[int], Optional[int]]:
     """按 CONTRACT 调用 write_points(rows, producer=...) -> (n_ok, n_missing)。"""
+    accepts = _accepts_producer(fn)
     try:
-        ret = fn(rows, producer=producer)
-    except TypeError:
+        ret = fn(rows) if accepts is False else fn(rows, producer=producer)
+    except TypeError as e:
+        # 只有「不接受 producer 关键字」才回退；写函数内部的 TypeError 不能再调一次，
+        # 否则会重复写库（而且第一次可能已经写进去了一部分）。
+        if accepts is False or "producer" not in str(e):
+            raise
         ret = fn(rows)
     if isinstance(ret, tuple) and len(ret) == 2:
         return ret[0], ret[1]
@@ -202,11 +232,23 @@ def backfill_metrics(key: str, rows: List[Dict], pts: List[Dict]) -> int:
     t = _read_json(tj, None)
     if not isinstance(t, dict):
         return 0
-    name_of = {}
+    name_of, meta_of = {}, {}
     for p in pts:
         mk = p.get("metric_key") or p.get("key")
-        if mk and p.get("name"):
+        if not mk:
+            continue
+        if p.get("name"):
             name_of[mk] = p["name"]
+        extra = {}
+        if isinstance(p.get("unit"), str):
+            extra["unit"] = p["unit"]
+        if isinstance(p.get("dec"), int) and not isinstance(p.get("dec"), bool) \
+                and 0 <= p["dec"] <= 6:
+            extra["dec"] = p["dec"]
+        if isinstance(p.get("color"), str) and p["color"]:
+            extra["color"] = p["color"]
+        if extra:
+            meta_of[mk] = extra
     cur = t.get("metrics") or []
     seen = {(m.get("key"), m.get("sec")) for m in cur if isinstance(m, dict)}
     added = 0
@@ -216,8 +258,7 @@ def backfill_metrics(key: str, rows: List[Dict], pts: List[Dict]) -> int:
             continue
         m = {"key": r["metric_key"], "sec": r.get("security_id") or "",
              "name": name_of.get(r["metric_key"]) or r["metric_key"]}
-        for src, dst in (("unit", "unit"), ("dec", "dec"), ("color", "color")):
-            pass
+        m.update(meta_of.get(r["metric_key"]) or {})   # 保留 unit/dec/color，面板才能按精度展示
         cur.append(m)
         seen.add(pair)
         added += 1
@@ -323,7 +364,7 @@ def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", default="")
     ap.add_argument("--all", action="store_true")
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("-n", "--dry-run", action="store_true")
     ap.add_argument("--snapshot", action="store_true", help="写完推云盘快照")
     ap.add_argument("--writer", default="", help="写入口函数名（默认 write_points）")
     args = ap.parse_args(argv)
@@ -332,13 +373,18 @@ def main(argv: List[str]) -> int:
     if not keys:
         print("用法：publish.py --task <key> | --all  [--dry-run] [--snapshot]")
         return 1
+    if args.task and args.task not in all_keys():
+        print("未知 case 任务：%s（可用：%s）" % (args.task, ", ".join(all_keys())))
+        return 1
 
     res = [publish_one(k, args.dry_run, args.writer or None, args.snapshot) for k in keys]
     bad = [r for r in res if not r["ok"]]
     for r in res:
         print("  %-24s %s  %s" % (r["key"], "OK  " if r["ok"] else "FAIL", r["msg"]))
     print("共 %d 个，成功 %d，失败 %d" % (len(res), len(res) - len(bad), len(bad)))
-    if bad and not args.dry_run:
+    if bad:
+        if args.dry_run:
+            return 1          # 校验模式失败也要非零，否则 --dry-run 等于永远通过
         only_missing = all("缺少" in r["msg"] for r in bad)
         only_writer = all(("写入口" in r["msg"] or "导入 data_hub.tech" in r["msg"]) for r in bad)
         return 1 if only_missing else 2 if only_writer else 1

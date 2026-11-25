@@ -45,6 +45,14 @@ def _read_json(path: str, default):
         return default
 
 
+def _safe_int(v, default: int) -> int:
+    """timeout 之类做一次防御式转换；非法值回退默认，别让一个坏字段拖垮全部任务。"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
 def visibility_of(t: Dict) -> str:
     """任务的可见性：public 上牌面，private 只跑与落库。缺省按 public。
 
@@ -130,6 +138,11 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
     if not str(t.get("cmd") or "").strip() and not isinstance(t.get("pipeline"), dict):
         errs.append("缺 cmd（或给一个 pipeline 让 runner 分阶段执行）")
     errs.extend(_validate_pipeline(t.get("pipeline")))
+    if not isinstance(t.get("enabled", True), bool):
+        errs.append("enabled 必须是布尔值")
+    to = t.get("timeout", 1800)
+    if not isinstance(to, int) or isinstance(to, bool) or to < 60:
+        errs.append("timeout 必须是 >=60 的整数秒")
     s = t.get("sched")
     if not isinstance(s, dict):
         errs.append("sched 必须是对象")
@@ -231,7 +244,7 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "cmd": cmd,
             "legacy_cmd": t.get("cmd") if pipe else "",
             "pipeline": bool(pipe),
-            "timeout": int(t.get("timeout") or 1800),
+            "timeout": _safe_int(t.get("timeout"), 1800),
             "enabled": bool(t.get("enabled", True)),
             "sched": t.get("sched"),
             # not_before 是 scheduler 的「不许提前拉」闸门（见 _not_before_time）。
@@ -259,6 +272,8 @@ def as_workers(base: Optional[str] = None) -> List[Dict]:
             continue                      # 配置错误的进模块管理页（标红），不上数据板块
         if not t.get("metrics"):
             continue                      # 首跑还没回填指标的任务不上面板
+        if t.get("section") == "modules":
+            continue                      # 工具类任务只进模块管理页，不单独占一个数据板块
         if visibility_of(t) != "public" or not t.get("section"):
             continue                      # 私有任务：运行与落库照旧，只是不展示
         if t.get("build_workers") is False:
@@ -268,7 +283,11 @@ def as_workers(base: Optional[str] = None) -> List[Dict]:
             "app_id": "case:%s" % t["key"],
             "title": t.get("title") or t["key"],
             "desc": t.get("desc") or "",
+            # build.py 用 tab 决定归到哪个板块；sec 是 render_registered_model
+            # 里指标的默认 security_id，不能混用（case 任务每条 metric 都自带 sec）。
+            "tab": t.get("section"),
             "sec": t.get("section"),
+            "source": "case",
             "sched": t.get("sched"),
             # not_before 是 scheduler 的「不许提前拉」闸门（见 _not_before_time）。
             # 不透传的话，pipeline 任务即使写了 not_before 也会被 pull_forward 提前起。

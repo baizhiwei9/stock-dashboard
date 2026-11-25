@@ -59,7 +59,8 @@
     },
     "metrics": {
       "type": "array",
-      "description": "要在面板展示的指标；首跑后由 publish.py 从产出回填",
+      "minItems": 0,
+      "description": "要在面板展示的指标；首跑后由 publish.py 从产出回填（首次 publish 前允许为空）",
       "items": {
         "type": "object",
         "required": [
