@@ -155,6 +155,34 @@ def cn_block():
     p = pts.get("re.tugou_state") or {}
     add("rate.cn.tugou_state", "土狗状态机", text=p.get("value_text") or "—",
         obs=p.get("obs_date") or "", quality="ok" if p.get("value_text") else "missing")
+
+    # 统一强弱判定：口径唯一定义在 DataHub 的 edb/fetchers/spread_regime.py，
+    # 主口径国开 1Y-3M，存单作印证、3M 国开-逆回购看短端。这里只搬结论，不另立刻度。
+    try:
+        from data_hub.edb.fetchers import spread_regime as SR
+        primary = SR.judge(SR.PRIMARY)
+        if primary:
+            add("rate.cn.regime_level", "降准降息预期档位·等级",
+                value=primary["level"], unit="级", dec=0, obs=primary["date"],
+                note="1=强 2=偏强 3=中性 4=偏弱 5=弱（主口径国开 1Y-3M）")
+            add("rate.cn.regime_label", "降准降息预期档位",
+                text=primary["adjusted"], obs=primary["date"],
+                note=primary["note"])
+            if primary.get("chg5") is not None:
+                add("rate.cn.regime_chg5", "国开1Y-3M近5日变动",
+                    value=primary["chg5"], unit="bp", dec=1, obs=primary["date"],
+                    note="负=压平=预期转强")
+        for sid, key, nm in ((SR.CONFIRM, "rate.cn.ncd_regime_level", "存单印证档位"),
+                             (SR.SHORT_END, "rate.cn.cdb3m_regime_level", "短端溢价档位")):
+            j = SR.judge(sid)
+            if j:
+                add(key, nm, value=j["level"], unit="级", dec=0, obs=j["date"],
+                    note="%s｜%s" % (j["adjusted"], j["label"]))
+    except Exception as exc:                                   # noqa: BLE001
+        add("rate.cn.regime_level", "降准降息预期档位·等级", quality="missing",
+            note="统一判定不可用：%s" % str(exc)[:80])
+
+
 def write_report(matrix, asof):
     os.makedirs(OUT, exist_ok=True)
     L = ["# 中美利率与政策预期（%s）" % (asof or "—"), ""]

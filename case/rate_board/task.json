@@ -123,6 +123,31 @@
       "key": "rate.cn.tugou_state",
       "sec": "RATE.BOARD",
       "name": "土狗状态机"
+    },
+    {
+      "key": "rate.cn.regime_level",
+      "sec": "RATE.BOARD",
+      "name": "降准降息预期档位·等级"
+    },
+    {
+      "key": "rate.cn.regime_label",
+      "sec": "RATE.BOARD",
+      "name": "降准降息预期档位"
+    },
+    {
+      "key": "rate.cn.regime_chg5",
+      "sec": "RATE.BOARD",
+      "name": "国开1Y-3M近5日变动"
+    },
+    {
+      "key": "rate.cn.ncd_regime_level",
+      "sec": "RATE.BOARD",
+      "name": "存单印证档位"
+    },
+    {
+      "key": "rate.cn.cdb3m_regime_level",
+      "sec": "RATE.BOARD",
+      "name": "短端溢价档位"
     }
   ],
   "sched": {
@@ -148,6 +173,7 @@
     "pylibs"
   ],
   "visibility": "public",
+  "build_workers": false,
   "pipeline": {
     "on_fail": "continue",
     "freshness_days": 3,
@@ -177,6 +203,5 @@
         "builtin": "emit"
       }
     ]
-  },
-  "build_workers": false
+  }
 }

@@ -1873,17 +1873,30 @@ def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
     us_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note), val)
                       for n, val, note in us)
 
+    _LVL = {1: "强", 2: "偏强", 3: "中性", 4: "偏弱", 5: "弱"}
+
+    def _reg(k):
+        """利差数值后挂同口径档位标签（等级来自 DataHub 统一判定 spread_regime）。"""
+        lv = _v2(k)
+        if lv is None:
+            return ""
+        lab = _LVL.get(int(round(float(lv))))
+        return (' <span class="sm">%s</span>' % lab) if lab else ""
+
     cn = [
-        ("国开 1Y-3M", _val("rate.cn.cdb_1y3m", 1, " bp"),
+        ("国开 1Y-3M", _val("rate.cn.cdb_1y3m", 1, " bp") + _reg("rate.cn.regime_level"),
          "降准降息预期核心"),
-        ("存单 1Y-3M", _val("rate.cn.ncd_1y3m", 1, " bp"),
+        ("存单 1Y-3M", _val("rate.cn.ncd_1y3m", 1, " bp") + _reg("rate.cn.ncd_regime_level"),
          "同口径印证"),
-        ("3M 国开-逆回购", _val("rate.cn.cdb3m_policy", 1, " bp"),
+        ("3M 国开-逆回购", _val("rate.cn.cdb3m_policy", 1, " bp") + _reg("rate.cn.cdb3m_regime_level"),
          "短端对政策利率溢价"),
         ("隔夜逆回购利率", _val("rate.cn.omo_policy", 2, "%"), "政策利率"),
         ("存款准备金率", _val("rate.cn.rrr", 2, "%"), "大型机构口径"),
         ("LPR 1Y / 5Y", "%s / %s" % (_val("rate.cn.lpr1y", 2, "%"),
                                      _val("rate.cn.lpr5y", 2, "%")), ""),
+        ("降准降息预期", _txt("rate.cn.regime_label"),
+         "%s｜国开主口径" % ("5日%s" % num(_v2("rate.cn.regime_chg5"), 1, "bp")
+                            if _v2("rate.cn.regime_chg5") is not None else "5日变动 NA")),
         ("土狗中性利率", _val("rate.cn.tugou_neutral", 2, "%"), "潜在增速+CPI"),
         ("贴现率", _val("rate.cn.tugou_discount", 3, "%"), "FFTR+1Y掉期年化"),
         ("按揭-租金利差", _val("rate.cn.tugou_kill_spread", 2, " pp"), "双杀判定"),
