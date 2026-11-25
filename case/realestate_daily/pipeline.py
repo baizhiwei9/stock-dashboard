@@ -142,8 +142,19 @@ def emit(ctx):
 
 
 def dispatch(ctx):
-    """任务自己的推送：飞书日报 + 预警邮件（触发才发）。"""
+    """任务自己的推送：飞书日报 + **一封**邮件（私有日报 + 公有房价技术）。
+
+    用户口径：房价技术分析是**公有数据**（`data_hub.house.signal_report()` 出状态、
+    信号与图，data_hub 不发信、不存状态）；付鹏框架是**私有观点**（本任务正文）。
+    两者合成一封，不各发各的——所以这里替掉了原来单独发北京预警邮件的分支。
+
+    发信走 `dws mail message send`（项目默认通道，支持内联图），不新写 SMTP。
+    """
+    import datetime as dt
+
     import daily_canghai_fupeng as D
+    import price_tech as PT
+
     body = getattr(ctx, "body", "")
     if not body:
         raise RuntimeError("dispatch 阶段没有日报正文（render 未执行或失败）")
@@ -154,17 +165,43 @@ def dispatch(ctx):
     if rc != 0:
         raise RuntimeError("飞书推送退出码 %s" % rc)
 
+    # 公有数据：京沪房价指数技术分析（含出图）。datahub 不可用时 rep 为 None，如实降级。
+    rep = PT.collect()
+    fresh, state = PT.dedupe(rep)
+    public_sec = PT.render_text(rep, fresh)
+
     alert = getattr(ctx, "alert", {}) or {}
+    today = dt.date.today().isoformat()
+    title = "土狗付鹏地产周报 | 来自 DoMate"
+    flags = []
     if alert.get("triggered"):
-        ctx.log("北京看涨信号触发，发预警邮件 ...")
-        subject = "【土狗付鹏预警】北京房价看涨（%s）" % __import__("datetime").date.today().isoformat()
-        mail_body = "北京房价看涨趋势触发预警：\n" + "\n".join(
-            "- %s" % r for r in alert.get("reasons") or [])
-        ok, msg = D.send_alert_email(subject, mail_body)
-        if not ok:
-            ctx.warn("预警邮件未发出", [str(msg)], "warn")
+        flags.append("北京看涨预警")
+    if fresh:
+        flags.append("房价技术 %d 条新增" % len(fresh))
+    subject = "%s（%s%s）" % (title, today, "｜" + "、".join(flags) if flags else "")
+
+    parts = [title,
+             "本期：%s" % today,
+             "分工：上半是付鹏框架观点（私有）；下半是京沪房价指数技术分析（公有数据 · data_hub.house）。",
+             "",
+             "一、付鹏地产日报（私有观点）",
+             PT.plain_md(body, skip_first_heading=True),
+             "",
+             "二、京沪房价指数技术分析（公有数据）",
+             public_sec]
+    png = (rep or {}).get("chart")
+    if png and os.path.exists(png):
+        parts += ["", "[inline:%s]" % os.path.basename(png)]
+    content = "\n".join(parts)
+
+    ok, msg = PT.send_mail(subject, content, inline_png=png, dry_run=not PT.allow_send())
+    if ok:
+        PT.send_state(state)      # 只有真发成功才推进去重状态，免得演练把信号吃掉
+        ctx.log(msg)
+    elif PT.allow_send():
+        ctx.warn("合并邮件未发出", [str(msg)], "error")
     else:
-        ctx.log("北京房价无看涨信号，不发预警邮件")
+        ctx.log("dry-run：%s" % msg)
 
 
 def _q(s):
