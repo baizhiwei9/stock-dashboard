@@ -1,0 +1,24 @@
+{
+  "key": "house_price_alert",
+  "title": "房价指数技术预警",
+  "desc": "70 城房价指数（月度）跑 KDJ/MACD：中枢突破与超买超卖统一检查，有新增信号才发一封带图邮件",
+  "section": "realestate",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "18:30"
+  },
+  "cmd": "python3 -u run.py",
+  "cwd": ".",
+  "timeout": 900,
+  "enabled": true,
+  "deliver": {
+    "report": false,
+    "email": false
+  },
+  "visibility": "public",
+  "requires": [
+    "data_hub"
+  ],
+  "needs_llm": false
+}
