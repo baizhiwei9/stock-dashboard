@@ -13,18 +13,29 @@
 
 | | 北京 | 上海 |
 |---|---|---|
-| 源 | 北京市住建委「房地产数据主题服务」 | 开源归档 `ahbencat/shanghai_fangdi_data` |
-| 方式 | HTTP 抓页面 → 解析 | `git pull` → 解析 Markdown |
-| 浏览器 | 不需要 | 不需要（绕开瑞数） |
+| 源 | 北京市住建委「房地产数据主题服务」 | 归档 `ahbencat/shanghai_fangdi_data` + 官网直采 |
+| 方式 | HTTP 抓页面 → 解析 | `git pull` → 解析 Markdown（基线）；直采补当日 |
+| 浏览器 | 不需要 | 归档不需要；直采需要（过瑞数） |
 | 粒度 | **只有最新一日 + 当月累计** | 逐日，2025-11 起 |
 
 **北京**：官方只发最新一日和当月累计，没有历史序列。所以这个任务的价值在**日积月累**
 ——跑满 7 天才第一次有周度数字。第一次部署时周度会是空的，这是数据源的限制，不是 bug。
 
-**上海**：`fangdi.com.cn` 挂瑞数（trp）动态防护，requests 一律 412，真实浏览器能过但
-装不进纯 python 定时任务。所以不走官网，改消费上面那个归档仓：作者每日本地采集后推
-Markdown，我们只管 pull 和解析。仓库里没有爬虫代码（作者没公开），所以「替换它的爬虫」
-无从谈起，正确的接法是消费数据。
+**上海**：`fangdi.com.cn` 挂瑞数（trp）动态防护，requests 一律 412，必须真浏览器。所以
+定时这条链走归档仓（作者每日本地采集后推 Markdown，我们只 pull 和解析），**归档只当
+历史基线**——它会滞后会断档（实测 2026-11-25 07:05 那次没提交，二手停在 11-23），而
+一手房「今日签约」是首页滚动值、隔天即丢。当日增量由我们自己的直采补：
+
+```bash
+DUMATE_BROWSER_CLI=/path/to/dumate-browser-use/scripts/playwright-cli \
+  PYTHONPATH=/path/to/datahub-multi-tier \
+  bash /path/to/datahub-multi-tier/scripts/fetch_sh_via_browser.sh
+```
+
+直采实现在 `data_hub/realestate/sh_direct.py`：取 `old_house` 的 `#z_sell_num_p`（值在
+兄弟节点，标签节点只有文字）、首页 `#sign_num`、trade 页「预/出售各类商品房」。二手那个
+点位**时段性可用**（10:09 有值、18:15 空），脚本带重试与正则回退，取不到就不写；17:00 后
+trade 页常为「0 套」，已判为无效丢弃。建议 07:10 与 22:40 各跑一次。
 
 ## 部署依赖
 
