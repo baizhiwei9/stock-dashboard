@@ -1520,12 +1520,12 @@ def _re_fetch_meta() -> Dict:
     的旧部署也得能出页面。
     """
     import json as _json
-    d = _case_task_dir("realestate_daily")
-    p = os.path.join(d, "data", "fetch_meta.json") if d else ""
+    task_dir = _case_task_dir("realestate_daily")
+    p = os.path.join(task_dir, "data", "fetch_meta.json") if task_dir else ""
     try:
         with open(p, encoding="utf-8") as f:
-            d = _json.load(f)
-        return d if isinstance(d, dict) else {}
+            meta = _json.load(f)
+        return meta if isinstance(meta, dict) else {}
     except (OSError, ValueError):
         return {}
 

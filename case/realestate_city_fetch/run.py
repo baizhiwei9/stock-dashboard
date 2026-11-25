@@ -102,9 +102,14 @@ def main():
     cities = res.get("cities") or {}
     bj_ok = isinstance(cities.get("BJ"), dict) and bool(cities["BJ"].get("ok"))
     sh_ok = isinstance(cities.get("SH"), dict) and bool(cities["SH"].get("ok"))
-    if bj_ok and sh_ok:
-        return 0
-    return 2 if (bj_ok or sh_ok) else 1
+    if not (bj_ok and sh_ok):
+        return 2 if (bj_ok or sh_ok) else 1
+    # 两地**主口径**都成之后再看次口径：上海一手（SH_NEW）挂掉原本也被算成 0，
+    # 一手连续失败没人会发现，所以降级成 2（部分成功）。次口径没取（键不存在）不算失败。
+    sub = cities.get("SH_NEW")
+    if isinstance(sub, dict) and not sub.get("ok"):
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
