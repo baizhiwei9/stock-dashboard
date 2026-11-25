@@ -97,10 +97,19 @@ def main():
     print()
     print(summary)
 
-    ok = [k for k, v in (res.get("cities") or {}).items()
-          if isinstance(v, dict) and v.get("ok")
-          and k not in ("SH_source", "BJ_source", "BJ_month")]
-    return 0 if len(ok) >= 2 else (2 if ok else 1)
+    # 按「地区」而不是按 dict 条目计数：SH 和 SH_NEW 同属上海，
+    # 分开计数会在北京失败、上海两项都成功时误判为 0（两地都成功）。
+    cities = res.get("cities") or {}
+    bj_ok = isinstance(cities.get("BJ"), dict) and bool(cities["BJ"].get("ok"))
+    sh_ok = isinstance(cities.get("SH"), dict) and bool(cities["SH"].get("ok"))
+    if not (bj_ok and sh_ok):
+        return 2 if (bj_ok or sh_ok) else 1
+    # 两地**主口径**都成之后再看次口径：上海一手（SH_NEW）挂掉原本也被算成 0，
+    # 一手连续失败没人会发现，所以降级成 2（部分成功）。次口径没取（键不存在）不算失败。
+    sub = cities.get("SH_NEW")
+    if isinstance(sub, dict) and not sub.get("ok"):
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
