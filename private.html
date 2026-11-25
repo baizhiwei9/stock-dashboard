@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Private Tasks · 私有任务展示区</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#0b0e14; --card:#121821; --card2:#0f141c; --line:#1f2836;
+  --tx:#e6ecf5; --tx2:#8d99ab; --tx3:#6b7889;
+  --up:#ff4d5e; --down:#22c55e; --mid:#e0a33e; --blue:#4a9eff;
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.wrap{max-width:1560px;margin:0 auto;padding:20px 18px 60px}
+
+/* ── 页头 ── */
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;
+  padding:18px 22px;margin-bottom:18px;background:linear-gradient(135deg,#141c28,#0d1219);
+  border:1px solid var(--line);border-radius:12px}
+header.top h1{margin:0;font-size:22px;letter-spacing:.5px;font-weight:650}
+header.top h1 small{display:block;font-size:11.5px;color:var(--tx3);
+  font-weight:400;letter-spacing:1.5px;margin-top:3px}
+.top-meta{margin-left:auto;display:flex;gap:26px;flex-wrap:wrap}
+.top-meta div{text-align:right}
+.top-meta b{display:block;font-size:19px;font-family:ui-monospace,monospace}
+.top-meta span{font-size:11px;color:var(--tx3);letter-spacing:.5px}
+
+/* ── 导航 ── */
+nav.jump{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+nav.jump a{padding:5px 13px;background:var(--card);border:1px solid var(--line);
+  border-radius:20px;font-size:12.5px;color:var(--tx2)}
+nav.jump a:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── 主栅格 ── */
+.layout{display:grid;grid-template-columns:1fr 336px;gap:16px;align-items:start}
+@media(max-width:1240px){.layout{grid-template-columns:1fr}}
+#side{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#26313f transparent}
+#side::-webkit-scrollbar{width:5px}
+#side::-webkit-scrollbar-thumb{background:#26313f;border-radius:3px}
+@media(max-width:1240px){#side{position:static;max-height:none}}
+.grid-idx{display:grid;grid-template-columns:1fr;gap:16px}
+
+/* ── 指数卡片 ── */
+.idx-card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  overflow:hidden;scroll-margin-top:16px}
+.idx-card>header{display:flex;align-items:center;gap:14px;padding:13px 18px;
+  background:linear-gradient(90deg,#161f2c,#121821);border-bottom:1px solid var(--line)}
+.idx-card .ttl{display:flex;align-items:baseline;gap:10px}
+.idx-card h3{margin:0;font-size:16.5px;font-weight:650}
+.idx-card code{font-size:11.5px;color:var(--tx3)}
+.idx-card .bds{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}
+.bd{font-size:11.5px;font-weight:500;padding:3px 10px;border-radius:12px;
+  border:1px solid var(--line);background:#0e131a;color:var(--tx2)}
+.bd.up{border-color:rgba(255,77,94,.4);color:var(--up);background:rgba(255,77,94,.08)}
+.bd.down{border-color:rgba(34,197,94,.4);color:var(--down);background:rgba(34,197,94,.08)}
+.bd.mid{border-color:rgba(224,163,62,.4);color:var(--mid);background:rgba(224,163,62,.08)}
+.bd.na{color:var(--tx3)}
+
+/* 卡片内部四块：宽屏 2×2，窄屏 1 列 */
+.idx-card{display:block}
+.idx-card>.blk,.idx-card>section{display:inline-block}
+.idx-card{position:relative}
+.idx-card{--x:0}
+.idx-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:1000px){.idx-body{grid-template-columns:1fr}}
+.blk{padding:14px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.blk:nth-child(2n){border-right:none}
+.blk:nth-last-child(-n+2){border-bottom:none}
+@media(max-width:1000px){.blk{border-right:none}}
+.blk h4{margin:0 0 11px;font-size:13px;font-weight:600;color:var(--tx);
+  display:flex;align-items:baseline;gap:8px}
+.blk h4 em{font-style:normal;font-size:10.5px;color:var(--tx3);font-weight:400}
+/* 暂无指标的私有任务：紧凑任务卡，不铺大块空白 */
+.blk.mini{padding:10px 18px}
+.blk.mini h4{margin:0 0 3px;font-size:12.5px}
+.blk.mini .note{margin:0}
+
+/* 键值对 */
+.kvs{display:grid;grid-template-columns:1fr 1fr;gap:5px 14px}
+@media(max-width:640px){.kvs{grid-template-columns:1fr}}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  padding:3px 0;border-bottom:1px dotted #1a2230}
+.kv .k{font-size:12px;color:var(--tx3);white-space:nowrap}
+.kv .v{font-size:12.5px;font-family:ui-monospace,monospace;text-align:right}
+.kv .v em{font-style:normal}
+.sm{font-size:10.5px;color:var(--tx3)}
+
+/* 评分条 */
+.bar-wrap{margin:12px 0 4px}
+.bar{position:relative;height:7px;background:#1a2230;border-radius:4px;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;height:100%;border-radius:4px}
+.bar u{position:absolute;top:-2px;width:1px;height:11px;background:#3a4658}
+.bar-lab{font-size:11px;color:var(--tx3);margin-top:5px;text-align:right}
+
+/* 图表 */
+.chart{position:relative;margin-top:10px}
+.chart svg{width:100%;height:auto;display:block}
+.chart .tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:#0a0e14;border:1px solid var(--line);border-radius:7px;padding:7px 9px;
+  font-size:11px;white-space:nowrap;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.chart .tip.on{opacity:1}
+.chart .tip .d{color:var(--tx3);margin-bottom:4px;font-family:ui-monospace,monospace}
+.chart .tip .r{display:flex;justify-content:space-between;gap:14px;
+  font-family:ui-monospace,monospace}
+.chart-empty{margin-top:10px;padding:16px;text-align:center;font-size:11.5px;
+  color:var(--tx3);background:var(--card2);border:1px dashed #1e2734;border-radius:8px}
+
+/* 状态色 */
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--tx2)}
+.na{color:#4d5866;font-style:italic}
+.tx{color:#c8d2e0}
+.kv-long{flex-direction:column;align-items:flex-start;gap:3px}
+.kv-long .k{white-space:normal}
+.kv-long .v{text-align:left;line-height:1.6;font-family:inherit;font-size:12.5px;
+color:#c8d2e0;white-space:normal}
+.opt-tab{width:100%;font-size:12.5px}
+.opt-tab th{font-weight:500;color:#7c8798;text-align:right;padding:6px 8px;border-bottom:1px solid #232b36;white-space:nowrap}
+.opt-tab th:first-child,.opt-tab td.nm{text-align:left}
+.opt-tab td{text-align:right;padding:6px 8px;border-bottom:1px solid #1b222b;color:#c8d2e0;white-space:nowrap}
+.opt-tab td.nm{color:#e6edf6;font-weight:500}
+.opt-tab tbody tr:last-child td{border-bottom:0}
+.dash{color:#3d4652}
+.ok{color:var(--down)} .todo{color:#7a6a3a}
+.mid{color:var(--mid)}
+
+/* ── 管理入口与面板 ── */
+.adm-btn{position:absolute;top:14px;right:16px;padding:6px 13px;font-size:12px;
+  background:rgba(74,158,255,.1);color:var(--blue);border:1px solid rgba(74,158,255,.35);
+  border-radius:8px;cursor:pointer;font-family:inherit;letter-spacing:.3px}
+.adm-btn:hover{background:rgba(74,158,255,.2)}
+header.top{position:relative}
+.adm-mask{position:fixed;inset:0;background:rgba(5,8,12,.78);z-index:9000;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(3px)}
+.adm-box{width:100%;max-width:440px;max-height:82vh;overflow-y:auto;
+  background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:20px 22px;box-shadow:0 18px 60px rgba(0,0,0,.6)}
+.adm-hd{display:flex;align-items:center;margin-bottom:14px}
+.adm-hd b{font-size:15px}
+.adm-x{margin-left:auto;background:none;border:0;color:var(--tx3);font-size:22px;
+  line-height:1;cursor:pointer;padding:0 4px;font-family:inherit}
+.adm-x:hover{color:var(--tx)}
+.adm-tip{margin:0 0 12px;font-size:12.5px;color:var(--tx2)}
+#regPw{width:100%;padding:9px 12px;background:var(--card2);border:1px solid var(--line);
+  border-radius:8px;color:var(--tx);font-size:14px;font-family:inherit;
+  letter-spacing:3px;outline:none;margin-bottom:8px;box-sizing:border-box}
+#regPw:focus{border-color:var(--blue)}
+.adm-err{min-height:18px;font-size:12px;color:var(--up);margin:6px 0 4px}
+.adm-primary{width:100%;padding:9px;background:rgba(74,158,255,.16);color:var(--blue);
+  border:1px solid rgba(74,158,255,.4);border-radius:8px;font-size:13.5px;
+  cursor:pointer;font-family:inherit}
+.adm-primary:hover{background:rgba(74,158,255,.26)}
+.adm-list{display:flex;flex-direction:column;gap:2px;margin:4px 0 14px}
+.adm-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;
+  cursor:pointer;font-size:13px}
+.adm-row:hover{background:var(--card2)}
+.adm-row input{width:15px;height:15px;accent-color:#4a9eff;cursor:pointer;flex:none}
+.adm-row b{font-weight:600}
+.adm-row span{font-size:11.5px;color:var(--tx3);margin-left:auto;text-align:right}
+.adm-row.adm-l2{padding-left:34px;font-size:12.5px}
+.adm-row.adm-l2 b{font-weight:400;color:var(--tx2)}
+.adm-acts{display:flex;gap:8px;flex-wrap:wrap}
+.adm-acts button{flex:1;min-width:88px;padding:8px;background:var(--card2);
+  color:var(--tx2);border:1px solid var(--line);border-radius:8px;font-size:12.5px;
+  cursor:pointer;font-family:inherit}
+.adm-acts button:hover{color:var(--tx);border-color:var(--tx3)}
+.adm-acts button.adm-primary{flex:1.4}
+.adm-note{margin:14px 0 0;font-size:11.5px;color:var(--tx3);line-height:1.65}
+.adm-note code{color:var(--mid)}
+
+/* ── 四大分区 ── */
+.sec-head{display:flex;align-items:center;gap:14px;margin:30px 0 4px;
+  padding:0 2px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.sec-head:first-child{margin-top:0}
+.sec-num{font-size:22px;font-weight:800;color:var(--line);letter-spacing:-1px;
+  font-variant-numeric:tabular-nums;line-height:1}
+.sec-head h2{margin:0;font-size:17px;font-weight:700;letter-spacing:.2px}
+.sec-head p{margin:3px 0 0;font-size:12px;color:var(--tx3)}
+.sec-obs{margin-left:auto;font-size:12px;color:var(--tx3);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.sec-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:14px}
+nav.jump .sub{font-size:12px;padding:3px 10px;background:transparent;
+  color:var(--tx3);border-color:transparent}
+nav.jump .sub:hover{background:var(--card);color:var(--blue)}
+nav.jump .sub::before{content:"· "}
+.jump-sep{width:1px;background:var(--line);margin:4px 2px}
+
+/* ── 模块管理表 ── */
+.mod-tab{width:100%;border-collapse:collapse;font-size:12.5px}
+.mod-tab th{text-align:left;font-weight:600;color:var(--tx3);font-size:11.5px;
+  padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.mod-tab td{padding:8px 10px;border-bottom:1px solid rgba(31,40,54,.55);
+  vertical-align:top}
+.mod-tab tr:last-child td{border-bottom:0}
+.mod-tab td:first-child code{color:var(--mid);font-size:12px}
+.mod-tab td code{font-size:11.5px;color:var(--tx2)}
+.note{font-size:11.5px;color:var(--tx3);line-height:1.65;margin:10px 0 0}
+
+/* 侧栏 */
+.side-card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:15px 17px;margin-bottom:16px}
+.side-card h3{margin:0 0 12px;font-size:14px;font-weight:600;
+  display:flex;align-items:baseline;gap:8px}
+.side-card h3 em{font-style:normal;font-size:10.5px;color:var(--tx3);font-weight:400}
+.side-card .kvs{grid-template-columns:1fr}
+
+footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--tx3);line-height:1.8}
+footer code{color:var(--tx2)}
+.chart.na-box{display:flex;align-items:center;justify-content:center;min-height:88px;
+  color:var(--dim);font-size:12px;border:1px dashed var(--line);border-radius:8px}
+table.mod-tab th.nw,table.mod-tab td.nw{white-space:nowrap}
+.sm.pair{color:var(--tx3);font-size:11px;letter-spacing:.2px}
+table.mod-tab.fut{font-size:12px}
+table.mod-tab.fut th{font-size:11px;font-weight:500}
+table.mod-tab.fut td{padding:5px 8px;vertical-align:middle}
+table.mod-tab.fut td:first-child{white-space:nowrap}
+table.mod-tab.fut td:nth-child(2){font-variant-numeric:tabular-nums}
+.adm-sec-h{margin:18px 0 8px;font-size:13px;font-weight:650;color:var(--tx2);
+  border-top:1px solid var(--line);padding-top:14px}
+.adm-sec-h em{font-style:normal;font-weight:400;color:var(--tx3);font-size:11.5px;margin-left:8px}
+.adm-spec{margin-top:12px}
+.adm-spec summary{cursor:pointer;font-size:12.5px;color:var(--blue);padding:4px 0}
+.adm-spec .mod-tab.spec{font-size:11.5px}
+.adm-spec .mod-tab.spec td{padding:4px 8px;vertical-align:top}
+.adm-spec .mod-tab.spec td:first-child{width:110px;white-space:nowrap}
+#regBox .mod-tab.spec{font-size:11.5px}
+#regBox button{background:var(--card2);border:1px solid var(--line);color:var(--tx2);
+  border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer}
+#regBox button:hover{border-color:var(--blue);color:var(--blue)}
+/* ══ 告警 / 机会（只展示，不判断）══ */
+.alerts{margin:14px 0 18px;border:1px solid var(--line);border-radius:12px;
+  background:var(--card);overflow:hidden}
+.al-hd{display:flex;align-items:center;gap:16px;padding:10px 16px;
+  border-bottom:1px solid var(--line);background:var(--card2);font-size:13px}
+.al-hd .t{font-weight:700;letter-spacing:.2px}
+.al-hd .t.red{color:var(--up)}
+.al-hd .t.green{color:var(--down)}
+.al-hd .t.mute{color:var(--tx3);font-weight:600}
+.al-hd .date{margin-left:auto;color:var(--tx3);font-size:12px}
+.al-list{padding:5px 0;max-height:264px;overflow:auto}
+.al-item{display:flex;align-items:baseline;gap:10px;padding:6px 16px;font-size:13px;
+  border-left:3px solid transparent}
+.al-item.alert{border-left-color:var(--up);background:rgba(255,77,94,.06)}
+.al-item.risk{border-left-color:var(--up)}
+.al-item.opportunity{border-left-color:var(--down);background:rgba(34,197,94,.05)}
+.al-item .lv{font-size:11px;flex:none;padding:1px 6px;border-radius:4px;background:var(--card2);color:var(--tx2)}
+.al-item.alert .lv{background:rgba(255,77,94,.18);color:var(--up);font-weight:700}
+.al-item.risk .lv{background:rgba(255,77,94,.12);color:var(--up)}
+.al-item.opportunity .lv{background:rgba(34,197,94,.15);color:var(--down)}
+.al-item .val{font-variant-numeric:tabular-nums;color:var(--tx);flex:none;font-weight:600}
+.al-item .note{color:var(--tx3);font-size:12px;flex:1;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;margin-left:8px}
+.al-item .ico{font-size:13px;line-height:1;flex:none}
+.al-item.alert .ico{color:var(--up)}
+.al-item.opportunity .ico{color:var(--down)}
+.al-item .src{color:var(--tx3);font-size:11.5px;flex:none;min-width:132px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.al-item .ti{color:var(--tx);font-weight:600;flex:none}
+.al-item .dt{color:var(--tx2);font-size:12px}
+.al-empty{padding:12px 16px;color:var(--tx3);font-size:12.5px}
+
+/* ══ 股债性价比（股票栏专属）══ */
+.erp-card{grid-column:1/-1}
+.erp-card .idx-body{padding:0}
+.erp-card .kvs{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Private Tasks<small>私有任务展示区 · precious-task（与公开看板分开两套页面）</small></h1>
+  <div class="top-meta">
+    <div><b>2026-11-19</b><span>最新数据日</span></div>
+    <div><b>18</b><span>私有任务</span></div>
+    <div><b>1</b><span>带指标</span></div>
+    <div><b><a href="index.html">公开看板 →</a></b><span>另一套页面</span></div>
+  </div>
+</header>
+
+<nav class="jump"><a href="#p_stock">股票 · 宽基指数</a><a href="#p_realestate">地产</a><a href="#p_bond">债券 · 理财</a><a href="#p_modules">模块管理</a></nav>
+
+<div class="sec-wrap" data-sec="p_stock" id="p_stock"><div class="sec-head"><span class="sec-num">01</span><div><h2>股票 · 宽基指数</h2><p>5 大宽基按指数分栏：缠论 → RMT → DFA → 趋势</p></div><span class="sec-obs">15 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>分析力学量化日报 <span class="tag">私有</span> <span class="sm">任务 analytical_mechanics · 工作日 18:10</span></h4><p class="note">分析力学日报（中间算法，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>因子旋转周报 <span class="tag">私有</span> <span class="sm">任务 factor_rotation · 周日 14:00</span></h4><p class="note">因子旋转周报（内部研究） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>五系统扩展概念轮动日报 <span class="tag">私有</span> <span class="sm">任务 five_system_concept · 工作日 20:35</span></h4><p class="note">五系统概念轮动（选概念，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>将军成长股拓扑选股 <span class="tag">私有</span> <span class="sm">任务 general_growth · 周日 17:00</span></h4><p class="note">将军成长股拓扑选股（选股，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>Hodge Laplacian 2 <span class="tag">私有</span> <span class="sm">任务 hodge_laplacian · 工作日 19:25</span></h4><p class="note">Hodge/曲率结构（中间算法，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>MAD 均线指选股（每周日早晨） <span class="tag">私有</span> <span class="sm">任务 mad_weekly · 周日 08:00</span></h4><p class="note">MAD 均线选股（选股，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>最优传输OT统一日报（靠岸+多空+资金） <span class="tag">私有</span> <span class="sm">任务 ot_unified · 工作日 18:30</span></h4><p class="note">最优传输 OT 统一日报（靠岸/多空，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>市场临界监测 C(t) &amp; Gap 日报（含全A） <span class="tag">私有</span> <span class="sm">任务 rmt_cgap · 工作日 16:40</span></h4><p class="note">市场临界 C(t) 与 Gap <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>RMT每日市场监测报告 <span class="tag">私有</span> <span class="sm">任务 rmt_daily · 工作日 16:47</span></h4><p class="note">RMT 市场结构（噪音/共振） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>行业轮动机会风险日报 <span class="tag">私有</span> <span class="sm">任务 sector_rotation · 工作日 19:00</span></h4><p class="note">行业轮动机会风险（选行业，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>结构因子每日报告 <span class="tag">私有</span> <span class="sm">任务 structural_factor · 工作日 18:45</span></h4><p class="note">结构因子（MFDFA 等） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>TDA-SPD 黎曼流形策略日报(22因子v5-TDA状态+SPD漂移选行业) <span class="tag">私有</span> <span class="sm">任务 tda_spd · 工作日 19:00</span></h4><p class="note">TDA-SPD 黎曼流形策略（选行业，内部信号） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>Two Sigma 行业动量 <span class="tag">私有</span> <span class="sm">任务 twosigma_rotation · 周日 15:00</span></h4><p class="note">Two Sigma 行业动量（选行业，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>成交量小波信号监控 <span class="tag">私有</span> <span class="sm">任务 volume_wavelet · 工作日 11:00</span></h4><p class="note">成交量小波信号 <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>ξ+D结构风控×扩散+RRG每日报告（行业轮动+宽基分析） <span class="tag">私有</span> <span class="sm">任务 xi_d_rrg · 工作日 18:35</span></h4><p class="note">ξ+D 结构风控 × 扩散 + RRG（行业轮动，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div><div class="sec-wrap" data-sec="p_realestate" id="p_realestate"><div class="sec-head"><span class="sec-num">03</span><div><h2>地产</h2><p>北京 / 上海 双城：网签、挂牌、70城房价、租金（土狗状态机与付鹏框架在子卡片内）</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>土狗付鹏地产日报 <span class="tag">私有</span> <span class="sm">任务 realestate_daily · 周六 18:00</span></h4><p class="note">地产基础数据：北京/上海成交、土狗状态机、付鹏周期；京沪房价技术分析（公有数据）并入同一封邮件 <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div><div class="sec-wrap" data-sec="p_bond" id="p_bond"><div class="sec-head"><span class="sec-num">06</span><div><h2>债券 · 理财</h2><p>国债曲线 / 期限结构 / 信用利差 / 类理财收益（货币基金口径）</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk"><h4>AI 公司 5 年期 CDS 周度监控 <span class="tag">私有</span> <span class="sm">任务 cds_weekly · 周四 20:00</span></h4><p class="note">8 家 AI 相关公司 5Y 美元 CDS：周环比 &gt;10% 告警（内部任务，监控告警口径，不上公开面板）</p><div class="kvs"><div class="kv"><span class="k">CDS 报告期</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">有效报价家数</span><span class="v"><b>6.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">缺失家数</span><span class="v"><b>2.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">周环比超阈值家数</span><span class="v"><b>3.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">CoreWeave 5Y CDS</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Oracle 5Y CDS</span><span class="v"><b>309.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Meta Platforms 5Y CDS</span><span class="v"><b>112.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Nvidia 5Y CDS</span><span class="v"><b>121.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Microsoft 5Y CDS</span><span class="v"><b>48.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Alphabet 5Y CDS</span><span class="v"><b>85.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Amazon 5Y CDS</span><span class="v"><b>92.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Broadcom 5Y CDS</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div></div></div></div></div><div class="sec-wrap" data-sec="p_modules" id="p_modules"><div class="sec-head"><span class="sec-num">09</span><div><h2>模块管理</h2><p>每个模块 = 一个脚本 + 一条自己的定时任务</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>DoMate每日总结-飞书推送 <span class="tag">私有</span> <span class="sm">任务 dumate_daily_summary · 工作日 20:30</span></h4><p class="note">DoMate 每日总结（推送汇总，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div>
+
+<footer>
+  <p>只列 <code>visibility=private</code> 的任务（含旧别名 <code>internal</code>）。
+  公有任务在另一套页面 <a href="index.html">index.html</a>，两页互不混排。</p>
+  <p>指标来自 <code>data_hub.tech</code>，与公开页同一口径；库里没有的指标不显示，
+  不补零、不拿旧值顶替。构建时间 2026-11-25 22:30。</p>
+</footer>
+
+</div>
+</body>
+</html>

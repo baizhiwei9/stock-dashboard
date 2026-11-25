@@ -301,26 +301,31 @@ def _metrics_from_latest(t: Dict) -> List[Dict]:
     return out
 
 
-def as_workers(base: Optional[str] = None, include_private: bool = True,
-               include_disabled: bool = True) -> List[Dict]:
-    """转成 build.py 的 worker 结构：public 与 private 一起上**同一块牌面**。
+def as_workers(base: Optional[str] = None, visibility: str = "public",
+               include_disabled: Optional[bool] = None) -> List[Dict]:
+    """转成 build.py 的 worker 结构：两个页面各取自己那一半，互不混排。
 
-    2026-11-25 的口径：只有一个页面。开源仓的单日报（public）与私有仓
-    precious-task（private，含旧别名 internal）都展示，私有卡片带「私有」标记。
+    2026-11-25 的口径是**两套页面**：
+      · 公开页 `build.py → index.html` 只出 visibility=public（开源单日报）；
+      · 私有页 `build_private.py → private.html` 只出 private（含旧别名 internal）。
+    两页共用同一套样式、卡片渲染与 data_hub 取数，不复制框架、不另算数据。
       · 板块取 section，私有任务没有 section 时退到 section_domain；
       · 指标优先用 task.json 的 metrics 声明，没声明就从 out/latest.json 反推；
       · 私有任务没有指标也先出任务卡（跑一次、publish 回填后自动出数值）；
         公开任务仍等回填后才占位，避免空壳铺满板块。
     """
+    if visibility not in ("public", "private", "all"):
+        raise ValueError("visibility 只能是 public/private/all")
+    if include_disabled is None:
+        # 公开页沿用旧行为（停用任务不上牌面）；私有页要看历史产物，停用也上
+        include_disabled = visibility != "public"
     out: List[Dict] = []
-    for t in load_tasks(base, only_enabled=False):
+    for t in load_tasks(base, only_enabled=not include_disabled):
         if t.get("_errors"):
             continue                      # 配置错误的进模块管理页（标红），不上数据板块
         vis = visibility_of(t)
-        if vis != "public" and not include_private:
-            continue
-        if not include_disabled and not bool(t.get("enabled", True)):
-            continue                      # 停用任务默认仍上牌面，看最后一次结果
+        if visibility != "all" and vis != visibility:
+            continue                      # 两套页面各取自己那一半，不混排
         sec = section_of(t)
         if sec not in SECTIONS:
             continue

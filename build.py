@@ -2467,15 +2467,14 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
         '<div class="blk"><h4>%s</h4><div class="chart" id="%s"></div></div>' % (nm, cid)
         for cid, _k, nm, _c, _u, _d in charts)
     badge = ""
+    meta_txt = "注册 Worker %s" % html.escape(str(w.get("app_id") or ""))
     if str(w.get("app_id") or "").startswith("case:"):
-        # 同一个页面：开源仓的 public 单日报标「公开」，precious-task 的私有任务标「私有」
-        badge = ('<span class="tag">私有</span> ' if w.get("visibility") == "private"
-                 else '<span class="tag">公开</span> ')
+        meta_txt = "任务 %s" % html.escape(str(key))
+        if w.get("visibility") == "private":
+            # 私有页（build_private.py）才需要标记；公开页整页都是 public，不加徽标、保持原样
+            badge = '<span class="tag">私有</span> '
     meta = ('%s<span class="sm">%s · %s</span>'
-            % (badge,
-               "任务 " + html.escape(str(key)) if badge else "注册 Worker %s"
-               % html.escape(str(w.get("app_id") or "")),
-               html.escape(_sched_txt(w.get("sched")))))
+            % (badge, meta_txt, html.escape(_sched_txt(w.get("sched")))))
     note = html.escape(w.get("desc") or "")
     if not rows:
         # 暂无指标（多为私有任务首跑前）：出紧凑任务卡，不铺大块空白
@@ -2535,22 +2534,15 @@ def _case_workers() -> list:
 def _case_modules() -> list:
     """case 任务清单（含 metrics 还没回填的），用于模块管理页。
 
-    配置错误的也留着（标「配置错误」、不算启用），别让它在页面上悄悄消失。
+    只列 public：私有任务在私有页（build_private.py）里看，不混进公开页。
     """
     lib = os.path.join(HERE, "case", "_lib")
     try:
         if lib not in sys.path:
             sys.path.insert(0, lib)
         import case_registry
-        mods = []
-        for m in case_registry.as_modules(os.path.join(HERE, "case")):
-            errs = m.get("_errors") or []
-            if errs:
-                m = dict(m)
-                m["enabled"] = False
-                m["_config_error"] = "；".join(errs)
-            mods.append(m)
-        return mods
+        return [m for m in case_registry.as_modules(os.path.join(HERE, "case"))
+                if not m.get("_errors") and m.get("visibility") != "private"]
     except Exception:                                         # noqa: BLE001
         return []
 

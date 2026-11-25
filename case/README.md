@@ -205,19 +205,19 @@ python3 case/_tools/make_pipeline.py --only tech_consensus --force
 
 ### 一条规则
 
-`task.json` 的 `visibility` 决定这个任务在牌面上**标什么**，公有私有都在同一页：
+`task.json` 的 `visibility` 决定这个任务上**哪一套页面**：
 
-| visibility | 定时跑 | 写指标仓 | 上牌面 | 用途 |
+| visibility | 定时跑 | 写指标仓 | 上哪一页 | 用途 |
 |---|---|---|---|---|
-| `public`（默认） | ✓ | ✓ | ✓（按 `section` 归 Tab，标「公开」） | 基础数据、结构图这类可以给人看的 |
-| `private` | ✓ | ✓ | ✓（同页同 Tab，标「私有」） | 选行业/选股/中间算法这类只自己用的 |
+| `public`（默认） | ✓ | ✓ | 公开页 `index.html`（按 `section` 归板块） | 基础数据、结构图这类可以给人看的 |
+| `private` | ✓ | ✓ | 私有页 `private.html`（同板块分组，卡片标「私有」） | 选行业/选股/中间算法这类只自己用的 |
 
-`private` 任务的 `section` 可以留空，届时退到 `section_domain` 归 Tab。枚举只有 `public`/`private`，
+`private` 任务的 `section` 可以留空，届时退到 `section_domain` 归板块。枚举只有 `public`/`private`，
 旧的 `internal` 保留为 `private` 的别名（过渡期，`precious-task` 改完后删），写了不报错。
 真正非法的值不会被当成 `public`：任务以「配置错误 + 停用」留在调度台，首次发现时发一封告警邮件，
 不会静默消失。
-看板通过 `case_registry.as_workers()` 拿数据，公有私有一起返回，`visibility` 只影响卡片上的标记；
-索引与调度走 `as_modules()`，两种可见性都在，模块管理页也标出公有/私有。
+公开页走 `build.py`、私有页走 `build_private.py`，两者共用 `case_registry.as_workers(visibility=...)`
+与同一套卡片渲染；公开页的模块管理只列 public，私有任务不混进来。
 
 ### 私有仓库怎么接
 
