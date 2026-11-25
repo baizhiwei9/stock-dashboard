@@ -97,6 +97,9 @@ python3 manager.py list                      # 清单里 case 任务标 case
 要脱离终端常驻，别用 `nohup`（工具调用结束会连带清掉派生的子进程），改由 `sd_watchdog.sh`
 加一条 cron 拉起，见「调度与守护」。
 
+新机器从零部署——前置条件、目录布局、环境变量、首次配置、cron 守护、故障排查、升级回滚——
+看 **[docs/DEPLOY.md](docs/DEPLOY.md)**。
+
 ## 调度
 
 业务任务不再逐条写 crontab：`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
