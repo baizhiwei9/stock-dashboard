@@ -79,7 +79,43 @@ def _write_json(path: str, obj) -> None:
         f.write("\n")
 
 
+def _tasks() -> List[Dict]:
+    """扫出全部任务（case/ + CASE_EXTRA_DIRS 私有仓），口径与调度器/看板一致。
+
+    路径口径只维护一份：case_registry.task_dirs()/load_tasks()（#71/#73 已收敛）。
+    原来这里硬编码 CASE_DIR，CASE_EXTRA_DIRS 挂进来的私有任务永远 publish 不出去
+    ——runner 把 out/latest.json 正确写进了私有目录，publish 却查 case/<key>，
+    直接判「未知 case 任务」退出 1，每次运行都算失败。
+
+    注册表不可用时退回老口径（只扫 case/ 一层）：宁可少认几个私有任务，
+    也不能让 publish 整个崩掉。
+    """
+    try:
+        if HERE not in sys.path:
+            sys.path.insert(0, HERE)
+        import case_registry
+        return case_registry.load_tasks(CASE_DIR)
+    except Exception as e:                                      # noqa: BLE001
+        print("[publish] case_registry 不可用，退回只扫 case/：%s: %s"
+              % (type(e).__name__, e), file=sys.stderr)
+        out: List[Dict] = []
+        try:
+            names = sorted(os.listdir(CASE_DIR))
+        except OSError:
+            return out
+        for n in names:
+            if n.startswith("_") or n.startswith("."):
+                continue
+            if os.path.isfile(os.path.join(CASE_DIR, n, "task.json")):
+                out.append({"key": n, "_dir": os.path.join(CASE_DIR, n)})
+        return out
+
+
 def task_dir(key: str) -> str:
+    """任务的真实目录：按 key 反查注册表（可能在 CASE_EXTRA_DIRS 里）。"""
+    for t in _tasks():
+        if t.get("key") == key and t.get("_dir"):
+            return str(t["_dir"])
     return os.path.join(CASE_DIR, key)
 
 
@@ -347,16 +383,14 @@ def _sync_out_template(key: str) -> None:
 
 
 def all_keys() -> List[str]:
+    """可用任务 key：case/ 与 CASE_EXTRA_DIRS 合并，key 去重（先扫到的生效）。"""
     out: List[str] = []
-    try:
-        names = sorted(os.listdir(CASE_DIR))
-    except OSError:
-        return out
-    for n in names:
-        if n.startswith("_") or n.startswith("."):
-            continue
-        if os.path.isfile(os.path.join(CASE_DIR, n, "task.json")):
-            out.append(n)
+    seen = set()
+    for t in _tasks():
+        k = t.get("key")
+        if k and k not in seen:
+            out.append(k)
+            seen.add(k)
     return out
 
 

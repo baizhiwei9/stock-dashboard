@@ -66,6 +66,43 @@ def test_unknown_level_fails():
     assert errs and "risk_level" in errs[0], errs
 
 
+def test_extra_dirs_task_is_publishable():
+    """CASE_EXTRA_DIRS 挂进来的私有任务必须能被 publish 认出来（#76-2）。
+
+    旧代码 task_dir 硬编码 case/<key>、all_keys 只 listdir(case/)，私有任务一律
+    判「未知 case 任务」退出 1，等于永远发布不出去。
+    """
+    import json
+    import tempfile
+
+    tmp = tempfile.mkdtemp()
+    tdir = os.path.join(tmp, "privtask")
+    os.makedirs(os.path.join(tdir, "out"))
+    with open(os.path.join(tdir, "task.json"), "w", encoding="utf-8") as f:
+        json.dump({"key": "privtask", "title": "私有任务", "enabled": True,
+                   "visibility": "private", "section_domain": "risk"}, f)
+    with open(os.path.join(tdir, "out", "latest.json"), "w", encoding="utf-8") as f:
+        json.dump({"as_of": "2026-11-24",
+                   "points": [{"key": "x.v", "sec": "000300.SH", "value": 1.0,
+                               "obs_date": "2026-11-24", "quality": "ok"}]}, f)
+    old = os.environ.get("CASE_EXTRA_DIRS")
+    os.environ["CASE_EXTRA_DIRS"] = tmp
+    try:
+        keys = publish.all_keys()
+        assert "privtask" in keys, keys
+        assert os.path.realpath(publish.task_dir("privtask")) == os.path.realpath(tdir)
+        payload, rows, errs = publish.load_out("privtask")
+        assert not errs and len(rows) == 1, errs
+    finally:
+        if old is None:
+            os.environ.pop("CASE_EXTRA_DIRS", None)
+        else:
+            os.environ["CASE_EXTRA_DIRS"] = old
+
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in tests:
