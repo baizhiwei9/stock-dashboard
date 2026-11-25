@@ -1424,9 +1424,36 @@ def render_futures_section() -> str:
 RE_CITY_SUBS = (("北京", "re_bj"), ("上海", "re_sh"))
 
 
+def _case_task_dir(key: str) -> str:
+    """按调度器同款顺序定位任务目录：主仓 case/ 在前，CASE_EXTRA_DIRS 追加在后。
+
+    realestate_daily 这类私有任务已迁到 precious-task，不在本仓 case/ 下；
+    顺序与 case_registry.task_dirs() 保持一致，避免两边看到的不是同一个任务。
+    """
+    roots = [os.path.join(HERE, "case")]
+    extra = (os.environ.get("CASE_EXTRA_DIRS") or "").replace(";", ":")
+    for p in extra.split(":"):
+        p = p.strip()
+        if p and os.path.isdir(p) and p not in roots:
+            roots.append(p)
+    for root in roots:
+        d = os.path.join(root, key)
+        if os.path.isfile(os.path.join(d, "task.json")):
+            return d
+    return ""
+
+
+def _re_report_path() -> str:
+    """realestate_daily 的 report.md 路径；任务目录找不到时返回空串。"""
+    d = _case_task_dir("realestate_daily")
+    return os.path.join(d, "out", "report.md") if d else ""
+
+
 def _re_report_sections() -> Dict[str, List[str]]:
     """把 realestate_daily 的 report.md 按「## 【城市】」切出各城市条目。"""
-    path = os.path.join(HERE, "case", "realestate_daily", "out", "report.md")
+    path = _re_report_path()
+    if not path:
+        return {}
     try:
         with open(path, encoding="utf-8") as f:
             lines = f.read().splitlines()
