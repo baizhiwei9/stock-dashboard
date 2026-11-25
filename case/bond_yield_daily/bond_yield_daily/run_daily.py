@@ -15,13 +15,25 @@ bond 子包中债全期限曲线），不可达时回退 data/bond_yield/snapsho
 import os
 import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-# 实现已随 case/bond_three_factor 一起入库；不再依赖生成这批文件时的 /home/work 会话目录。
-# 需要指向另一份 commodities_strategies 时用 BOND_STRATEGIES_DIR 覆盖。
-_CASE = os.path.dirname(os.path.dirname(_HERE))
-_REPO = (os.environ.get("BOND_STRATEGIES_DIR")
-         or os.path.join(_CASE, "bond_three_factor"))
-_WS = os.path.dirname(_REPO)
+# 本 case 的计算逻辑在外部仓库 commodities_strategies 里（bond_yield 子包）。
+# 原写死的 projects/commodities_strategies 在现环境下不存在，之前是静默 sys.path
+# 加空路径 → 到 import 才炸。改成候选探测 + 缺失时给出可操作的报错。
+_REPO_CANDS = [
+    os.environ.get("COMMODITIES_STRATEGIES_ROOT", ""),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))), "projects", "commodities_strategies"),
+]
+_REPO = next((p for p in _REPO_CANDS
+              if p and os.path.isdir(os.path.join(p, "commodities_strategies"))), None)
+if _REPO is None:
+    raise SystemExit(
+        "找不到 commodities_strategies 仓库，bond_yield_daily 无法运行。\n"
+        "  候选位置：%s\n"
+        "  请把该仓库放到上述任一位置，或用环境变量 COMMODITIES_STRATEGIES_ROOT 指定。\n"
+        "  注：本任务当前 task.json enabled=false，未被调度；启用前必须先补齐该依赖。"
+        % "、".join(x for x in _REPO_CANDS if x))
+
+_WS = os.path.dirname(os.path.dirname(_REPO))
 for _p in (_REPO, os.path.join(_WS, "pylibs"), os.path.join(_WS, "py_deps"),
            os.path.join(_WS, ".venv_pkgs")):
     if os.path.isdir(_p) and _p not in sys.path:

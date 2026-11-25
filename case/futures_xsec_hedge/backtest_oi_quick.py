@@ -5,10 +5,12 @@
   因子 OI_ROC40 = ln(OI+1).diff(40)；板块内横截面z；w = z/Σ|z|；T日因子→T+1收益
 验证项：日频/周频 × 成本0/2/5/8bp；IC；NW-t；多空分解；逐年；回撤
 """
+import os
 import numpy as np
 import pandas as pd
 
-ROOT = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5f076770c9ffekXUDiMfraoGX1A"
+# 原指向 ses_gffe5f076...（空目录）。panel_full.csv 实际在本 case 的 data/full/ 下。
+ROOT = os.path.dirname(os.path.abspath(__file__))
 CHEM = {"MA", "TA", "SA", "UR", "V", "PP", "L", "EG", "EB"}
 END = pd.Timestamp("2026-10-13")
 

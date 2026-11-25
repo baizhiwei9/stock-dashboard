@@ -44,8 +44,13 @@ TK_CSV_CANDIDATES = [
 #   - ts_config.py：15k 积分代理 token，必须配 _DataApi__http_url = "https://ttx.dailyfetch.top/" 才能用
 #   - ts_official.py：2000 分官方直连 token（沙箱 NAT IP 会轮换，仅固定 IP 环境可用）
 # 代理地址可通过环境变量 TUSHARE_HTTP_URL 覆盖
+# ts_config.py 在 case/manning_flow 与 case/option_risk_cn_us 各有一份（内容等价，
+# 都从 case/_lib/app_secrets.py 取 token、都指同一代理）。原指向的
+# ses_.../strategy_repro 已不存在，改为按仓库相对定位，换机不用改。
+_CASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TS_CFG_DIRS = [
-    "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5fd6b2558bffeYG74Ts057P2dLR/strategy_repro",
+    os.path.join(_CASE_DIR, "manning_flow"),
+    os.path.join(_CASE_DIR, "option_risk_cn_us"),
 ]
 TS_DEFAULT_HTTP_URL = os.environ.get("TUSHARE_HTTP_URL", "https://ttx.dailyfetch.top/")
 

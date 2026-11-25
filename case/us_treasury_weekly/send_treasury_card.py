@@ -10,8 +10,23 @@
 import json
 import sys
 
-ROUTER_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/feishu_router"
-if ROUTER_DIR not in sys.path:
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import feishu_router
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import feishu_router
+
+
+ROUTER_DIR = feishu_router()          # 统一口径；缺失时为空串，下面的 try 会降级
+if ROUTER_DIR and ROUTER_DIR not in sys.path:
     sys.path.insert(0, ROUTER_DIR)
 
 # feishu_router 是 DoMate 侧的共享推送路由，路径只在原运行机存在。

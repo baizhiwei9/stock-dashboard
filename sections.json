@@ -110,8 +110,16 @@
       "subs": []
     },
     {
-      "key": "modules",
+      "key": "health",
       "num": "09",
+      "title": "任务健康",
+      "sub": "连续失败计数 · 成功清零 · 只读不判断",
+      "enabled": true,
+      "subs": []
+    },
+    {
+      "key": "modules",
+      "num": "10",
       "title": "模块管理",
       "sub": "每个模块 = 一个脚本 + 一条自己的定时任务",
       "enabled": true,

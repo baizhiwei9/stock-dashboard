@@ -22,8 +22,8 @@ from datetime import datetime, timedelta
 def _bs(key, kind='text'):
     try:
         import sys as _b
-        _d = '/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/shared'
-        if _d not in _b.path:
+        _d = shared_dir()
+        if _d and _d not in _b.path:
             _b.path.insert(0, _d)
         import report_stats as _r
         return _r.segment(key, kind)
@@ -33,16 +33,28 @@ def _bs(key, kind='text'):
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import datahub_root, py_deps, shared_dir
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import datahub_root, py_deps, shared_dir
+
 # ---- DataHub 统一取数（股票模块，三级体系）----------------------------------
 # 行业资金流明细与指数日线全部改由 data_hub 提供，本文件不再直连 tushare/同花顺/腾讯。
-# 2026-11-25 迁移：HUB_ROOT 改指 datahub-multi-tier 实体仓库。
-# 原先写的 .../datahub-three-tier 是指向 datahub-multi-tier 的软链别名，两者是同一份
-# 落盘文件；"改 three-tier" 与 "改 multi-tier" 认知不一致，害得 sector_flow 的接口
-# 被整表合并回退后无人察觉，下游本日报在 import 阶段连挂 11 天。故此处只认实体路径。
-HUB_ROOT = '/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-multi-tier'
-HUB_DEPS = '/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/py_deps'
+# 路径不再写死：HUB_ROOT 走 case/_lib/paths.py → stock-dashboard/datahub_path.py，
+# 与 build.py / scheduler.py 同一口径（换机器改环境变量或 checkout 位置即可）。
+HUB_ROOT = datahub_root()
+HUB_DEPS = py_deps()
 for _p in (HUB_DEPS, HUB_ROOT):
-    if _p not in sys.path:
+    if _p and os.path.isdir(_p) and _p not in sys.path:
         sys.path.insert(0, _p)
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))

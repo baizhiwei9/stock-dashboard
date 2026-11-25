@@ -14,10 +14,11 @@ import json
 import os
 import sys
 
-BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace"
-WORK = os.path.join(BASE, "ses_gffe5ea0b23728ffegpx6GMQLqwA5ek")
+# 原指向旧沙箱 workspace + ses_... 会话目录（均已空/不存在）。改相对定位。
+BASE = os.path.dirname(os.path.abspath(__file__))
+WORK = BASE
 D = os.path.join(WORK, "data")
-CFG_DIR = os.path.join(BASE, "skills", "user", "momentum-risk-control")
+CFG_DIR = BASE          # feishu_config.py 在本 case 目录
 sys.path.insert(0, CFG_DIR)
 
 ASOF = "2026-10-21"

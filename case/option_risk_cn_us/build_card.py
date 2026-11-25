@@ -18,9 +18,11 @@ import os
 import re
 import sys
 
-BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace"
-D = os.path.join(BASE, "ses_gffe5ea0b23728ffegpx6GMQLqwA5ek", "data")
-CFG_DIR = os.path.join(BASE, "skills", "user", "momentum-risk-control")
+# 原指向旧沙箱 workspace + ses_... 会话目录（均已空/不存在）。
+# data/ 与 feishu_config.py 都在本 case 目录下，改相对定位。
+BASE = os.path.dirname(os.path.abspath(__file__))
+D = os.path.join(BASE, "data")
+CFG_DIR = BASE          # feishu_config.py 在本 case 目录
 sys.path.insert(0, CFG_DIR)
 
 RED = "<font color='red'>%s</font>"
