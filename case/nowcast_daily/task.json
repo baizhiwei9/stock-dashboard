@@ -1,7 +1,7 @@
 {
   "key": "nowcast_daily",
   "title": "美国 Nowcast（GDP / 通胀实时预测）",
-  "desc": "每天 22:00（美东 9–10 点）取 GDPNow / NY Fed / WEI / 克利夫兰通胀 nowcast，指标落 US.NOWCAST；本任务不判阈值、不发预警邮件（预警由 DataHub nowcast_alert 以「较上次取数」口径统一发出）。",
+  "desc": "每天 23:10（美东 10:10 EST / 11:10 EDT）取 GDPNow / NY Fed / WEI / 克利夫兰通胀 nowcast，指标落 US.NOWCAST；本任务不判阈值、不发预警邮件（预警由 DataHub nowcast_alert 以「较上次取数」口径统一发出）。",
   "section": "macro",
   "metrics": [
     {
@@ -112,7 +112,7 @@
   ],
   "sched": {
     "mode": "daily",
-    "at": "22:00",
+    "at": "23:10",
     "weekdays": [
       1,
       2,
@@ -121,7 +121,7 @@
       5
     ]
   },
-  "not_before": "22:00",
+  "not_before": "23:10",
   "cmd": "python3 -u run.py",
   "cwd": ".",
   "timeout": 900,

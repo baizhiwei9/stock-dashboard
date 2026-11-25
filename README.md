@@ -120,7 +120,7 @@ python3 manager.py list                      # 清单里 case 任务标 case
 | chanlun | 22:25 | 缠论 + 趋势 |
 | dfa | 22:28 | DFA / Hurst |
 | task_tags_notify | 22:35 | 读标签发飞书（alert 另发邮件） |
-| build | 22:40 | 生成 index.html + 发布 |
+| build | 23:40 | 生成 index.html + 发布（等 23:10 nowcast 落完美东 10:00 版） |
 | five_strategy | 08:30 | 五策略综合日报（产出由 task_tags 转录） |
 | factor_daily | 08:30 | 资金面因子日报 |
 | limit_up_morning | 09:00 | 涨停预测 · 早盘 |
