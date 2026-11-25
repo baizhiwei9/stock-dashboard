@@ -313,6 +313,13 @@ def _raw_get(dotted):
         if val is not None and not _is_placeholder(val):
             return val
     val = _walk(_read_config(), dotted)
+    if not isinstance(val, str):
+        # 非字符串一律当缺失。历史上 set_value 位置参数错位会把值写成
+        # {"<输入值>": "<文件路径>"}，而调用方对非 str 做 str() 之后：
+        #   · 门禁打「✅ 管理密码合规（74 位）」—— 长度随 HOME 路径变，全绿
+        #   · 调度器真正拿到的是 dict 的 repr，用户拿自己输入的密码登录不了
+        # 宁可报缺失（fail-closed、当场看得见），也不要静默 stringify。
+        return _MISSING
     return _MISSING if _is_placeholder(val) else val
 
 
@@ -328,7 +335,9 @@ def _file_value(dotted):
     """
     def _pick(k):
         v = _walk(_read_config(), k)
-        return None if v is _MISSING or _is_placeholder(v) else v
+        # 非 str（含 _MISSING 和写坏成 dict 的历史值）都当「文件里没有」，
+        # 与 _raw_get 同口径 —— 否则 persist_env 会以为已有值而跳过补写。
+        return None if not isinstance(v, str) or _is_placeholder(v) else v
 
     v = _pick(dotted)
     if v is not None:
@@ -449,6 +458,11 @@ def set_value(name, key=None, value=None, path=None):
 
     set_value("scheduler", "password", v)
     set_value("api.password", v)
+    set_value("api.password", v, path="/tmp/x.json")   # 指定路径要写 path=
+
+    注意两参数形式靠 "value is None" 判定，所以想指定路径时 path 必须传关键字：
+    set_value("api.password", v, "/tmp/x.json") 会把路径当成 value、v 当成 key，
+    落盘成 {"api": {"password": {"<v>": "/tmp/x.json"}}}。
     """
     if key is not None and value is None:
         # 两参数形式：set_value("api.password", v)
@@ -701,7 +715,11 @@ def _cmd_init():
             if _is_placeholder(val):
                 print("  不能为空或占位值。")
                 continue
-            set_value(key, val, path)
+            # path 必须走关键字。set_value 的签名是 (name, key, value, path)，
+            # 两参数形式（点号 key + 值）只在 value is None 时才成立 —— 写成
+            # set_value(key, val, path) 会把 path 落到 value、val 落到 key，
+            # 落盘成 {"api": {"password": {"<输入值>": "<文件路径>"}}}。
+            set_value(key, val, path=path)
             print("  ✓ 已写入 %s" % key)
             break
     opt = missing(OPTIONAL_KEYS)
@@ -715,7 +733,7 @@ def _cmd_init():
             break
         val = val.strip()
         if val and not _is_placeholder(val):
-            set_value(key, val, path)
+            set_value(key, val, path=path)
     try:
         os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
     except OSError:

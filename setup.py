@@ -441,7 +441,7 @@ def main():
             snap = _state(True)
             have = any(snap[k] for k in ("feishu", "scheduler", "treasury"))
             if not have:
-                print("  ✗ 环境变量里没有可落盘的配置，凭据文件也是空的。")
+                print("  ✗ 环境变量里没有可落盘的配置，凭据文件里飞书 / 管理密码 / 注册密钥也都没值。")
                 print("  先 export 下面这些再跑（COZE_SEC_ 前缀）：")
                 for k in ("api.password", "api.registry_key",
                           "feishu.app_id", "feishu.app_secret", "feishu.webhook"):
