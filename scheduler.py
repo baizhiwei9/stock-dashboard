@@ -56,6 +56,35 @@ TICK_SEC = 15          # 调度轮询间隔
 GRACE_SEC = 6 * 3600   # 错过超过 6 小时就不补跑
 DEFAULT_PORT = 8767    # 与 modules.json / README 保持一致，避免文档里三个端口打架
 
+HB_PATH = os.path.join(LOG_DIR, "scheduler.hb")   # 心跳：每次 tick 写 epoch 秒
+HB_STALE_SEC = 180     # 心跳超过 3 分钟未更新 → 视为僵死（看门狗据此重启，而非只看 pid）
+
+
+def write_heartbeat():
+    """写心跳文件（epoch 秒）。
+
+    看门狗只读这一个文件判断「调度循环还在转」—— 进程活着但循环卡死（僵死）时，
+    只看 pid 会漏判，心跳比 pid 更能代表真的在调度。
+    """
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        with open(HB_PATH, "w", encoding="utf-8") as f:
+            f.write(str(int(time.time())))
+    except OSError:
+        pass
+
+
+def heartbeat_age():
+    """返回心跳年龄（秒）；无心跳文件（老版本或刚启动）返回 None。"""
+    try:
+        with open(HB_PATH, encoding="utf-8") as f:
+            t = int((f.read() or "0").strip() or 0)
+    except (OSError, ValueError):
+        return None
+    if t <= 0:
+        return None
+    return max(0, int(time.time()) - t)
+
 LOCK = threading.RLock()
 PROCS = {}             # key -> {proc, started, slot, logf}
 _STOP = threading.Event()
@@ -529,13 +558,55 @@ def tick():
     save_state(st)
 
 
+def _recover_interrupted():
+    """启动时清理上一个进程遗留的 running 状态。
+
+    子进程句柄只存在于内存（PROCS），调度器被 kill 后新进程无法回收它们：
+    state.json 会留下 running=true 且 last_slot 已写，于是该任务当天既不重跑、
+    也不报错 —— 典型的静默失败。这里统一标记 interrupted，让管理页/日报看得见。
+
+    自动补跑默认**关闭**：报告类任务重跑会重复推送飞书/邮件，需人工判断；
+    确认任务幂等后可把 state.json 的 scheduler.auto_retry_interrupted 置 true，
+    下次启动会清空对应 last_slot，在 6 小时宽限内重新命中。
+    """
+    st = load_state()
+    mods = st.get("modules") or {}
+    bad = [k for k, ms in mods.items() if (ms or {}).get("running")]
+    if not bad:
+        return
+    for k in bad:
+        mods[k].update({
+            "running": False,
+            "last_status": "interrupted",
+            "note": "上次调度器退出时该任务仍在运行（结果未知，已标记中断）",
+        })
+    sch = st.setdefault("scheduler", {})
+    sch["recovered_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sch["recovered_tasks"] = bad
+    if sch.get("auto_retry_interrupted"):
+        for k in bad:
+            mods[k]["last_slot"] = ""
+        log("恢复：%d 个任务上次被中断（%s），已标记 interrupted 并清空 last_slot 以便补跑"
+            % (len(bad), ",".join(bad)))
+    else:
+        log("恢复：%d 个任务上次被中断（%s），已标记 interrupted（auto_retry_interrupted=false，不自动补跑）"
+            % (len(bad), ",".join(bad)))
+    save_state(st)
+
+
 def loop():
+    write_heartbeat()          # 先落心跳：看门狗据此判断「循环在转」，与 pid 无关
+    try:
+        _recover_interrupted()
+    except Exception:                                     # noqa: BLE001
+        log("恢复中断任务失败：\n" + traceback.format_exc())
     log("调度器启动 pid=%d，轮询 %ds" % (os.getpid(), TICK_SEC))
     while not _STOP.is_set():
         try:
             tick()
         except Exception:                                    # noqa: BLE001
             log("tick 异常：\n" + traceback.format_exc())
+        write_heartbeat()      # tick 抛异常也要续心跳：僵死判定的是「循环卡住」，不是「任务失败」
         _STOP.wait(TICK_SEC)
     log("调度器退出")
 
@@ -1027,6 +1098,27 @@ def cmd_fg():
     return 0
 
 
+def cmd_health():
+    """供看门狗调用的健康检查。退出码：0=健康，1=未运行，2=僵死（进程在但心跳过期）。
+
+    与 cmd_status 的区别：这里只回答「要不要拉起」，不打印表格，适合每分钟被调用。
+    """
+    pid = read_pid()
+    if pid is None:
+        print("未运行")
+        return 1
+    age = heartbeat_age()
+    if age is None:
+        # 老版本/刚启动还没有心跳文件：有 pid 或端口响应就不判僵死，避免误重启
+        print("运行中 pid=%s（暂无心跳文件）" % pid)
+        return 0
+    if age > HB_STALE_SEC:
+        print("僵死 pid=%s 心跳 %ds 未更新（阈值 %ds）" % (pid, age, HB_STALE_SEC))
+        return 2
+    print("健康 pid=%s 心跳 %ds 前" % (pid, age))
+    return 0
+
+
 def main(argv):
     if len(argv) < 2:
         print(__doc__)
@@ -1045,6 +1137,9 @@ def main(argv):
         return cmd_start()
     if cmd == "status":
         return cmd_status()
+    if cmd == "health":
+        # 看门狗专用：0=健康 / 1=未运行 / 2=僵死，不打印表格
+        return cmd_health()
     if cmd == "fg":
         return cmd_fg()
     if cmd == "serve":
