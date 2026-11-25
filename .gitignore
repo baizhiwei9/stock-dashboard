@@ -1,0 +1,49 @@
+# 运行时产物
+index.html
+pub/
+logs/
+__pycache__/
+*.pyc
+scheduler.pid
+daily.log
+
+# 运行状态（每次跑都在变，不入库）
+state.json
+registry.json
+
+# case 任务的抓数缓存与产出：每天新增几十个按日期命名的文件，
+# 属于本机数据，不是代码。仓库里一个都不放（git ls-files 应查不到 /data/ /out/）。
+case/*/data/
+case/*/out/
+
+# ===== 本地安装配置（不入库）=====
+# modules.json 是「这台机器怎么跑」的配置：含本机绝对路径、端口、要启用的模块，
+# 以及历史遗留的 api.password / registry_key。它属于本地安装数据，不是框架代码。
+# 仓库里只放 modules.example.json 模板；新装机器复制成 modules.json 再改。
+# 详见 DEPLOY.md「敏感配置」一节。
+modules.json
+
+# 云平台部署元数据
+.coze
+
+# ===== 敏感配置（绝不入库）=====
+# 飞书 APP ID / APP Secret / Webhook、调度器管理密码与注册密钥、Tushare token、
+# SMTP 授权码、FRED key、TreasuryDirect 凭据，一律走
+# ~/.config/stock-dashboard/secrets.json 或环境变量。
+# 仓库里只保留 case/_lib/secrets.example.json 占位模板。
+# 详见 docs/SECRETS.md / DEPLOY.md「敏感配置」一节。
+secrets.json
+feishu_secret.json
+*.secret.json
+.env
+.env.*
+!.env.example
+
+# 本机安装数据（含绝对路径 / 端口 / 启停状态，因机器而异）
+modules.json
+modules.json.bak_*
+
+# 运行时状态
+case/_lib/.alert_quota.json
+.switches.local.json
+case/manning_flow/weekly_report_*.json
