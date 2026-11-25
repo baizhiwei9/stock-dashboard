@@ -227,10 +227,17 @@ def load_tasks(base: Optional[str] = None, only_enabled: bool = False) -> List[D
                 t = _read_json(tj, None)
                 if not isinstance(t, dict):
                     continue
-                errs = validate_task(t, dir_key)
                 t = dict(t)
                 t["_dir"] = d
                 t["source"] = "case" if root_dir == CASE_DIR else "case-external"
+                # 私有仓（CASE_EXTRA_DIRS）里没写 visibility 的老任务按 private。
+                # 只在这一层归一：validate_task / visibility_of / as_workers /
+                # as_modules / 私有页看到的是同一个结论，不在各层各自兜底
+                # （否则 validate_task 按 public 判、板块留空就成了「配置错误」）。
+                if (t["source"] == "case-external"
+                        and not str(t.get("visibility") or "").strip()):
+                    t["visibility"] = "private"
+                errs = validate_task(t, dir_key)
                 if dir_key in seen:
                     msg = "key 重复：%s 已由 %s 提供，本次忽略 %s" % (dir_key, seen[dir_key], d)
                     print("[case_registry] " + msg, file=sys.stderr)
@@ -357,11 +364,7 @@ def as_workers(base: Optional[str] = None, visibility: str = "public",
     for t in load_tasks(base, only_enabled=not include_disabled):
         if t.get("_errors"):
             continue                      # 配置错误的进模块管理页（标红），不上数据板块
-        vis = visibility_of(t)
-        # 私有仓（CASE_EXTRA_DIRS）里没写 visibility 的老任务按私有处理，
-        # 既不泄漏到公开页，也不在私有页被误丢。
-        if t.get("source") == "case-external" and not t.get("visibility"):
-            vis = "private"
+        vis = visibility_of(t)            # 外部仓缺 visibility 的归一已在 load_tasks 做
         if visibility != "all" and vis != visibility:
             continue                      # 两套页面各取自己那一半，不混排
         sec = section_of(t)
