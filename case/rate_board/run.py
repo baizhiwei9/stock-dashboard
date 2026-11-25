@@ -199,8 +199,11 @@ def cn_block():
                              (SR.SHORT_END, "rate.cn.cdb3m_regime_level", "短端溢价档位")):
             j = SR.judge(sid)
             if j:
-                add(key, nm, value=j["level"], unit="级", dec=0, obs=j["date"],
-                    note="%s｜%s" % (j["adjusted"], j["label"]))
+                # #72 之后 adjusted 与 label 同源：无方向修正时两者同字，直接「a｜b」会成「强｜强」；
+                # 有修正时才把绝对值档带上，保留「压平/走阔前原本是哪档」这条信息。
+                note = (j["label"] if j["adjusted"] == j["label"]
+                        else "%s（绝对值档 %s）" % (j["adjusted"], j.get("band") or "?"))
+                add(key, nm, value=j["level"], unit="级", dec=0, obs=j["date"], note=note)
             else:
                 add(key, nm, quality="missing",
                     note="%s 无数据（DataHub 取数失败或样本为空）" % sid)
