@@ -20,7 +20,7 @@
 import app_secrets as _secrets
 
 __all__ = [
-    "APP_ID", "APP_SECRET", "WEBHOOK_URL", "TOKEN_URL", "UPLOAD_URL",
+    "APP_ID", "APP_SECRET", "WEBHOOK_URL", "CHAT_ID", "TOKEN_URL", "UPLOAD_URL",
     "FeishuCredentialMissing", "load_credentials", "require",
 ]
 
@@ -29,6 +29,9 @@ TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/intern
 UPLOAD_URL = "https://open.feishu.cn/open-apis/im/v1/images"
 
 _FIELDS = ("app_id", "app_secret", "webhook_url")
+# chat_id 是群标识，不是密钥，但同样不写进仓库；只发文本/图片的调用方不需要它，
+# 所以不放进 _FIELDS，避免 require() 默认把群 ID 也当成必填。
+_EXTRA_FIELDS = ("chat_id",)
 
 
 class FeishuCredentialMissing(_secrets.SecretMissing):
@@ -38,13 +41,15 @@ class FeishuCredentialMissing(_secrets.SecretMissing):
 def load_credentials():
     """返回 (dict, 来源说明)。缺项用空串，不在这里抛错。"""
     sec = _secrets.section("feishu")
-    return ({k: (sec.get(k) or "").strip() for k in _FIELDS}, _secrets.source())
+    fields = _FIELDS + _EXTRA_FIELDS
+    return ({k: (sec.get(k) or "").strip() for k in fields}, _secrets.source())
 
 
 _CREDS, _SOURCE = load_credentials()
 APP_ID = _CREDS["app_id"]
 APP_SECRET = _CREDS["app_secret"]
 WEBHOOK_URL = _CREDS["webhook_url"]
+CHAT_ID = _CREDS["chat_id"]
 
 
 def require(*fields):
