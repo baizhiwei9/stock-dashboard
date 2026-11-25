@@ -24,15 +24,32 @@ p["droll5"] = p.groupby("variety", group_keys=False)["roll_annual"].diff(5)
 p["z_droll"] = p.groupby("variety", group_keys=False)["droll5"].apply(lambda s: time_z(s))
 
 # ---- z_inv：近5年同期分位 ----
-inv_paths = {v: None for v in p.variety.unique()}
+# 库存是可选因子：文件缺失/抓不到时该品种整列 NaN，由下面的 robust_score 把
+# 权重归一化给其余三项，不让整条重建挂掉。缺失品种记进 inv_missing，末尾统一提示。
 inv = {}
+inv_missing = []
 for v in p.variety.unique():
-    inv[v] = pd.read_csv(f"data/norm/inventory_{v}.csv", parse_dates=["date"]).dropna()
-    inv[v]["y"] = inv[v]["date"].dt.year
-    inv[v]["doy"] = inv[v]["date"].dt.dayofyear
+    try:
+        df = pd.read_csv(f"data/norm/inventory_{v}.csv", parse_dates=["date"]).dropna()
+        if df.empty or "stock" not in df.columns:
+            inv_missing.append(v); continue
+        df["y"] = df["date"].dt.year
+        df["doy"] = df["date"].dt.dayofyear
+        inv[v] = df
+    except FileNotFoundError:
+        inv_missing.append(v)
+    except Exception as e:                       # noqa: BLE001
+        print(f"[z_inv] {v} 库存读取失败，降级 NaN：{e}")
+        inv_missing.append(v)
+if inv_missing:
+    print(f"[z_inv] 库存缺失 {len(inv_missing)}/{p.variety.nunique()} 个品种："
+          f"{'、'.join(inv_missing[:8])}{'…' if len(inv_missing) > 8 else ''}"
+          f" → 这些品种 z_inv=NaN，score 按剩余因子归一化")
 
 def inv_z(v, d):
-    df = inv[v]; yy = d.year; doy = d.dayofyear
+    df = inv.get(v)
+    if df is None or df.empty: return np.nan
+    yy = d.year; doy = d.dayofyear
     rows = df[df["date"] == d]
     if len(rows) == 0: return np.nan
     val = rows.iloc[0]["stock"]
@@ -51,7 +68,9 @@ def inv_z(v, d):
 print("计算 z_inv ...")
 zinv_vals = []
 for v, gp in p.groupby("variety"):
-    df = inv[v]
+    df = inv.get(v)
+    if df is None or df.empty:
+        zinv_vals.append(gp.assign(z_inv=np.nan)); continue
     stock_map = {(int(r.y), int(r.doy)): r.stock for r in df.itertuples()}
     # 最近可得日期索引（先升序）
     dseq = df.sort_values("date").reset_index(drop=True)
@@ -117,12 +136,17 @@ p.to_csv("data/full/factors_full.csv", index=False)
 print("factors_full:", p.shape, p.date.min(), "->", p.date.max())
 print("z_inv 有效:", p.z_inv.notna().mean(), "| score 有效:", p.score.notna().mean())
 
-# ---- 与既有 factors_mom.csv 重叠区间验证 ----
-old = pd.read_csv("data/norm/factors_mom.csv", parse_dates=["date"])
-m = old.merge(p, on=["date","variety"], suffixes=("_o","_n"))
-m = m[m.date>="2024-06-03"]
-for c in ["z_roll","z_basis","z_droll","z_inv","score","momz_20"]:
-    mo = m[[c+"_o",c+"_n"]].dropna()
-    if len(mo)>100:
-        corr = mo[c+"_o"].corr(mo[c+"_n"])
-        print(f"{c}: n={len(mo)} corr={corr:.4f}")
+# ---- 与既有 factors_mom.csv 重叠区间验证（可选：基线不在就跳过，不影响已写出的产物）----
+try:
+    old = pd.read_csv("data/norm/factors_mom.csv", parse_dates=["date"])
+except FileNotFoundError:
+    print("[基线校验] data/norm/factors_mom.csv 不存在，跳过新旧口径对照")
+    old = None
+if old is not None:
+    m = old.merge(p, on=["date","variety"], suffixes=("_o","_n"))
+    m = m[m.date>="2024-06-03"]
+    for c in ["z_roll","z_basis","z_droll","z_inv","score","momz_20"]:
+        mo = m[[c+"_o",c+"_n"]].dropna()
+        if len(mo)>100:
+            corr = mo[c+"_o"].corr(mo[c+"_n"])
+            print(f"{c}: n={len(mo)} corr={corr:.4f}")
