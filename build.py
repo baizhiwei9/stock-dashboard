@@ -1497,17 +1497,143 @@ def _re_report_sections() -> Dict[str, List[str]]:
 
 
 def _re_md_bold(s: str) -> str:
-    """行内 **粗体** → <b>，其余按 HTML 转义。"""
-    return "".join('<b>%s</b>' % p if i % 2 else p
-                   for i, p in enumerate(html.escape(s).split("**")))
+    """行内 **粗体** → <b>，其余按 HTML 转义；未闭合的 ** 原样保留。"""
+    parts = html.escape(s).split("**")
+    out = []
+    for i, p in enumerate(parts):
+        if i % 2 == 0:
+            out.append(p)
+        elif i < len(parts) - 1:
+            out.append("<b>%s</b>" % p)
+        else:
+            out.append("**%s" % p)
+    return "".join(out)
+
+
+def _re_fetch_meta() -> Dict:
+    """取 fetch_input.py 落盘的取数元数据（data/fetch_meta.json）。
+
+    只用来判断本期真取了哪些字段（sources.*.ok）；基准日一律从正文的
+    行内截止日推，不用 fetched_at。文件缺失不阻断渲染——没跑过自动取数
+    的旧部署也得能出页面。
+    """
+    import json as _json
+    p = os.path.join(HERE, "case", "realestate_daily", "data", "fetch_meta.json")
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = _json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _re_month_end(y: int, m: int):
+    """该月最后一天；月频数据按此对齐，避免年月差把边界日算少一个月。"""
+    import calendar as _cal
+    import datetime as _dt
+    return _dt.date(y, m, _cal.monthrange(y, m)[1])
+
+
+def _re_add_months(d, n: int):
+    """日历月加法（日按月末夹紧），用于「超过 N 个月」的边界判断。"""
+    import calendar as _cal
+    import datetime as _dt
+    y = d.year + (d.month - 1 + n) // 12
+    m = (d.month - 1 + n) % 12 + 1
+    return _dt.date(y, m, min(d.day, _cal.monthrange(y, m)[1]))
+
+
+def _re_ref_date(cities: Dict[str, List[str]]):
+    """数据基准日：取正文里最新的「截至」日期，不用 fetch_meta.fetched_at。
+
+    抓取日只说明脚本什么时候跑过，数据可能是沿用的旧值；拿它当基准会把
+    没取到数的那期也显示成「本期取数」。优先取日频截止日的最大值，没有
+    日频时退回最新的月频月末，再没有才用今天，保证页面还能出。
+    """
+    import datetime as _dt
+    import re as _re
+    day_dates, mon_dates = [], []
+    for items in (cities or {}).values():
+        for text in items:
+            m = _re.search(r"截至\s*(\d{4})-(\d{2})-(\d{2})", text)
+            if m:
+                try:
+                    day_dates.append(_dt.date(int(m.group(1)), int(m.group(2)),
+                                              int(m.group(3))))
+                except ValueError:
+                    pass
+                continue
+            m = _re.search(r"截至\s*(\d{4})-(\d{2})(?!\d)", text)
+            if m:
+                try:
+                    mon_dates.append(_re_month_end(int(m.group(1)), int(m.group(2))))
+                except ValueError:
+                    pass
+    if day_dates:
+        return max(day_dates)
+    if mon_dates:
+        return max(mon_dates)
+    return _dt.date.today()
+
+
+_RE_STALE_STYLE = ("font-style:normal;font-size:11px;color:#b03a2e;"
+                   "border:1px solid #e6b0aa;border-radius:3px;"
+                   "padding:0 5px;margin-left:6px;white-space:nowrap")
+
+
+def _re_stale(text: str, ref) -> str:
+    """按行内「截至 YYYY-MM-DD / YYYY-MM」判断过期，返回标记 HTML。
+
+    日频超 14 天、月频超 2 个月才算过期（月频数据 20 多天前是正常的，
+    拿日频阈值套月频会把正常的月度数据全标成过期）。月频按数据月末对齐，
+    否则只减年月会在边界日少算一个月；数据日晚于基准日视为异常并显式标出，
+    不能当成「新」。没有截止日的行同样标出来——读者无从判断它是什么时候的数。
+    「数据基准」是说明行而非数据行，跳过不标。
+    """
+    import datetime as _dt
+    import re as _re
+    if text.startswith("数据基准"):
+        return ""
+    m = _re.search(r"截至\s*(\d{4})-(\d{2})-(\d{2})", text)
+    if m:
+        try:
+            d = _dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return ""
+        days = (ref - d).days
+        if days < 0:
+            # 数据日晚于基准日：不是「新」，是日期写错或穿越了，显式标出来
+            return '<em style="%s">数据日异常 · 超前 %d 天</em>' % (
+                _RE_STALE_STYLE, -days)
+        if days <= 14:
+            return ""
+        return '<em style="%s">未更新 · %d 天前</em>' % (_RE_STALE_STYLE, days)
+    m = _re.search(r"截至\s*(\d{4})-(\d{2})(?!\d)", text)
+    if m:
+        try:
+            e = _re_month_end(int(m.group(1)), int(m.group(2)))
+        except ValueError:
+            return ""
+        # 月频按「数据月末 + 2 个月」判过期，比直接减年月少一次边界误差
+        if ref > _re_add_months(e, 2):
+            # 已过完整月数：基准日当天若是月末就算满月，否则去掉不足一月的零头
+            months = (ref.year - e.year) * 12 + (ref.month - e.month)
+            if ref < _re_month_end(ref.year, ref.month):
+                months -= 1
+            return '<em style="%s">未更新 · %d 个月前</em>' % (
+                _RE_STALE_STYLE, months)
+        return ""
+    return '<em style="%s">未标注截止日</em>' % _RE_STALE_STYLE
 
 
 def render_realestate_section() -> str:
     """地产栏 —— 按城市分两张子卡片：北京 / 上海。
 
     内容取自 ``case/realestate_daily/out/report.md`` 的「## 【北京】」「## 【上海】」
-    两节（每行自带数据截止日期，不另做加工）。子页在 sections.json 的
-    ``realestate.subs`` 里登记，``enabled`` 决定默认显隐。
+    两节（每行自带数据截止日期）。自动取数只覆盖汇率/利率/CPI/70 城，网签、
+    挂牌、租金仍是人工快照，所以对过期行显式标「未更新」，并在卡片顶部写明
+    本期取数日——宁可明说没有，也不让旧数混在新数里冒充最新。
+    子页在 sections.json 的 ``realestate.subs`` 里登记，``enabled`` 决定默认显隐。
     整块无数据 → 整块不渲染，与其它板块口径一致。
     """
     cities = _re_report_sections()
@@ -1519,21 +1645,37 @@ def render_realestate_section() -> str:
             subs = {x.get("key"): x for x in (s.get("subs") or [])}
             break
 
+    meta = _re_fetch_meta()
+    ref = _re_ref_date(cities)
+    fetched = str(meta.get("fetched_at") or "")[:10]
+    sources = meta.get("sources") if isinstance(meta.get("sources"), dict) else {}
+    fetched_ok = any(isinstance(v, dict) and v.get("ok")
+                     and (v.get("got") or v.get("updated") or v.get("added"))
+                     for v in sources.values())
+    fetched_s = ("；本期自动取数 %s" % html.escape(fetched)
+                 if fetched_ok and fetched else "")
+    head = ('<div style="font-size:12px;color:#666;line-height:1.7;margin:0 0 10px 0">'
+            '自动更新：汇率 / 利率 / CPI / 70 城房价（数据截至 %s%s）；'
+            '网签、挂牌量价、租金暂无自动源，标「未更新」的行沿用人工快照，'
+            '以行内截止日为准。</div>'
+            % (ref.isoformat(), fetched_s))
+
     cards = []
     for city, key in RE_CITY_SUBS:
         items = cities.get(city) or []
         if not items:
             continue
         d = 1 if (subs.get(key) or {}).get("enabled", True) else 0
-        lis = "".join('<li style="margin:0 0 10px 0">%s</li>' % _re_md_bold(x)
+        lis = "".join('<li style="margin:0 0 10px 0">%s%s</li>'
+                      % (_re_md_bold(x), _re_stale(x, ref))
                       for x in items)
         cards.append(
             '<section class="idx-card sec" id="%s" data-sec="%s" data-def="%d">'
             '<header><h3>%s <em>地产 · 城市基础数据</em></h3></header>'
-            '<div class="idx-body"><div class="blk">'
+            '<div class="idx-body"><div class="blk">%s'
             '<ul style="margin:0;padding-left:18px;line-height:1.75">%s</ul>'
             '</div></div></section>'
-            % (key, key, d, html.escape(city), lis))
+            % (key, key, d, html.escape(city), head, lis))
     return "".join(cards)
 
 
