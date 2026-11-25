@@ -20,3 +20,4 @@ case/*/fonts/
 
 # 云平台部署元数据
 .coze
+case/_lib/.alert_quota.json

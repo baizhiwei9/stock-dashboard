@@ -28,6 +28,10 @@ SECTIONS = ("stock", "futures", "realestate", "macro", "liquidity", "bond",
             "option", "risk", "modules")
 KEY_RE = re.compile(r"^[a-z0-9_]{2,40}$")
 AT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+# 平台会话目录（ses_xxxx）：任务源码的原始位置，**不是** case 任务目录。
+# 有人把 CASE_EXTRA_DIRS 指到 workspace 根时会把它们当成任务扫，导致每个
+# 会话目录都报「key 与目录名不一致」——这里直接跳过，不参与校验也不报错。
+SESSION_DIR_RE = re.compile(r"^ses_[0-9a-f]{6,}$")
 # 框架生命周期：有 pipeline 的任务由 case/_lib/runner.py 按这几个阶段驱动
 PIPELINE_STAGES = ("fetch", "check", "render", "emit", "dispatch")
 VISIBILITIES = ("public", "internal")
@@ -88,16 +92,29 @@ def _validate_pipeline(p) -> List[str]:
     return errs
 
 
-def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
-    """返回错误列表，空列表表示通过。"""
+def validate_task(t: Dict, dir_key: Optional[str] = None,
+                  autofix_key: bool = True) -> List[str]:
+    """返回错误列表，空列表表示通过。
+
+    key 与目录名不一致**不再判失败**：目录名是唯一标识，task.json 里的 key
+    只是它的一个副本。历史上从会话目录搬过来的任务普遍带着旧 key，按旧规则
+    会让整个数据层加载失败——这不是「任务有问题」，是配置搬运的残留。
+    默认以目录名为准自动纠正并把原值留在 _key_renamed_from 里备查；
+    需要严格模式时传 autofix_key=False。
+    """
     errs: List[str] = []
     if not isinstance(t, dict):
         return ["task.json 不是对象"]
     k = t.get("key")
+    if dir_key and k != dir_key:
+        if autofix_key:
+            t["_key_renamed_from"] = k
+            t["key"] = dir_key
+            k = dir_key
+        else:
+            errs.append("key 与目录名不一致：%s != %s" % (k, dir_key))
     if not isinstance(k, str) or not KEY_RE.match(k):
         errs.append("key 非法（要求 [a-z0-9_]{2,40}）")
-    if dir_key and k != dir_key:
-        errs.append("key 与目录名不一致：%s != %s" % (k, dir_key))
     if not str(t.get("title") or "").strip():
         errs.append("缺 title")
     vis = t.get("visibility") or "public"
@@ -159,6 +176,12 @@ def load_tasks(base: Optional[str] = None, only_enabled: bool = False) -> List[D
             continue
         for name in names:
             if name.startswith("_") or name.startswith("."):
+                continue
+            if SESSION_DIR_RE.match(name):
+                # 会话目录不是任务目录：CASE_EXTRA_DIRS 指到了 workspace 根。
+                # 直接跳过，既不加载也不计入失败（否则每个会话目录一条错误）。
+                print("[case_registry] 跳过会话目录 %s：CASE_EXTRA_DIRS 应指向 case/ 这一层，"
+                      "不是 workspace 根" % os.path.join(root_dir, name), file=sys.stderr)
                 continue
             d = os.path.join(root_dir, name)
             tj = os.path.join(d, "task.json")
