@@ -7,6 +7,13 @@
     "password": "123456",
     "registry_key": "123456"
   },
+  "queue": {
+    "max_parallel": 1,
+    "note": "max_parallel=1 串行；pull_forward=队列空着就把后面的任务提前拉进来串着跑（16:00 之后生效，最多提前 pull_ahead_min 分钟）",
+    "pull_forward": true,
+    "pull_forward_from": "16:00",
+    "pull_ahead_min": 240
+  },
   "modules": [
     {
       "key": "macro",

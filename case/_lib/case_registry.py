@@ -245,6 +245,8 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "timeout": int(t.get("timeout") or 1800),
             "enabled": bool(t.get("enabled", True)),
             "sched": t.get("sched"),
+            "queue": t.get("queue") or "default",
+            "not_before": t.get("not_before"),
             "metrics": t.get("metrics") or [],
             "source": "case",
             "_errors": t.get("_errors") or [],
@@ -274,6 +276,8 @@ def as_workers(base: Optional[str] = None) -> List[Dict]:
             "desc": t.get("desc") or "",
             "sec": t.get("section"),
             "sched": t.get("sched"),
+            "queue": t.get("queue") or "default",
+            "not_before": t.get("not_before"),
             "metrics": t.get("metrics") or [],
             "deliver": t.get("deliver") or {},
         })

@@ -2075,9 +2075,11 @@ def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
         on = m.get("enabled", True)
         lstat = ms.get("last_status") or ""
         st_cls = {"ok": "up", "timeout": "down", "fail": "down",
-                  "stopped": "down"}.get(lstat, "sm")
+                  "stopped": "down", "interrupted": "mid"}.get(lstat, "sm")
         st_txt = {"ok": "成功", "timeout": "超时", "fail": "失败",
-                  "stopped": "已停"}.get(lstat, "—")
+                  "stopped": "已停", "interrupted": "中断"}.get(lstat, "—")
+        if ms.get("queued"):
+            st_cls, st_txt = "mid", "排队"
         dur = ("%ss" % ms["duration"]) if ms.get("duration") else "—"
         src = "注册" if m.get("source") == "registered" else "内置"
         rows.append(

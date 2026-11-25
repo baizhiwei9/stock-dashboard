@@ -84,6 +84,17 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 | `requires` | `[]` | 外部依赖名，当前仅 `pylibs`（靠 `PYLIBS_DIR` 找） |
 | `deliver` | — | `{"report":bool,"email":bool}`，仅声明与牌面标注，框架不代发 |
 | `desc` | `""` | 一句话说明 |
+| `queue` | `default` | 串行队列名。调度器按 `modules.json` 的 `queue.max_parallel`（默认 `1`＝全局串行）限并发；名额满时同组任务排队等空档，**到点遇忙顺延，不跳过也不并发** |
+| `not_before` | 空 | `"HH:MM"`，数据最早就绪时刻。队列空档**提前拉取**时的下限：现在早于它就不提前跑；到 `sched.at` 仍照常执行。不确定数据何时就绪就配上 |
+
+> 排队口径：到点但队列占满时不写 `last_slot`，每 15 秒重试，最长等到 `GRACE_SEC`（6 小时）；
+> 超过才放弃，并在 `state.modules.<key>.note` 记一句「超过宽限未执行」。
+> 调度器被 kill 后遗留的子进程（孤儿）同样占名额，等它自己结束才放行。
+> 接力粒度约等于 `TICK_SEC`（15 秒），短任务会有这点等待。
+>
+> 提前跑（pull-forward）：`modules.json` 的 `queue.pull_forward` 打开时（默认开，16:00 后生效、
+> 最多提前 `pull_ahead_min` 分钟），队列空着就把后面的任务提前拉进来串着跑，**`last_slot` 仍记
+> 当天计划点**，到点不重复；`state.modules.<key>.pulled_forward` 标记这次是否提前执行。
 
 ### pipeline 结构
 

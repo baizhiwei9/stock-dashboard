@@ -291,6 +291,17 @@
     "original_cwd": {
       "type": "string",
       "description": "迁移前源目录，仅溯源"
+    },
+    "queue": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]{2,20}$",
+      "default": "default",
+      "description": "串行队列名：调度器按 queue.max_parallel 限并发，名额满时同组任务排队等空档（到点遇忙顺延，落在 GRACE_SEC 宽限内仍会跑）"
+    },
+    "not_before": {
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+      "description": "数据最早几点就绪（HH:MM）。队列空档提前拉取时的下限：现在早于这个点就不提前跑；到了 sched.at 仍照常执行"
     }
   }
 }
