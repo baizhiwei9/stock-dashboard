@@ -1,0 +1,70 @@
+{
+  "key": "realestate_daily",
+  "title": "土狗付鹏地产日报",
+  "desc": "地产基础数据：北京/上海成交、土狗状态机、付鹏周期；京沪房价技术分析（公有数据）并入同一封邮件",
+  "section": "realestate",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "18:00",
+    "weekdays": [
+      6
+    ]
+  },
+  "cmd": "python3 -u daily_canghai_fupeng.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 5,
+  "requires": [],
+  "root": "{WS}/ses_gffe5f6009a25effeIVcE0g6hYL3p22",
+  "entry": "daily_canghai_fupeng.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
+  "pipeline": {
+    "on_fail": "stop",
+    "freshness_days": 60,
+    "min_ok_ratio": 0.4,
+    "artifacts": {
+      "data": [
+        "data/*.json"
+      ],
+      "report": [
+        "out/report.md"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 300
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "render",
+        "hook": true,
+        "timeout": 300
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 600,
+        "optional": true
+      }
+    ]
+  },
+  "legacy_cmd": "python3 -u daily_canghai_fupeng.py",
+  "visibility": "public"
+}
