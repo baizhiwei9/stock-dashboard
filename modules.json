@@ -1,0 +1,444 @@
+{
+  "version": 2,
+  "note": "由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。",
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8767,
+    "password": "123456",
+    "registry_key": "123456"
+  },
+  "modules": [
+    {
+      "key": "macro",
+      "title": "宏观与美元环流",
+      "desc": "M2 / GDP / CPI / PPI / 社融 / M1-M2剪刀差 + 美元指数 / 离岸在岸人民币",
+      "domains": [
+        "macro"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:00",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.macro_daily --days 500",
+      "timeout": 2400,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "liquidity",
+      "title": "流动性与两融",
+      "desc": "DR001 / DR007 / SHIBOR3M / OMO净投放 / GC001 / 国债10Y·2Y / 中美利差 + 两融余额·维持担保比例",
+      "domains": [
+        "liquidity",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.liquidity_daily --days 500",
+      "timeout": 2400,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "rmt",
+      "title": "RMT 随机矩阵",
+      "desc": "全成分股收益率矩阵 → 吸收率 AR5 / 特征值比 λ1λ2 / 最优熵 oe / 秩相关 RC",
+      "domains": [
+        "rmt"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:10",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.rmt_daily --lookback 300 --max-comps 150",
+      "timeout": 3600,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "chanlun",
+      "title": "缠论结构 + 趋势动量",
+      "desc": "笔/线段/中枢/买卖点/多头评分 + MA20斜率 / MA60偏离 / 20日涨幅 / 20日波动",
+      "domains": [
+        "chanlun",
+        "trend"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:25",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.chanlun_daily",
+      "timeout": 1800,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "dfa",
+      "title": "DFA / Hurst",
+      "desc": "短长周期 Hurst 指数 + 波动率 Hurst + 临界/金叉/死叉信号",
+      "domains": [
+        "dfa"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:28",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.dfa_daily",
+      "timeout": 1800,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "option",
+      "title": "期权定价（IV/偏度/PCR/VIX）",
+      "desc": "5 个指数对应期权的平值IV / 25D偏度 / 持仓与成交PCR / VIX，收盘后算，看板只读缓存",
+      "domains": [
+        "option"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "18:10",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.option_daily --days 3",
+      "timeout": 1800,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "bond",
+      "title": "债券与理财",
+      "desc": "中债国债 8 期限曲线 / 期限利差与曲线形态 / 企业债AAA·同业存单AAA 信用利差 / 货币基金 7 日年化（类理财收益锚）",
+      "domains": [
+        "bond"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "18:40",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.bond_daily --days 12",
+      "timeout": 1800,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "risk",
+      "title": "风险与机会标签",
+      "desc": "转录风险预测日报（综合得分/评级/三维风险/各指数评级/核心风险信号TOP3/潜在机会）+ 流动性风险偏好（评分/SHIBOR/集中度/北向/AR/DAR/PC1·PC3），数据点自带 alert·risk·opportunity 标签",
+      "domains": [
+        "risk"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:50",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.risk_daily --days 3",
+      "timeout": 1200,
+      "enabled": false,
+      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+    },
+    {
+      "key": "task_tags",
+      "title": "任务结论转录（带风险标签）",
+      "desc": "把风格漂移/中线偏好/杨康平顶底/风险释放/CFC/波动率/掉期/原油/信用利差/涨停预测/xgboost/板块筛选/四选股器/技术共识/挖地兔/涨幅榜/热点概念/小波/两融季节等任务的已有产出，原样转录成带 alert·risk·opportunity 标签的数据点；判断与通知仍由各任务自己完成",
+      "domains": [
+        "risk",
+        "option",
+        "macro",
+        "bond",
+        "stock",
+        "trend",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "python3 -u -m data_hub.tech.producers.task_tags_daily",
+      "timeout": 600,
+      "enabled": true,
+      "depends": []
+    },
+    {
+      "key": "task_tags_notify",
+      "title": "任务标签汇总推送",
+      "desc": "读库里的 risk_level 标签，按 alert→risk→opportunity 排序发飞书；alert 级另发邮件。只转发任务侧判断，不重算阈值；同一 (指标,标的,日期,通道) 只发一次",
+      "domains": [
+        "risk",
+        "option",
+        "macro",
+        "bond",
+        "stock",
+        "trend",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:35",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
+      "cmd": "LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel email --to 410119229@qq.com --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】",
+      "timeout": 300,
+      "enabled": true,
+      "depends": [
+        "task_tags"
+      ]
+    },
+    {
+      "key": "risk_v52",
+      "title": "每日风险报告 v5.2",
+      "desc": "读风险仪表盘 26 维算综合分与风险等级，落 DailyPredict/outputs/YYYYMMDD_daily_risk_v52.json 供 task_tags 转录；报告与飞书通知由任务自己发。",
+      "domains": [
+        "risk"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "19:30",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998182050545974/workspace",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 /usr/bin/python3 -m data_hub.tech.health_run --name \"风险日报v52\" --timeout 1500 -- /usr/bin/python3 DailyPredict/daily_risk_report.py",
+      "timeout": 1800,
+      "enabled": true,
+      "depends": [],
+      "note": "2026-11-25 从 crontab 迁入 scheduler"
+    },
+    {
+      "key": "vol_surface_vix",
+      "title": "波动率曲面（自算 VIX）",
+      "desc": "算 IV 曲面/偏度/PCR 与自算 VIX，落 outputs/YYYYMMDD_vol_surface.json 供 task_tags 转录；图表与飞书通知由任务自己发。",
+      "domains": [
+        "option"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "19:00",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998182050545974/workspace",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 /usr/bin/python3 -m data_hub.tech.health_run --name \"波动率曲面\" --timeout 1500 -- /usr/bin/python3 vol_surface_runner.py",
+      "timeout": 1800,
+      "enabled": true,
+      "depends": [],
+      "note": "2026-11-25 从 crontab 迁入 scheduler"
+    },
+    {
+      "key": "build",
+      "title": "看板构建与发布",
+      "desc": "读指标仓 → 生成 index.html → 发布 Pages",
+      "domains": [],
+      "sched": {
+        "mode": "daily",
+        "at": "22:40",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "depends": [
+        "macro",
+        "liquidity",
+        "rmt",
+        "chanlun",
+        "dfa",
+        "risk",
+        "task_tags",
+        "task_tags_notify"
+      ],
+      "cmd": "python3 build.py",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "five_strategy",
+      "title": "五策略综合日报",
+      "desc": "XGBoost / TCN / TxDIF / 缠论 / LSTM+XGBoost 五算法对宽基与国债期货的涨跌共识，产出 five_strategy_*.json；22:20 由 task_tags 转录成带标签指标",
+      "domains": [
+        "stock"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "08:30",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998561689780486/workspace",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"五策略综合日报\" --timeout 3600 -- python3 -u strategies/daily_report.py",
+      "timeout": 3900,
+      "enabled": true,
+      "depends": []
+    },
+    {
+      "key": "factor_daily",
+      "title": "资金面因子日报",
+      "desc": "场外资金 / 套牢盘稀少 / 筹码分散三项打分，产出 factor_*.json + 飞书/邮件",
+      "domains": [
+        "stock"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "08:30",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998561689780486/workspace",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"资金面因子日报\" --timeout 1800 -- bash strategies/run_daily_factor.sh",
+      "timeout": 2100,
+      "enabled": true,
+      "depends": []
+    },
+    {
+      "key": "limit_up_morning",
+      "title": "涨停预测·早盘",
+      "desc": "集成学习（XGB+LGBM+CatBoost+LR）用昨日收盘数据出 TOP20 候选池",
+      "domains": [
+        "stock"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "09:00",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998561689780486/workspace/limit_up_predictor",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"涨停预测·早盘\" --timeout 1800 -- python3 -u daily_runner.py --mode morning",
+      "timeout": 2100,
+      "enabled": true,
+      "depends": []
+    },
+    {
+      "key": "limit_up_noon",
+      "title": "涨停预测·午盘",
+      "desc": "同一模型用实时快照更新候选池（每日一次，不是高频轮询）",
+      "domains": [
+        "stock"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "12:00",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "/root/.coze/agents/7649998561689780486/workspace/limit_up_predictor",
+      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"涨停预测·午盘\" --timeout 1800 -- python3 -u daily_runner.py --mode noon",
+      "timeout": 2100,
+      "enabled": true,
+      "depends": []
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "key": "margin_flow",
+  "title": "A股市场融资风险扫描日报·资金流与宽度",
+  "desc": "两融资金流与市场宽度",
+  "section": "liquidity",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "07:40",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u run_daily.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 23,
+  "requires": [
+    "pylibs"
+  ],
+  "root": "{WS}/ses_gffe5e96af2348ffeINbqNZziJY3UDr/margin_monitor",
+  "entry": "run_daily.py",
+  "needs_llm": false,
+  "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
+  "import_note": "含动态 import，按入口目录模块集兜底；外部依赖：pylibs",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/*.html",
+        "out/*.md",
+        "out/*.png",
+        "out/*.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 1800,
+        "optional": true
+      }
+    ]
+  },
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u run_daily.py",
+  "visibility": "public"
+}
