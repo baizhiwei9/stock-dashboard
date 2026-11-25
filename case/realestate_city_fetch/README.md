@@ -64,7 +64,7 @@ export PYTHONPATH=/path/to/datahub-multi-tier
 - `1` 两地主口径全失败 —— 无产出
 
 **部分失败不用非零码表达**：本任务是 cmd 模式，调度器只看 `rc == 0`，写 `2` 也会被记 fail。
-失败项落在 `out/fetch.json` 的 `failed` / `partial`，摘要顶部有「部分口径失败」提醒。
+失败项落在 `out/fetch.json` 的 `failed` / `partial`；摘要顶部按情形提示「部分口径失败」或「本次无可用产出」。
 
 ## 口径
 
