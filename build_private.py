@@ -24,7 +24,9 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import html
+import json
 import os
 import shutil
 import sys
@@ -37,8 +39,17 @@ if HERE not in sys.path:
 
 import build as B                                            # noqa: E402  复用 CSS / 卡片渲染 / 取数
 
+# task.json 没写 section / section_domain 的任务：不丢，单独归到「未分板块」
+UNSORTED = "unsorted"
 SECTION_ORDER = ("stock", "futures", "realestate", "macro",
-                 "liquidity", "bond", "option", "risk", "modules")
+                 "liquidity", "bond", "option", "risk", "modules", UNSORTED)
+# 私有仓的 section_domain 可能超出面板板块（如 credit 落在债券信用下）
+SECTION_ALIAS = {"credit": "bond", "credit_spread": "bond", "macro_watch": "macro"}
+# sections.json 里没有的板块（未归类）在本页的标题
+EXTRA_SECTIONS = {
+    UNSORTED: {"num": "—", "title": "未分板块",
+               "sub": "私有仓里没写 section / section_domain 的任务，先按原样列出"},
+}
 # 任务目录下会出图的子目录：约定俗成的几个，逐层扫但跳过缩略图与缓存
 IMG_DIRS = ("out", "charts", "runs", "output", "figures", "reports", "assets", "data")
 IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif")
@@ -143,13 +154,113 @@ PRIVATE_JS = """
 """
 
 
+def _task_roots() -> List[Tuple[str, bool]]:
+    """任务根目录：本仓 case/ 在前，CASE_EXTRA_DIRS 挂进来的私有仓在后。"""
+    roots: List[Tuple[str, bool]] = [(os.path.join(HERE, "case"), False)]
+    raw = (os.environ.get("CASE_EXTRA_DIRS") or "").replace(";", ":")
+    for p in raw.split(":"):
+        p = p.strip()
+        if p and os.path.isdir(p) and all(os.path.abspath(p) != os.path.abspath(r)
+                                          for r, _e in roots):
+            roots.append((p, True))
+    return roots
+
+
+def _section_of(t: Dict) -> str:
+    """板块：section → section_domain → 别名；都没有返回空串（后面归未分板块）。"""
+    for k in ("section", "section_domain"):
+        v = str(t.get(k) or "").strip()
+        if v:
+            return SECTION_ALIAS.get(v, v)
+    return ""
+
+
+def _scan_tasks() -> List[Tuple[str, Dict, bool]]:
+    """扫 `case/<key>/task.json` 与 `case/<群>/<key>/task.json`（两层）。
+
+    私有仓把几个宏观周报收在 `macro_watch/<key>/` 这种容器目录下，只扫一层会漏；
+    容器本身没有 task.json，自然跳过。返回 (任务目录, task.json, 是否来自私有仓)。
+    """
+    seen, out = set(), []
+    for root, is_extra in _task_roots():
+        for pattern in ("*/task.json", "*/*/task.json"):
+            for tj in sorted(glob.glob(os.path.join(root, pattern))):
+                d = os.path.dirname(tj)
+                base = os.path.basename(d)
+                if base.startswith(("_", ".")):
+                    continue
+                try:
+                    with open(tj, encoding="utf-8") as f:
+                        t = json.load(f)
+                except (OSError, ValueError):
+                    continue
+                key = str(t.get("key") or base).strip() or base
+                if key in seen:
+                    continue                  # 同名任务先扫到的生效（本仓 case/ 优先）
+                seen.add(key)
+                out.append((d, t, is_extra))
+    return out
+
+
+def _metrics_from_latest(task_dir: str) -> List[Dict]:
+    """task.json 没声明 metrics 时，从 out/latest.json 的 points 反推。"""
+    fp = os.path.join(task_dir, "out", "latest.json")
+    try:
+        with open(fp, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return []
+    out, seen = [], set()
+    for p in (d.get("points") or []):
+        if not isinstance(p, dict):
+            continue
+        k, s = p.get("key"), p.get("sec")
+        if not k or not s or (k, s) in seen:
+            continue
+        seen.add((k, s))
+        out.append({"key": k, "sec": s, "name": p.get("name") or k,
+                    "unit": p.get("unit") or "", "dec": p.get("dec", 2)})
+    return out
+
+
 def _workers() -> List[Dict]:
-    """只取 visibility=private 的任务（含旧别名 internal）。"""
-    lib = os.path.join(HERE, "case", "_lib")
-    if lib not in sys.path:
-        sys.path.insert(0, lib)
-    import case_registry
-    return case_registry.as_workers(os.path.join(HERE, "case"), visibility="private")
+    """私有任务清单，公有任务一律不出。
+
+    2026-11-25 统一后的口径：
+      · 只收 visibility=private（含旧别名 internal）；私有仓里没写 visibility 的老任务按私有处理，
+        它们本来也不会进公开看板；
+      · 板块取 section → section_domain → 别名；都没写的归「未分板块」，不再丢任务；
+      · 指标优先 task.json 的 metrics，没声明就从 out/latest.json 的 points 反推。
+    """
+    out: List[Dict] = []
+    for d, t, is_extra in _scan_tasks():
+        vis = str(t.get("visibility") or "").strip().lower()
+        if vis in ("private", "internal"):
+            is_private = True
+        elif vis == "public":
+            is_private = False
+        else:
+            is_private = is_extra
+        if not is_private:
+            continue
+        sec = _section_of(t) or UNSORTED
+        if sec not in SECTION_ORDER:
+            continue
+        metrics = [m for m in (t.get("metrics") or [])
+                   if isinstance(m, dict) and m.get("key")]
+        metrics = metrics or _metrics_from_latest(d)
+        key = str(t.get("key") or os.path.basename(d))
+        out.append({
+            "key": key,
+            "app_id": "case:%s" % key,
+            "title": t.get("title") or key,
+            "desc": t.get("desc") or "",
+            "sec": sec, "tab": sec, "visibility": "private",
+            "sched": t.get("sched"), "metrics": metrics,
+            "dir": d, "enabled": bool(t.get("enabled", True)),
+        })
+    out.sort(key=lambda w: (SECTION_ORDER.index(w["sec"]), w["key"]))
+    return out
 
 
 def _latest_for(ws: List[Dict]) -> Dict:
@@ -317,6 +428,7 @@ def build_private(out_path: str, with_images: bool = True,
 
     cfg = B.load_sections(os.path.join(HERE, "sections.json"))
     meta = {x["key"]: x for x in (cfg.get("sections") or [])}
+    meta.update(EXTRA_SECTIONS)          # 未分板块等只在本页出现的板块
 
     nav, blocks, n_img = [], [], 0
     for sec in SECTION_ORDER:
