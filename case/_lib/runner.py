@@ -469,10 +469,15 @@ def main(argv: List[str]) -> int:
     ctx.log("任务 %s（%s）开始，阶段：%s" % (task["key"], task.get("section"), " → ".join(stages)))
     for req in task.get("requires") or []:
         if req == "pylibs" and os.environ.get("PYLIBS_DIR"):
-            d = os.environ["PYLIBS_DIR"]
-            if d not in sys.path:
-                sys.path.insert(0, d)
-            ctx.log("依赖 pylibs → %s" % d)
+            # PYLIBS_DIR 支持多目录（冒号分隔）：22 个任务的第三方依赖原本分散在
+            # 不同会话目录（options_utility 的 calc/、momentum-risk-control 的
+            # feishu_config.py 等），一个 pylibs 目录覆盖不了。多目录按书写顺序
+            # 倒着 insert，保证列表里靠前的目录优先级更高。
+            dirs = [d for d in os.environ["PYLIBS_DIR"].split(":") if d]
+            for d in reversed(dirs):
+                if os.path.isdir(d) and d not in sys.path:
+                    sys.path.insert(0, d)
+            ctx.log("依赖 pylibs → %s" % ":".join(dirs))
 
     # 依赖检查：上游产物不满足就不进入 fetch，也不发报告
     results: List[Dict] = []

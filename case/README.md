@@ -104,7 +104,7 @@ case/
 
 | 变量 | 必需 | 说明 |
 |---|---|---|
-| `PYLIBS_DIR` | 是（任务 `requires` 含 `pylibs` 时） | 第三方包目录；命令里用 `${PYLIBS_DIR:?}`，**没设直接报错**，不猜路径 |
+| `PYLIBS_DIR` | 是（任务 `requires` 含 `pylibs` 时） | 第三方包目录，**可写多个、冒号分隔**（依赖分散在 options_utility 的 `calc/`、momentum-risk-control 的 `feishu_config.py` 等不同目录时）；命令里用 `${PYLIBS_DIR:?}`，**没设直接报错**，不猜路径 |
 | `PYTHONPATH` | 是（依赖 DataHub 的任务） | 指到含 `data_hub/` 的仓库根，`publish.py` 与取数都要用 |
 | `EDB_REPO` | 部分任务 | 指到含 `data_hub` 的 EDB 仓库目录（`margin_flow` / `margin_detail` 等） |
 | `CASE_DATA_SRC` | 部分任务 | 上游输入数据目录（周/月度任务） |
@@ -124,6 +124,11 @@ case/
 ```bash
 export PYLIBS_DIR=/path/to/pylibs
 export PYTHONPATH=/path/to/datahub-repo:$PWD
+
+# 依赖分散在多个目录时（本机实际用法）：
+# export PYLIBS_DIR=/opt/coze/.fuse_drive/dataHub_三级体系/options:\
+# /Coze/Drive/蓁宝/所有对话/主对话/skills/user/momentum-risk-control
+# runner 与 check_imports 都按冒号拆开、逐个加进 sys.path（靠前的优先）。
 
 python3 case/_lib/runner.py --task tech_consensus              # 完整五阶段
 python3 case/_lib/runner.py --task tech_consensus --dry-run     # 只打印阶段，不执行
