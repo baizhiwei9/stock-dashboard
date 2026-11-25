@@ -67,7 +67,7 @@
       "key": "macro",
       "num": "04",
       "title": "宏观",
-      "sub": "M2 / GDP / CPI / PPI / 社融 + 美元与人民币",
+      "sub": "M2 / GDP / CPI / PPI / 社融 + 美元与人民币 + 美国 Nowcast",
       "enabled": true,
       "subs": []
     },

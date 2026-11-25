@@ -95,6 +95,16 @@ BOND_SEC = "CN.BOND"
 
 MACRO_SEC = "CN.MACRO"
 GLOBAL_SEC = "GLOBAL.MACRO"
+NOWCAST_SEC = "US.NOWCAST"
+
+# 美国 Nowcast：宏观 Tab 与 流动性→利率 两处都读这一组键（DataHub tech nowcast 域）
+NOWCAST_KEYS = [
+    "nowcast.gdpnow", "nowcast.nyfed", "nowcast.nyfed.lb", "nowcast.nyfed.ub",
+    "nowcast.wei", "nowcast.core_pce_yoy", "nowcast.cpi_yoy",
+    "nowcast.core_cpi_yoy", "nowcast.pce_yoy", "nowcast.core_pce_qann",
+    "nowcast.gdpnow.chg_1w", "nowcast.nyfed.chg_1w", "nowcast.wei.chg_1w",
+    "nowcast.core_pce_yoy.chg_1m", "nowcast.cpi_yoy.chg_1m",
+]
 LIQ_SEC = "CN.LIQ"
 MARGIN_SEC = "CN.MARGIN"
 
@@ -1696,6 +1706,111 @@ def sec_style(enabled: bool) -> str:
     return "" if enabled else ' style="display:none"'
 
 
+def render_nowcast_block(latest: Dict, compact: bool = False) -> str:
+    """美国 Nowcast 区块：宏观 Tab 用全量，利率页用 compact。
+
+    两个页面都读 ``US.NOWCAST`` 同一批指标（DataHub tech nowcast 域），
+    不各自落一份数据；这里只做展示，不重算阈值。
+
+    Args:
+        latest: ``{(metric_key, security_id): row}``，允许缺键。
+        compact: True 只保留 GDPNow / NY Fed / 核心 PCE 三行，给利率页嵌入。
+
+    Returns:
+        str: HTML；整块无数据返回空串（不摆 NA）。
+    """
+    rows = {k: latest.get((k, NOWCAST_SEC)) for k in NOWCAST_KEYS}
+    missing = [k for k, r in rows.items() if r is None]
+    if missing:
+        try:
+            fetched = read_latest(missing, [NOWCAST_SEC]) or {}
+            for key in missing:
+                rec = fetched.get((key, NOWCAST_SEC))
+                if rec:
+                    rows[key] = rec
+        except Exception:                                   # noqa: BLE001
+            pass
+
+    def _ok(key):
+        r = rows.get(key)
+        return r if r and r.get("quality") == "ok" else None
+
+    def _v(key):
+        r = _ok(key)
+        return r.get("value_num") if r else None
+
+    def _chg(key, dec=2):
+        val = _v(key)
+        return "" if val is None else " " + signed(val, dec, "pp")
+
+    def _obs_date():
+        # 核心 PCE 季折年的观测日是目标季末（可能被夹到今天），不代表模型更新日，
+        # 页头用它会把 GDPNow 的 11-18 显示成 11-25，故排除。
+        dates = [str(r.get("obs_date") or "") for key, r in rows.items()
+                 if r and key != "nowcast.core_pce_qann"]
+        dates = [d for d in dates if d]
+        return max(dates) if dates else ""
+
+    if _v("nowcast.gdpnow") is None and _v("nowcast.core_pce_yoy") is None:
+        return ""
+
+    def _row(label, key, dec=2, unit="%", chg_key=None, note=""):
+        val = _v(key)
+        if val is None:
+            return ""
+        label_html = html.escape(label)
+        if note:
+            label_html += ' <span class="sm">%s</span>' % html.escape(note)
+        value_html = num(val, dec, unit)
+        if chg_key:
+            value_html += _chg(chg_key)
+        return kvh(label_html, value_html)
+
+    band = ""
+    lo, hi = _v("nowcast.nyfed.lb"), _v("nowcast.nyfed.ub")
+    if lo is not None and hi is not None:
+        band = "（80%% 区间 %.2f–%.2f）" % (lo, hi)
+
+    if compact:
+        parts = [
+            _row("GDPNow", "nowcast.gdpnow", 2, "%", "nowcast.gdpnow.chg_1w", "周变动"),
+            _row("纽约联储 Nowcast", "nowcast.nyfed", 2, "%",
+                 "nowcast.nyfed.chg_1w", band or "周变动"),
+            _row("核心 PCE 同比", "nowcast.core_pce_yoy", 2, "%",
+                 "nowcast.core_pce_yoy.chg_1m", "月变动"),
+        ]
+        body = "".join(p for p in parts if p)
+        if not body:
+            return ""
+        return ('<div class="blk"><h4>美国 · Nowcast '
+                '<span class="sm">（观测日 %s；与宏观 Tab 同源）</span></h4>'
+                '<div class="kvs">%s</div>'
+                '<p class="note">GDP 类为当前季度环比折年率；完整 GDP / 通胀 nowcast '
+                '见「宏观」Tab。</p></div>'
+                % (html.escape(_obs_date() or "—"), body))
+
+    parts = [
+        _row("GDPNow", "nowcast.gdpnow", 2, "%", "nowcast.gdpnow.chg_1w", "较一周前"),
+        _row("纽约联储 Nowcast", "nowcast.nyfed", 2, "%",
+             "nowcast.nyfed.chg_1w", band or "较一周前"),
+        _row("WEI", "nowcast.wei", 2, "%", "nowcast.wei.chg_1w", "较一周前"),
+        _row("核心 PCE 同比", "nowcast.core_pce_yoy", 2, "%",
+             "nowcast.core_pce_yoy.chg_1m", "较上月"),
+        _row("CPI 同比", "nowcast.cpi_yoy", 2, "%", "nowcast.cpi_yoy.chg_1m", "较上月"),
+        _row("核心 CPI 同比", "nowcast.core_cpi_yoy", 2, "%", note="目标月"),
+        _row("PCE 同比", "nowcast.pce_yoy", 2, "%", note="目标月"),
+        _row("核心 PCE 季折年", "nowcast.core_pce_qann", 2, "%", note="目标季"),
+    ]
+    body = "".join(p for p in parts if p)
+    return ('<div class="blk"><h4>美国 · Nowcast 实时预测</h4>'
+            '<div class="kvs">%s</div>'
+            '<p class="note">观测日 %s；数据源：亚特兰大 GDPNow / 纽约联储 Staff Nowcast / '
+            '达拉斯 WEI / 克利夫兰通胀 nowcast（经 DataHub EDB，'
+            '与「流动性 → 利率」同源）。GDP 两套模型只保留当前季度轨迹，'
+            '季度切换会重置，跨季度不可直接连成增长曲线。</p></div>'
+            % (body, html.escape(_obs_date() or "—")))
+
+
 def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
     cn = [
         ("M2 同比", "macro.m2_yoy", 1, "%", "宽货币的锚"),
@@ -1711,8 +1826,9 @@ def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
         ("离岸 USD/CNH", "macro.cnh", 4, "", "上行=人民币贬值"),
         ("在岸 USD/CNY", "macro.usdcny", 4, "", "在岸即期"),
     ]
+    nc_blk = render_nowcast_block(latest)
     if not any_val(latest, [(k, MACRO_SEC) for _n, k, _d, _u, _x in cn]
-                          + [(k, GLOBAL_SEC) for _n, k, _d, _u, _x in gl]):
+                          + [(k, GLOBAL_SEC) for _n, k, _d, _u, _x in gl]) and not nc_blk:
         return "", []        # 整块无数据 → 不渲染
 
     cn_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
@@ -1745,14 +1861,14 @@ def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
     charts = _live
 
     return ('<section class="idx-card sec" id="macro">'
-            '<header><h3>宏观与美元环流 <em>M2 · GDP · 社融 · 汇率</em></h3>'
-            '<div class="obs">月/季频</div></header>'
+            '<header><h3>宏观与美元环流 <em>M2 · GDP · 社融 · 汇率 · Nowcast</em></h3>'
+            '<div class="obs">日 · 月 · 季频</div></header>'
             '<div class="idx-body">'
             '<div class="blk"><h4>货币与信用（全国口径）</h4><div class="kvs">%s</div></div>'
             '<div class="blk"><h4>美元与人民币</h4><div class="kvs">%s</div>'
             '<p class="note">宏观为月/季频，与日频行情不是同一条时间轴，'
             '所以数值按各自最新一期显示，日期见指标仓。</p></div>'
-            '%s</div></section>' % (cn_html, gl_html, ch_html)), charts
+            '%s%s</div></section>' % (cn_html, gl_html, nc_blk, ch_html)), charts
 
 
 def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
@@ -1859,6 +1975,8 @@ def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
     def _txt(k):
         return html.escape(_t2(k) or "—")
 
+    nc_blk = render_nowcast_block(latest, compact=True)
+
     us = [
         ("下次 FOMC 会议", _txt("rate.us.fedwatch.meeting"), "30天联邦基金期货定价"),
         ("距会议", _val("rate.us.fedwatch.days", 0, " 天"), ""),
@@ -1943,7 +2061,7 @@ def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
 
     _any = any(_v2(k) is not None for k in (
         "rate.us.fedwatch.hike_next", "rate.cn.cdb_1y3m", "rate.cn.rrr"))
-    if not (_any or rows):
+    if not (_any or rows or nc_blk):
         return "", []
 
     return ('<section class="idx-card sec" id="liquidity_rate" '
@@ -1952,13 +2070,13 @@ def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
             '<div class="obs">%s</div></header>'
             '<div class="idx-body">'
             '<div class="blk"><h4>美国 · CME FedWatch</h4><div class="kvs">%s</div></div>'
-            '%s'
+            '%s%s'
             '<div class="blk"><h4>中国 · 政策利率与降准降息预期</h4><div class="kvs">%s</div>'
             '<p class="note">降准降息预期看「1Y − 3M」利差而非 OMO：预期宽松时利差被压平，'
             '压到 20bp 附近通常对应降准/降息落地窗口（口径见 DataHub registry）。</p></div>'
             '%s</div></section>'
             % (html.escape(m.get("fetch_date") or obs or "—"),
-               us_html, mat_blk, cn_html, ch_html)), charts
+               us_html, mat_blk, nc_blk, cn_html, ch_html)), charts
 
 
 def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple:
