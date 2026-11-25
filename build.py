@@ -1751,7 +1751,13 @@ def render_nowcast_block(latest: Dict, compact: bool = False) -> str:
         dates = [d for d in dates if d]
         return max(dates) if dates else ""
 
-    if _v("nowcast.gdpnow") is None and _v("nowcast.core_pce_yoy") is None:
+    if _v("nowcast.gdpnow") is None and _v("nowcast.core_pce_yoy") is None \
+            and _v("nowcast.nyfed") is None and _v("nowcast.cpi_yoy") is None \
+            and _v("nowcast.wei") is None:
+        return ""
+    if compact and not any(_v(key) is not None for key in
+                           ("nowcast.gdpnow", "nowcast.nyfed", "nowcast.core_pce_yoy")):
+        # 利率页只放这三行；三行都缺时不占位（否则只能摆一个空标题）
         return ""
 
     def _row(label, key, dec=2, unit="%", chg_key=None, note=""):
@@ -1827,8 +1833,9 @@ def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
         ("在岸 USD/CNY", "macro.usdcny", 4, "", "在岸即期"),
     ]
     nc_blk = render_nowcast_block(latest)
-    if not any_val(latest, [(k, MACRO_SEC) for _n, k, _d, _u, _x in cn]
-                          + [(k, GLOBAL_SEC) for _n, k, _d, _u, _x in gl]) and not nc_blk:
+    has_cn_gl = any_val(latest, [(k, MACRO_SEC) for _n, k, _d, _u, _x in cn]
+                        + [(k, GLOBAL_SEC) for _n, k, _d, _u, _x in gl])
+    if not has_cn_gl and not nc_blk:
         return "", []        # 整块无数据 → 不渲染
 
     cn_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
@@ -1859,16 +1866,26 @@ def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
                         '<div class="chart" id="%s"></div></div>' % (_nm, _cid))
             _live.append(_c)
     charts = _live
+    if not has_cn_gl:
+        # 只有 Nowcast 数据时，不摆 5 个「数据点不足」的空图块
+        ch_html, charts = "", []
+
+    cn_block = ""
+    if cn_html:
+        cn_block = ('<div class="blk"><h4>货币与信用（全国口径）</h4>'
+                    '<div class="kvs">%s</div></div>' % cn_html)
+    gl_block = ""
+    if gl_html:
+        gl_block = ('<div class="blk"><h4>美元与人民币</h4><div class="kvs">%s</div>'
+                    '<p class="note">宏观为月/季频，与日频 nowcast 不是同一条时间轴，'
+                    '所以数值按各自最新一期显示，日期见指标仓。</p></div>' % gl_html)
 
     return ('<section class="idx-card sec" id="macro">'
             '<header><h3>宏观与美元环流 <em>M2 · GDP · 社融 · 汇率 · Nowcast</em></h3>'
             '<div class="obs">日 · 月 · 季频</div></header>'
             '<div class="idx-body">'
-            '<div class="blk"><h4>货币与信用（全国口径）</h4><div class="kvs">%s</div></div>'
-            '<div class="blk"><h4>美元与人民币</h4><div class="kvs">%s</div>'
-            '<p class="note">宏观为月/季频，与日频行情不是同一条时间轴，'
-            '所以数值按各自最新一期显示，日期见指标仓。</p></div>'
-            '%s%s</div></section>' % (cn_html, gl_html, nc_blk, ch_html)), charts
+            '%s%s%s%s</div></section>'
+            % (cn_block, gl_block, nc_blk, ch_html)), charts
 
 
 def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
