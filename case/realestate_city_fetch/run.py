@@ -97,10 +97,14 @@ def main():
     print()
     print(summary)
 
-    ok = [k for k, v in (res.get("cities") or {}).items()
-          if isinstance(v, dict) and v.get("ok")
-          and k not in ("SH_source", "BJ_source", "BJ_month")]
-    return 0 if len(ok) >= 2 else (2 if ok else 1)
+    # 按「地区」而不是按 dict 条目计数：SH 和 SH_NEW 同属上海，
+    # 分开计数会在北京失败、上海两项都成功时误判为 0（两地都成功）。
+    cities = res.get("cities") or {}
+    bj_ok = isinstance(cities.get("BJ"), dict) and bool(cities["BJ"].get("ok"))
+    sh_ok = isinstance(cities.get("SH"), dict) and bool(cities["SH"].get("ok"))
+    if bj_ok and sh_ok:
+        return 0
+    return 2 if (bj_ok or sh_ok) else 1
 
 
 if __name__ == "__main__":

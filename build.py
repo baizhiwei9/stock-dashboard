@@ -1520,7 +1520,8 @@ def _re_fetch_meta() -> Dict:
     的旧部署也得能出页面。
     """
     import json as _json
-    p = os.path.join(HERE, "case", "realestate_daily", "data", "fetch_meta.json")
+    d = _case_task_dir("realestate_daily")
+    p = os.path.join(d, "data", "fetch_meta.json") if d else ""
     try:
         with open(p, encoding="utf-8") as f:
             d = _json.load(f)
