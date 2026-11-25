@@ -1512,13 +1512,14 @@ def cmd_start():
     if not _preflight_secrets():   # 再校验必填项，缺了就拒绝启动（fail-closed）
         return 1
     pid = read_pid()
-    if pid:
-        if pid > 0:
-            print("已在运行 pid=%d" % pid)
-        else:
-            print("已在运行（端口 %s 有响应，进程不在当前命名空间）"
-                  % (api_conf().get("port") or DEFAULT_PORT))
+    if pid and pid > 0:
+        print("已在运行 pid=%d" % pid)
         return 0
+    if pid == -1:
+        # 端口被占，但占它的不是本机调度器。绝不能据此判定「已在运行」直接返回
+        # 成功 —— 否则本机永远起不来（-1 在 if pid: 里是 truthy）。继续往下尝试
+        # 启动，端口真冲突时下面会失败并在日志里留痕，比静默空转好得多。
+        print("提示：%s；继续尝试启动本机实例" % _foreign_instance_hint())
     os.makedirs(LOG_DIR, exist_ok=True)
     _rotate_log(SELF_LOG)                     # 守护进程自己的日志同样封顶（#80）
     out = open(SELF_LOG, "ab")
@@ -1533,6 +1534,9 @@ def cmd_start():
         print("  控制台 http://127.0.0.1:%s" % (api_conf().get("port") or DEFAULT_PORT))
         return 0
     print("启动失败，看 %s" % SELF_LOG)
+    print("  若是端口被占（%s），说明另一台主机/容器的实例还在跑，"
+          "先停掉它或改 modules.json 的 api.port"
+          % (api_conf().get("port") or DEFAULT_PORT))
     return 1
 
 
@@ -1736,6 +1740,27 @@ def cmd_fg():
     return 0
 
 
+def _foreign_instance_hint():
+    """pid == -1 的成因说明：端口有响应，但本机没有调度器进程。
+
+    正常场景是 cron 在宿主命名空间拉起、沙箱 /proc 看不见；异常场景是**另一台
+    主机/另一个容器**上的残留实例还占着端口（共享云盘 + 共享端口的典型症状）。
+    两种情况在沙箱内无法区分，但后果完全不同：后者意味着本机根本没在调度，
+    必须让看门狗拉起本机实例，否则 state.json 会被那台机器继续写、tick 看着
+    一直在动，而本机 scheduler.log 静默停更 —— 极具迷惑性的假活。
+    """
+    port = api_conf().get("port") or DEFAULT_PORT
+    pidf = 0
+    try:
+        with open(PID_PATH, encoding="utf-8") as f:
+            pidf = int((f.read() or "0").strip() or 0)
+    except (OSError, ValueError):
+        pidf = 0
+    return ("端口 %s 有响应但本机无调度器进程（scheduler.pid=%s 在本机不存在）；"
+            "可能是另一台主机/另一个容器的残留实例占着端口"
+            % (port, pidf or "空"))
+
+
 def cmd_health():
     """供看门狗调用的健康检查。退出码：0=健康，1=未运行，2=僵死（进程在但心跳过期）。
 
@@ -1747,7 +1772,14 @@ def cmd_health():
         return 1
     age = heartbeat_age()
     if age is None:
-        # 老版本/刚启动还没有心跳文件：有 pid 或端口响应就不判僵死，避免误重启
+        if pid == -1:
+            # 端口有响应但本机没有调度器进程，而且没有心跳文件 —— 响应来自别处，
+            # 本机其实没在调度。这里必须判「未运行」：原来的乐观返回 0 会让看门狗
+            # 永远认为「已在运行」，本机实例永不拉起，调度静默停摆。
+            print("未运行（%s）" % _foreign_instance_hint())
+            return 1
+        # 本机确有调度器进程，只是还没写心跳（刚启动的正常窗口）：不判僵死，
+        # 避免看门狗在启动瞬间误重启。
         print("运行中 pid=%s（暂无心跳文件）" % pid)
         return 0
     if age > HB_STALE_SEC:
@@ -1772,11 +1804,16 @@ def main(argv):
     if cmd == "restart":
         rc = cmd_stop()
         if rc != 0:
-            # 停不掉就别再 start：start 看到端口有响应会报「已在运行」返回 0，
-            # 整个 restart 于是静默成功、实际什么都没发生（旧进程还僵着）。
-            print("重启中止：停止失败（原因见上），未启动新实例。")
-            return rc
-        time.sleep(0.6)
+            # 停不掉时不中止，照常尝试拉起本机实例。
+            # 老逻辑在这里直接 return，结果「僵死 → 重启」在两种常见场景下永久空转：
+            #   ① 端口被另一台主机/容器的残留实例占着（共享云盘 + 共享端口），
+            #      HTTP 认证密码还对不上，cmd_stop 必然失败；
+            #   ② 该实例不写心跳文件，看门狗只会反复判僵死、反复中止。
+            # cmd_start 现在已能识别 pid==-1 并继续启动，所以这里放心往下走：
+            # 新实例至少能把调度循环跑起来（HTTP 端口起不来会单独记日志）。
+            print("停止失败（原因见上），仍尝试启动本机实例。")
+        else:
+            time.sleep(0.6)
         return cmd_start()
     if cmd == "status":
         return cmd_status()
