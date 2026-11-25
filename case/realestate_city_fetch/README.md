@@ -32,7 +32,8 @@ DUMATE_BROWSER_CLI=/path/to/dumate-browser-use/scripts/playwright-cli \
   bash /path/to/datahub-multi-tier/scripts/fetch_sh_via_browser.sh
 ```
 
-直采实现在 `data_hub/realestate/sh_direct.py`：取 `old_house` 的 `#z_sell_num_p`（值在
+直采实现在 `data_hub/house/sources/sh_direct.py`（地产已独立成 `data_hub.house` 模块，旧
+`data_hub.realestate` 仍兼容）：取 `old_house` 的 `#z_sell_num_p`（值在
 兄弟节点，标签节点只有文字）、首页 `#sign_num`、trade 页「预/出售各类商品房」。二手那个
 点位**时段性可用**（10:09 有值、18:15 空），脚本带重试与正则回退，取不到就不写；17:00 后
 trade 页常为「0 套」，已判为无效丢弃。建议 07:10 与 22:40 各跑一次。

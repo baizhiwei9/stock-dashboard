@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "out")
 
 try:
-    from data_hub import realestate
+    from data_hub import house as realestate  # 地产已并入 data_hub.house（旧路径 realestate 仍兼容）
 except ImportError as exc:  # 部署机没装 datahub 时给明确提示，而不是抛一坨栈
     print("[FATAL] 无法 import data_hub.realestate：%s" % exc, file=sys.stderr)
     print("        需先安装 datahub-multi-tier（pip install -e . 或设 PYTHONPATH）",
