@@ -22,3 +22,8 @@ case/*/fonts/
 # 云平台部署元数据
 .coze
 case/_lib/.alert_quota.json
+
+# 敏感配置（只提交 config/secrets.example.json）
+config/secrets.json
+config/.secrets-*
+config/*.local.json

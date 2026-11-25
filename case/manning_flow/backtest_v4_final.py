@@ -33,8 +33,7 @@ import matplotlib.dates as mdates
 warnings.filterwarnings('ignore')
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
-WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/6d34534a-af18-48ba-be77-a30c524734a8"
-
+from feishu_config import WEBHOOK_URL  # 凭据见 config/secrets.json
 # 29个行业-ETF映射 (同花顺行业名 -> ETF代码)
 INDUSTRY_ETF_MAP = {
     "半导体": ("512480", "半导体ETF"),

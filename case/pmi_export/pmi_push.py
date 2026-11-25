@@ -6,8 +6,8 @@
   - output/pmi_report_{YYYYMM}.txt（分析报告文本）
 行为：
   - 飞书：每次运行推送交互式卡片（分析报告），复用 feishu_push.py 模板结构
-    （tenant_access_token + webhook，凭据来自 momentum-risk-control/feishu_config.py）
-  - 邮件：仓位为黄/红时发送提醒至 410119229@qq.com（dws 主通道 + 163 SMTP 回退，
+    （tenant_access_token + webhook，凭据来自 config/secrets.json）
+  - 邮件：仓位为黄/红时发送提醒至配置的收件人（dws 主通道 + 163 SMTP 回退，
     复用 pusher.send_email）；绿色仓位不发邮件
   - 幂等：同月（data_month）已推送过飞书卡片且已处理邮件 → 跳过，--force 可强制重发
 用法：
@@ -22,8 +22,6 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5ecfae4e5bffelKf2SjHn8w8zAu")
-sys.path.insert(0, "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/skills/user/momentum-risk-control")
 
 import requests
 
@@ -37,8 +35,11 @@ TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/intern
 
 
 def feishu_config():
-    import feishu_config as fc
-    return fc.APP_ID, fc.APP_SECRET, fc.WEBHOOK_URL
+    """飞书凭据：只从 config/secrets.json / 环境变量取。"""
+    from config import app_secrets
+    return (app_secrets.get("feishu.app_id"),
+            app_secrets.get("feishu.app_secret"),
+            app_secrets.get("feishu.webhook"))
 
 
 def tenant_token(app_id, app_secret):

@@ -46,6 +46,10 @@ CASE_LIB = os.path.join(CASE_DIR, "_lib")
 
 if DH_ROOT not in sys.path:
     sys.path.insert(0, DH_ROOT)
+if CASE_LIB not in sys.path:
+    sys.path.insert(0, CASE_LIB)
+
+import app_secrets  # noqa: E402  （敏感配置统一入口）
 
 NA = "\033[2m—\033[0m"
 GRN = "\033[32m"
@@ -415,8 +419,8 @@ def cmd_sections(argv: List[str]) -> int:
     cfg = _sec_load()
     secs = cfg.get("sections", [])
     if not argv:
-        print("\n%s看板板块%s（配置 %s，管理密码 %s）\n"
-              % (YEL, RST, SEC_CFG, cfg.get("password")))
+        print("\n%s看板板块%s（配置 %s，管理密码见 config/secrets.json 的 api.password）\n"
+              % (YEL, RST, SEC_CFG))
         for m in secs:
             st = (GRN + "显示" + RST) if m.get("enabled", True) else (RED + "隐藏" + RST)
             print("  %-12s %-14s %s" % (m["key"], m["title"][:12], st))
@@ -430,11 +434,11 @@ def cmd_sections(argv: List[str]) -> int:
     if a == "pw":
         if len(argv) < 2:
             raise SystemExit("用法: manager.py sections pw <新密码>")
-        cfg["password"] = argv[1]
-        with open(SEC_CFG, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-            f.write("\n")
-        print("管理密码已改为 %s" % argv[1])
+        if len(argv[1]) < 10:
+            raise SystemExit("新密码至少 10 位（不要用 123456）")
+        path = app_secrets.set_value("api.password", argv[1])
+        print("管理密码已写入 %s（不回显）。调度器热加载，无需重启。"
+              % path)
         return 0
     if a in ("on", "off"):
         if len(argv) < 2:

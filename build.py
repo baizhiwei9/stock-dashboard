@@ -789,10 +789,10 @@ header.top{position:relative}
   line-height:1;cursor:pointer;padding:0 4px;font-family:inherit}
 .adm-x:hover{color:var(--tx)}
 .adm-tip{margin:0 0 12px;font-size:12.5px;color:var(--tx2)}
-#admPw{width:100%;padding:9px 12px;background:var(--card2);border:1px solid var(--line);
+#regPw{width:100%;padding:9px 12px;background:var(--card2);border:1px solid var(--line);
   border-radius:8px;color:var(--tx);font-size:14px;font-family:inherit;
-  letter-spacing:3px;outline:none}
-#admPw:focus{border-color:var(--blue)}
+  letter-spacing:3px;outline:none;margin-bottom:8px;box-sizing:border-box}
+#regPw:focus{border-color:var(--blue)}
 .adm-err{min-height:18px;font-size:12px;color:var(--up);margin:6px 0 4px}
 .adm-primary{width:100%;padding:9px;background:rgba(74,158,255,.16);color:var(--blue);
   border:1px solid rgba(74,158,255,.4);border-radius:8px;font-size:13.5px;
@@ -917,14 +917,13 @@ table.mod-tab.fut td:nth-child(2){font-variant-numeric:tabular-nums}
 
 JS_ADMIN = r"""
 (function(){
-  var PW = "__PW__";
+  // 管理口令不内嵌：只在解锁外部模块时由用户输入，发往同源调度器校验，
+  // 暂存 sessionStorage，关掉标签页即失效。
+  var PW = sessionStorage.getItem("sd_pw") || "";
   var KEY = "sd_vis_v1";
   var btn = document.getElementById("admBtn");
   var mask = document.getElementById("admMask");
-  var gate = document.getElementById("admGate");
   var panel = document.getElementById("admPanel");
-  var pw = document.getElementById("admPw");
-  var err = document.getElementById("admErr");
   if (!btn || !mask) return;
 
   function load(){ try { return JSON.parse(localStorage.getItem(KEY) || "{}"); }
@@ -950,25 +949,14 @@ JS_ADMIN = r"""
   }
 
   function open(){ mask.style.display = "flex";
-    if (sessionStorage.getItem("sd_adm") === "1"){ gate.style.display="none";
-      panel.style.display="block"; }
-    else { gate.style.display="block"; panel.style.display="none";
-      setTimeout(function(){ pw.focus(); }, 60); } }
-  function close(){ mask.style.display = "none"; err.textContent=""; pw.value=""; }
+    panel.style.display = "block"; apply();
+    var rp = document.getElementById("regPw");
+    if (!PW && rp){ setTimeout(function(){ rp.focus(); }, 60); } }
+  function close(){ mask.style.display = "none"; }
 
   btn.onclick = open;
   document.getElementById("admClose").onclick = close;
   mask.onclick = function(e){ if (e.target === mask) close(); };
-
-  document.getElementById("admGo").onclick = function(){
-    if (pw.value === PW){
-      sessionStorage.setItem("sd_adm","1");
-      gate.style.display="none"; panel.style.display="block";
-      err.textContent=""; pw.value="";
-      apply();
-    } else { err.textContent = "密码不对"; pw.value=""; pw.focus(); }
-  };
-  pw.onkeydown = function(e){ if (e.key === "Enter") document.getElementById("admGo").click(); };
 
   var acts = panel.querySelectorAll("[data-act]");
   for (var i=0;i<acts.length;i++){
@@ -1050,20 +1038,51 @@ JS_ADMIN = r"""
     }
   }
 
+  var regLock = document.getElementById("regLock");
+  var regPw = document.getElementById("regPw");
+  var regGo = document.getElementById("regGo");
+
+  function regNote(txt){
+    if (regBox) regBox.innerHTML = '<p class="adm-note">' + txt + '</p>';
+  }
+
   function loadReg(){
     if (!regBox) return;
+    if (!PW){
+      regNote("未解锁。在上方输入管理密码后，才能在这里审批外部模块。");
+      return;
+    }
     fetch("/api/registry", {cache:"no-store", headers:{"X-SD-PW":PW}})
-      .then(function(r){ return r.json(); })
+      .then(function(r){
+        if (r.status === 401){
+          PW = ""; sessionStorage.removeItem("sd_pw");
+          throw new Error("auth");
+        }
+        return r.json();
+      })
       .then(function(d){
         if (!d || d.error) throw new Error("x");
         renderReg(d);
+        if (regLock) regLock.style.display = "none";
       })
       .catch(function(){
-        regBox.innerHTML = '<p class="adm-note">当前是静态页，读不到调度器。'
-          + '审批请打开控制台 <code>http://&lt;主机&gt;:__PORT__/</code>'
-          + '（同源才能调 API），静态页只负责展示。</p>';
+        if (regLock) regLock.style.display = "";
+        regNote("当前是静态页，或管理密码不对，读不到调度器。"
+          + "审批请打开控制台 <code>http://&lt;主机&gt;:__PORT__/</code>"
+          + "（同源才能调 API），静态页只负责展示。");
       });
   }
+
+  if (regGo) regGo.onclick = function(){
+    var v = (regPw && regPw.value || "").trim();
+    if (!v) return;
+    PW = v; sessionStorage.setItem("sd_pw", PW);
+    if (regPw) regPw.value = "";
+    loadReg();
+  };
+  if (regPw) regPw.onkeydown = function(e){
+    if (e.key === "Enter" && regGo) regGo.click();
+  };
 
   apply();
   loadReg();
@@ -1435,7 +1454,7 @@ def load_sections(path: str) -> Dict:
         with open(path, encoding="utf-8") as f:
             return _json.load(f)
     except (OSError, ValueError):
-        return {"password": "123456", "sections": []}
+        return {"sections": []}
 
 
 def sec_style(enabled: bool) -> str:
@@ -2333,13 +2352,12 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
                 % (sm["key"], " checked" if sm.get("enabled", True) else "",
                    html.escape(sm["title"])))
     adm_html = "".join(adm_rows)
-    adm_pw = html.escape(str(SEC.get("password") or "123456"))
+    # 管理口令、注册密钥只存在服务端 config/secrets.json，绝不写进生成的 HTML。
     try:
         _mc = json.load(open(os.path.join(HERE, "modules.json"), encoding="utf-8"))
         _api = _mc.get("api") or {}
     except (OSError, ValueError):
         _api = {}
-    adm_key = html.escape(str(_api.get("registry_key") or _api.get("password") or "123456"))
     adm_port = int(_api.get("port") or 8767)
 
     erp_html, erp_script = render_erp_card(latest, series, obs)
@@ -2468,14 +2486,6 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
       <button id="admClose" class="adm-x" title="关闭">×</button>
     </div>
 
-    <div id="admGate">
-      <p class="adm-tip">输入管理密码</p>
-      <input id="admPw" type="password" inputmode="numeric" placeholder="密码"
-             autocomplete="off">
-      <div class="adm-err" id="admErr"></div>
-      <button id="admGo" class="adm-primary">进入</button>
-    </div>
-
     <div id="admPanel" style="display:none">
       <p class="adm-tip">勾选要显示的板块，立即生效（记在这台浏览器）</p>
       <div class="adm-list">{adm_html}</div>
@@ -2485,14 +2495,21 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         <button data-act="reset">恢复默认</button>
         <button data-act="exit" class="adm-primary">完成</button>
       </div>
-      <p class="adm-note">这里是前端门锁（密码 <code>{adm_pw}</code>），只防误触，不是服务端鉴权。<br>
+      <p class="adm-note">本面板只改这台浏览器的显示，不是服务端鉴权。<br>
       要让所有人生效，改 <code>sections.json</code> 后重新构建发布。</p>
 
-      <div class="adm-sec-h">外部模块接入 <em>注册密钥 {adm_key}</em></div>
-      <div id="regBox"><p class="adm-note">加载中…</p></div>
+      <div class="adm-sec-h">外部模块接入 <em>注册密钥见服务端 config/secrets.json</em></div>
+      <div id="regLock">
+        <p class="adm-note">审批外部模块需先验证管理密码；密码只发往同源调度器校验，
+        不写进页面，也不落盘。</p>
+        <input id="regPw" type="password" placeholder="管理密码" autocomplete="off">
+        <button id="regGo" class="adm-primary">解锁</button>
+      </div>
+      <div id="regBox"><p class="adm-note">未解锁。</p></div>
       <details class="adm-spec">
         <summary>接口规范（POST /api/register）</summary>
-        <p class="adm-note">请求头 <code>X-SD-KEY: {adm_key}</code>，body 为 JSON：</p>
+        <p class="adm-note">请求头 <code>X-SD-KEY: &lt;注册密钥&gt;</code>（服务端
+        <code>config/secrets.json</code> 的 <code>api.registry_key</code>），body 为 JSON：</p>
         <table class="mod-tab spec"><tbody>
         <tr><td><code>tab</code></td><td>挂到哪个大类 Tab，如 <code>macro</code>；写新名字就新建一个大类</td></tr>
         <tr><td><code>key</code></td><td>model 唯一键，字母开头，如 <code>my_indicator</code></td></tr>
@@ -2505,7 +2522,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         <tr><td><code>timeout</code></td><td>超时秒数（可选，默认 1800）</td></tr>
         </tbody></table>
         <p class="adm-note">curl 示例：<br>
-        <code>curl -X POST -H 'X-SD-KEY: {adm_key}' -H 'Content-Type: application/json' \\<br>
+        <code>curl -X POST -H 'X-SD-KEY: &lt;注册密钥&gt;' -H 'Content-Type: application/json' \\<br>
         &nbsp;&nbsp;-d '{{"tab":"macro","key":"my_ind","title":"我的指标","sched":{{"at":"21:30","weekdays":[1,2,3,4,5]}},"cmd":"python3 /path/x.py"}}' \\<br>
         &nbsp;&nbsp;http://&lt;主机&gt;:8767/api/register</code></p>
         <p class="adm-note">提交后是 <b>pending</b>，在上面的列表点「批准」才会显示和调度。</p>
@@ -2515,7 +2532,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
 </div>
 
 <script>{JS_CORE}</script>
-<script>{JS_ADMIN.replace("__PW__", adm_pw).replace("__PORT__", str(adm_port))}</script>
+<script>{JS_ADMIN.replace("__PORT__", str(adm_port))}</script>
 {"".join(scripts)}
 </body>
 </html>"""

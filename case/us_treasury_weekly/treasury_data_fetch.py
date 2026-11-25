@@ -58,11 +58,18 @@ TREASURY_YIELD_URL = ("https://home.treasury.gov/resource-center/data-chart-cent
                       "TextView?type=daily_treasury_yield_curve&field_tdr_date_value=%d")
 BUYBACK_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Tentative-Buyback-Schedule.xml"
 BUYBACK_API = "https://api.fiscal.treasury.gov/ap/exp/v1/marketable-securities/buybacks"
-# client_id / client_secret 取自 treasurydirect 官网 buy-backs 页面公开脚本（页面表格同源接口）
-BUYBACK_HEADERS = {
-    "client_id": "8c94af521a854babb36ad4112c83df03",
-    "client_secret": "c33631F97444440cbb527E79549CFc40",
-}
+# client_id / client_secret 只从 config/secrets.json 取（见 config/README.md）
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
+_TREASURY_ID = app_secrets.get("treasury.client_id", "")
+_TREASURY_SECRET = app_secrets.get("treasury.client_secret", "")
+BUYBACK_HEADERS = ({"client_id": _TREASURY_ID, "client_secret": _TREASURY_SECRET}
+                   if _TREASURY_ID and _TREASURY_SECRET else {})
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -448,6 +455,9 @@ def fetch_buyback_schedule():
 
 def fetch_buyback_results(since_days=45):
     """最近 since_days 天内已完成（Results 状态）的回购操作明细。"""
+    if not BUYBACK_HEADERS:
+        print("[buyback] 未配置 treasury.client_id/client_secret，跳过回购明细")
+        return []
     now = datetime.now()
     start = (now - timedelta(days=since_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     end = (now + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")

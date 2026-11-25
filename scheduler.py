@@ -51,6 +51,10 @@ SELF_LOG = os.path.join(LOG_DIR, "scheduler.log")
 INDEX_PATH = os.path.join(HERE, "index.html")
 CASE_DIR = os.path.join(HERE, "case")
 CASE_LIB = os.path.join(CASE_DIR, "_lib")
+if CASE_LIB not in sys.path:
+    sys.path.insert(0, CASE_LIB)
+
+import app_secrets  # noqa: E402  （敏感配置统一入口，见 config/README.md）
 
 TICK_SEC = 15          # 调度轮询间隔
 GRACE_SEC = 6 * 3600   # 错过超过 6 小时就不补跑
@@ -275,7 +279,16 @@ def save_state(st):
 
 
 def api_conf():
-    return (load_cfg().get("api") or {})
+    """调度器 HTTP 配置。敏感项（password / registry_key）只从 config/secrets.json
+    或环境变量取，modules.json 里不再保存明文。"""
+    conf = dict(load_cfg().get("api") or {})
+    for key, dotted in (("password", "api.password"),
+                        ("registry_key", "api.registry_key")):
+        try:
+            conf[key] = app_secrets.get(dotted)
+        except app_secrets.SecretMissing:
+            conf[key] = ""
+    return conf
 
 
 def load_registry():
@@ -419,9 +432,12 @@ def _rand(n=8):
 
 
 def reg_key():
-    """注册密钥：modules.json 的 api.registry_key，缺省跟管理密码一致。"""
-    a = api_conf()
-    return str(a.get("registry_key") or a.get("password") or "123456")
+    """注册密钥：config/secrets.json 的 api.registry_key。
+
+    缺失时返回空串 —— 调用方一律拒绝注册（fail-closed），
+    绝不再退回到管理密码或内置默认值。
+    """
+    return str(api_conf().get("registry_key") or "")
 
 
 def find_worker(app_id=None, key=None):
@@ -684,6 +700,13 @@ def spawn(key, m, slot, st, pulled=False):
     with LOCK:
         if key in PROCS:
             return False
+        # 配置里的通知/数据凭据导出成环境变量，兼容只认 FEISHU_* / SMTP_* /
+        # TUSHARE_TOKEN 的老脚本；api.password / registry_key 不导出。
+        try:
+            app_secrets.export_env()
+        except Exception as e:                                # noqa: BLE001
+            log("敏感配置导出失败（任务照跑，通道可能取不到凭据）：%s: %s"
+                % (type(e).__name__, e))
         os.makedirs(LOG_DIR, exist_ok=True)
         logp = os.path.join(LOG_DIR, "%s.log" % key)
         f = open(logp, "ab")
@@ -1044,12 +1067,18 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _key_ok(self):
-        """外部注册用 X-SD-KEY（或 ?key=）对注册密钥，不要求管理密码。"""
+        """外部注册用 X-SD-KEY（或 ?key=）对注册密钥，不要求管理密码。
+
+        没配密钥时一律拒绝（fail-closed），避免空密钥裸奔。
+        """
+        want = reg_key()
+        if not want:
+            return False
         got = (self.headers.get("X-SD-KEY") or "").strip()
         if not got:
             q = parse_qs(urlparse(self.path).query)
             got = (q.get("key") or [""])[0].strip()
-        return got == reg_key()
+        return hmac.compare_digest(got, want)
 
     # ── POST ──
     def do_POST(self):
@@ -1223,7 +1252,24 @@ def read_pid():
     return None
 
 
+def _preflight_secrets():
+    """启动门禁：必填敏感配置缺失就不启动（见 config/README.md）。"""
+    try:
+        app_secrets.require("api.password", "api.registry_key")
+    except app_secrets.SecretMissing as e:
+        print(str(e), file=sys.stderr)
+        try:
+            log("启动中止：%s" % str(e).replace("\n", " | "))
+        except OSError:
+            pass
+        return False
+    app_secrets.export_env()
+    return True
+
+
 def cmd_start():
+    if not _preflight_secrets():
+        return 1
     pid = read_pid()
     if pid:
         if pid > 0:
@@ -1348,6 +1394,8 @@ def cmd_toggle(key, on):
 
 
 def _daemon():
+    if not _preflight_secrets():
+        return
     os.makedirs(LOG_DIR, exist_ok=True)
     with open(PID_PATH, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
@@ -1375,6 +1423,8 @@ def _daemon():
 
 
 def cmd_fg():
+    if not _preflight_secrets():
+        return 1
     os.makedirs(LOG_DIR, exist_ok=True)
     with open(PID_PATH, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
@@ -1438,6 +1488,8 @@ def main(argv):
     if cmd == "serve":
         # 网页服务即任务管理器：serve 起来就把调度循环一起带上。
         # 不再依赖 cron / 独立守护进程 —— 页面在跑，任务就在跑。
+        if not _preflight_secrets():
+            return 1
         os.makedirs(LOG_DIR, exist_ok=True)
         with open(PID_PATH, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))

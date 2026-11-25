@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """中美期权风险释放汇总 · 邮件提醒模块（A股红灯 / 偏度分位 / GEX·Flip 越阈触发）
 
-复用 macro_monthly_report 既有邮件通道与凭据（不复制密钥进本工程）：
+邮件通道与凭据统一走 config/secrets.json（不复制明文进本工程）：
   主通道：dws 钉钉企业邮箱（dws CLI，支持 --inline-attachment 内嵌图片）
   回退通道：163 SMTP（multipart/related，cid 内嵌图片）
 两通道均失败时整体重试一次（默认 retries=1）。
@@ -45,12 +45,25 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr, make_msgid
 
-MACRO_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/macro_monthly_report"
-if MACRO_DIR not in sys.path:
-    sys.path.insert(0, MACRO_DIR)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
 
-from config import (DWS_CLI, EMAIL_FROM, EMAIL_HOST, EMAIL_PORT, EMAIL_TO,  # noqa: E402
-                    EMAIL_USER, get_auth_code)
+import app_secrets  # noqa: E402
+
+DWS_CLI = os.path.expanduser("~/.local/bin/dws")
+EMAIL_FROM = app_secrets.get("email.sender", "")
+EMAIL_TO = app_secrets.get("email.recipients", "")
+EMAIL_HOST = app_secrets.get("email.smtp_host", "smtp.163.com")
+EMAIL_PORT = app_secrets.get_int("email.smtp_port", 25)
+EMAIL_USER = app_secrets.get("email.username", "")
+
+
+def get_auth_code():
+    """SMTP 授权码：只从 config/secrets.json / 环境变量取。"""
+    return app_secrets.get("email.password", "")
 
 SENDER_NAME = "DuMate中美期权风险释放汇总"
 SMTP_TIMEOUT = 60
@@ -293,6 +306,9 @@ def send_email(subject, text_body, html_body=None, images=None, retries=1, dry_r
     images: 本地图片路径列表，按顺序内嵌进正文；None/[] 表示纯文本邮件（与原行为一致）。
     失败时把原因写入 LAST_ERROR，供调用方在飞书消息侧通知。
     """
+    if not (EMAIL_FROM and EMAIL_TO):
+        print("[邮件] 未配置 email.sender/email.recipients（见 config/secrets.json），跳过发送")
+        return False
     global LAST_ERROR
     images = list(images or [])
     if dry_run:

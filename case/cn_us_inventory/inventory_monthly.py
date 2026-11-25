@@ -25,11 +25,20 @@ BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7
 DATA = BASE + "/data"
 H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-# 邮件通道（复用既有工程凭据，不新落盘密钥）
-EMAIL_FROM = "baizhiwei9492@dingtalk.com"
-EMAIL_TO = "410119229@qq.com"
+# 邮件凭据统一从 config/secrets.json 读取，不写明文
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
+
+EMAIL_FROM = app_secrets.get("email.sender", "")
+EMAIL_TO = app_secrets.get("email.recipients", "")
 DWS_CLI = os.path.expanduser("~/.local/bin/dws")
-EMAIL_HOST, EMAIL_PORT, EMAIL_USER = "smtp.163.com", 25, "songshang951@163.com"
+EMAIL_HOST = app_secrets.get("email.smtp_host", "smtp.163.com")
+EMAIL_PORT = app_secrets.get_int("email.smtp_port", 25)
+EMAIL_USER = app_secrets.get("email.username", "")
 
 PHASE_COLOR = {"主动补库存": "#1F7A4D", "被动补库存": "#A5561F", "主动去库存": "#B2472F", "被动去库存": "#2C6CA0"}
 NEXT = {"主动补库存": "被动补库存", "被动补库存": "主动去库存",
@@ -179,6 +188,9 @@ def recompute():
 
 # ---------------- 邮件 ----------------
 def send_email(subject, body, image=None):
+    if not (EMAIL_FROM and EMAIL_TO):
+        print("[邮件] 未配置 email.sender/email.recipients（见 config/secrets.json），跳过发送")
+        return False
     cmd = [DWS_CLI, "mail", "message", "send", "--from", EMAIL_FROM, "--to", EMAIL_TO,
            "--subject", subject, "--content", body, "--format", "json"]
     if image and os.path.exists(image):
@@ -191,7 +203,7 @@ def send_email(subject, body, image=None):
         print("[邮件] dws 返回异常:", (p.stderr or p.stdout)[:200])
     except Exception as e:
         print("[邮件] dws 调用失败:", str(e)[:150])
-    code = os.environ.get("EMAIL_AUTH_CODE", "")
+    code = app_secrets.get("email.password", "")
     if not code:
         print("[邮件] 无 163 授权码，回退通道不可用")
         return False

@@ -14,7 +14,7 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑；**业务任务不写 crontab**，只用一条 cron 巡检本进程存活（见「调度与守护」） |
 | `sd_watchdog.sh` | scheduler 看门狗：cron 每分钟调一次，按心跳判定存活，未运行/僵死则拉起、重启，连续失败才告警 |
 | `manager.py` | 命令行运维：模块清单 / 体检 / 手动跑 / 启停 / 板块显隐 |
-| `modules.json` | 模块与调度配置，**含密码与注册密钥**（入库方便改；对外公开前必须先改） |
+| `modules.json` | 模块与调度配置（**不含任何口令**；口令/密钥见 `config/secrets.json`） |
 | `sections.json` | Tab 与子类结构 |
 | `registry.json` | 已注册 Worker 清单 |
 | `publish.sh` | 发布到 Coze Pages |
@@ -23,12 +23,16 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 ## 快速开始
 
 ```bash
-# 改 modules.json 里的 api.password / api.registry_key（初始都是 123456，务必改掉）
+./install.sh                # 首次安装：强制输入 api.password / api.registry_key 等敏感项，缺项不能继续
 
 python3 scheduler.py fg     # 前台跑调度（同时起 HTTP 控制台，端口见 modules.json）
 python3 build.py            # 或单次生成 index.html
 python3 manager.py list     # 命令行运维：清单 / status / run / enable / disable
 ```
+
+敏感配置**只放 `config/secrets.json`**（已 `.gitignore`，权限 0600），字段清单见
+[`config/README.md`](config/README.md)。仓库里只有占位模板 `config/secrets.example.json`；
+`./install.sh` 与 `scheduler.py` 启动前都会校验，缺必填项直接拒绝启动。
 
 `manager.py` 是**命令行工具**，不监听端口；HTTP 控制台和注册接口都由 `scheduler.py`
 提供（默认端口 `modules.json` 的 `api.port`，现为 `8767`）。
@@ -198,9 +202,9 @@ python3 manager.py list                      # 清单里 case 任务标 case
 2. 进后台待审批列表
 3. 管理页用管理密码批准 → 出现在看板
 
-双密钥分开：`X-SD-PW` 管管理动作，`X-SD-KEY` 只管注册。两者都在 `modules.json` 的 `api` 段。
-
-初始值都是 `123456`，跟仓库一起提交是为了改起来方便——**这个仓库一旦要转公开，先改掉这两个值**。
+双密钥分开：`X-SD-PW` 管管理动作，`X-SD-KEY` 只管注册。两者都在服务端
+`config/secrets.json` 的 `api` 段（安装时由 `./install.sh` 写入），**不再入库**，
+也不会被写进 `index.html`。审批面板要求现场输入管理密码，由同源调度器校验。
 
 ## 给 Agent 读：JSON 快照
 

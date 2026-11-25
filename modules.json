@@ -4,8 +4,7 @@
   "api": {
     "host": "0.0.0.0",
     "port": 8767,
-    "password": "123456",
-    "registry_key": "123456"
+    "note": "管理口令/注册密钥见 config/secrets.json（./install.sh 写入），不再入库"
   },
   "queue": {
     "max_parallel": 1,
@@ -264,7 +263,7 @@
         ]
       },
       "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel email --to 410119229@qq.com --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】",
+      "cmd": "LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel feishu --chat \"${FEISHU_CHAT_ID:?set feishu.chat_id in config/secrets.json}\" --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel email --to \"${EMAIL_TO:?set email.recipients in config/secrets.json}\" --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】",
       "timeout": 300,
       "enabled": true,
       "depends": [

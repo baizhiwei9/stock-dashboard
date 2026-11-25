@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """市场融资风险扫描日报 · 邮件发送模块
 
-复用 macro_monthly_report 既有邮件通道与凭据（不复制密钥进本工程）：
+邮件通道与凭据统一走 config/secrets.json（不复制明文进本工程）：
   主通道：dws 钉钉企业邮箱（dws CLI）
   回退通道：163 SMTP
 两通道均失败时整体重试一次（默认 retries=1）。
@@ -25,12 +25,25 @@ from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import formataddr
 
-MACRO_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/macro_monthly_report"
-if MACRO_DIR not in sys.path:
-    sys.path.insert(0, MACRO_DIR)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
 
-from config import (DWS_CLI, EMAIL_FROM, EMAIL_HOST, EMAIL_PORT, EMAIL_TO,
-                    EMAIL_USER, get_auth_code)  # noqa: E402
+import app_secrets  # noqa: E402
+
+DWS_CLI = os.path.expanduser("~/.local/bin/dws")
+EMAIL_FROM = app_secrets.get("email.sender", "")
+EMAIL_TO = app_secrets.get("email.recipients", "")
+EMAIL_HOST = app_secrets.get("email.smtp_host", "smtp.163.com")
+EMAIL_PORT = app_secrets.get_int("email.smtp_port", 25)
+EMAIL_USER = app_secrets.get("email.username", "")
+
+
+def get_auth_code():
+    """SMTP 授权码：只从 config/secrets.json / 环境变量取。"""
+    return app_secrets.get("email.password", "")
 
 SENDER_NAME = "DuMate市场融资风险扫描日报"
 
@@ -82,6 +95,9 @@ def send_via_smtp(subject, html_body):
 
 def send_email(subject, text_body, html_body=None, retries=1):
     """邮件发送：主通道 dws，失败回退 163 SMTP；双通道均失败后整体重试 retries 次。"""
+    if not (EMAIL_FROM and EMAIL_TO):
+        print("[邮件] 未配置 email.sender/email.recipients（见 config/secrets.json），跳过发送")
+        return False
     for attempt in range(retries + 1):
         if send_via_dws(subject, text_body):
             return True
