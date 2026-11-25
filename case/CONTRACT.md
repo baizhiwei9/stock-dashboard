@@ -81,20 +81,9 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 |---|---|---|
 | `enabled` | `true` | 是否参与调度 |
 | `timeout` | `1800` | 单次运行超时秒数 |
-| `requires` | `[]` | 外部依赖名，当前仅 `pylibs`（靠 `PYLIBS_DIR` 找） |
+| `requires` | `[]` | 外部依赖名，当前仅 `pylibs`（靠 `PYLIBS_DIR` 找；没设则走系统 site-packages，不报错） |
 | `deliver` | — | `{"report":bool,"email":bool}`，仅声明与牌面标注，框架不代发 |
 | `desc` | `""` | 一句话说明 |
-| `queue` | `default` | 串行队列名。调度器按 `modules.json` 的 `queue.max_parallel`（默认 `1`＝全局串行）限并发；名额满时同组任务排队等空档，**到点遇忙顺延，不跳过也不并发** |
-| `not_before` | 空 | `"HH:MM"`，数据最早就绪时刻。队列空档**提前拉取**时的下限：现在早于它就不提前跑；到 `sched.at` 仍照常执行。不确定数据何时就绪就配上 |
-
-> 排队口径：到点但队列占满时不写 `last_slot`，每 15 秒重试，最长等到 `GRACE_SEC`（6 小时）；
-> 超过才放弃，并在 `state.modules.<key>.note` 记一句「超过宽限未执行」。
-> 调度器被 kill 后遗留的子进程（孤儿）同样占名额，等它自己结束才放行。
-> 接力粒度约等于 `TICK_SEC`（15 秒），短任务会有这点等待。
->
-> 提前跑（pull-forward）：`modules.json` 的 `queue.pull_forward` 打开时（默认开，16:00 后生效、
-> 最多提前 `pull_ahead_min` 分钟），队列空着就把后面的任务提前拉进来串着跑，**`last_slot` 仍记
-> 当天计划点**，到点不重复；`state.modules.<key>.pulled_forward` 标记这次是否提前执行。
 
 ### pipeline 结构
 
@@ -217,22 +206,6 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 - **未知 visibility 不会被当成 public**：`validate_task` 记一条错误，调度器把该任务以「停用 + 配置错误」留在清单里、在调度台标出来，并在**首次发现时**发一封告警邮件（同一个错误只告一次，改好后自动清零）—— 任务可以跑失败，但不能从调度里悄悄消失。
 - `internal` 是 `private` 的**旧别名**（过渡期兼容），不产生错误；等 `precious-task` 的 17 个 `task.json` 全部改成 `private` 后删掉别名。
 - 想让私有任务的**部分数据**公开：把那个指标单独拆成一个小 `public` 任务，或在私有任务里再挂一个只 `emit` 该指标的 `public` 任务。不要整包公开。
-
----
-
-## 七之二、模型资产与训练兜底
-
-任务依赖模型（权重、元数据、特征工程产物）时，按三条做：
-
-1. **资产随任务入库，且只入私有仓。** `data/` 默认被 `.gitignore` 忽略（那是运行产物的位置）。确实需要入库的任务，在 `.gitignore` 里**显式放行该任务的 `data/` 子目录**并注明是什么模型。模型权重属于策略资产，进 `precious-task`，不进公开仓；公开仓若还留着同名任务，删掉它——预测类任务的产物不需要公开。
-2. **必须有训练/初始化入口。** 任务根下放 `train_model.py`（或 `train.py`），要求：
-   - 产出的文件名与形状**与推理端读取的完全一致**，训练完能直接加载；
-   - 默认跳过已存在的文件，只补缺失部分，`--force` 才全量重训；
-   - 标签数据走**与本任务运行时相同的取数链路**（DataHub），本地文件只作离线回退；
-   - 数据缺失时明确报错说明缺口，不静默产出一个假模型。
-3. **推理入口做兜底，不要直接抛 `FileNotFoundError`。** 读模型前先检查资产是否齐全，缺了就调训练入口补齐再加载。权重没随仓库带过来时任务能自举，而不是整条链路挂掉。
-
-参考实现：`precious-task` 的 `bond_three_factor` —— `data/bond_yield/{assets,features}` + `train_model.py` + `data.ensure_assets()`。
 
 ---
 

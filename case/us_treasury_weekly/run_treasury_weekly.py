@@ -33,6 +33,13 @@ PY = sys.executable or "python3"
 def run_step(name, cmd, cwd=None, fatal=True):
     print("\n[STEP] %s" % name, flush=True)
     print("       %s" % " ".join(cmd), flush=True)
+    # cwd 不存在时 Popen 会直接抛 FileNotFoundError，且抛在 try 之外，
+    # 会让 fatal=False 彻底失效。先探测，缺目录就当这一步跳过。
+    if cwd and not os.path.isdir(cwd):
+        print("[SKIP] %s：工作目录不存在 %s" % (name, cwd), flush=True)
+        if fatal:
+            sys.exit(1)
+        return False
     try:
         proc = subprocess.run(cmd, cwd=cwd or HERE, text=True, timeout=1500)
     except subprocess.TimeoutExpired:

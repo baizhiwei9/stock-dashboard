@@ -1,18 +1,10 @@
 {
   "version": 2,
-  "note": "由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。",
+  "note": "【模板】复制成 modules.json 再改。modules.json 含本机路径与端口，属本地安装配置，不入库。由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。",
   "api": {
     "host": "0.0.0.0",
     "port": 8767,
-    "password": "123456",
-    "registry_key": "123456"
-  },
-  "queue": {
-    "max_parallel": 1,
-    "note": "max_parallel=1 串行；pull_forward=队列空着就把后面的任务提前拉进来串着跑（16:00 之后生效，最多提前 pull_ahead_min 分钟）",
-    "pull_forward": true,
-    "pull_forward_from": "16:00",
-    "pull_ahead_min": 240
+    "_note": "password / registry_key 不写这里：见 ~/.config/stock-dashboard/secrets.json 的 scheduler 段（python3 setup.py 录入）。本文件是模板，实际配置请复制成 modules.json 后修改。"
   },
   "modules": [
     {
@@ -33,11 +25,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.macro_daily --days 500",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"宏观与美元环流\" --timeout 2400 -- /usr/bin/python3 -u -m data_hub.tech.producers.macro_daily --days 500",
       "timeout": 2400,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "liquidity",
@@ -58,11 +49,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.liquidity_daily --days 500",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"流动性与两融\" --timeout 2400 -- /usr/bin/python3 -u -m data_hub.tech.producers.liquidity_daily --days 500",
       "timeout": 2400,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "rmt",
@@ -82,11 +72,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.rmt_daily --lookback 300 --max-comps 150",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"RMT随机矩阵\" --timeout 3600 -- /usr/bin/python3 -u -m data_hub.tech.producers.rmt_daily --lookback 300 --max-comps 150",
       "timeout": 3600,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "chanlun",
@@ -107,11 +96,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.chanlun_daily",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"缠论结构+趋势动量\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.chanlun_daily",
       "timeout": 1800,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "dfa",
@@ -131,11 +119,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.dfa_daily",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"DFA/Hurst\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.dfa_daily",
       "timeout": 1800,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "option",
@@ -155,11 +142,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.option_daily --days 3",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"期权定价(IV/偏度/PCR/VIX)\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.option_daily --days 3",
       "timeout": 1800,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "bond",
@@ -179,11 +165,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.bond_daily --days 12",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"债券与理财\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.bond_daily --days 12",
       "timeout": 1800,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "risk",
@@ -203,11 +188,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.risk_daily --days 3",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"风险与机会标签\" --timeout 1200 -- /usr/bin/python3 -u -m data_hub.tech.producers.risk_daily --days 3",
       "timeout": 1200,
-      "enabled": false,
-      "note": "dumate 分支：本机不再执行该 producer，改由 case/ 任务产出"
+      "enabled": false
     },
     {
       "key": "task_tags",
@@ -233,10 +217,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "python3 -u -m data_hub.tech.producers.task_tags_daily",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"任务结论转录\" --timeout 600 -- /usr/bin/python3 -u -m data_hub.tech.producers.task_tags_daily",
       "timeout": 600,
-      "enabled": true,
+      "enabled": false,
       "depends": []
     },
     {
@@ -263,10 +247,10 @@
           5
         ]
       },
-      "cwd": "/opt/coze/.fuse_drive/dataHub_三级体系",
-      "cmd": "LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR=/app/data/所有对话/主对话/.feishu_cli python3 -u -m data_hub.tech.notify --channel email --to 410119229@qq.com --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】",
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat {{FEISHU_CHAT_ID}} --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel email --to {{ALERT_EMAIL}} --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】'",
       "timeout": 300,
-      "enabled": true,
+      "enabled": false,
       "depends": [
         "task_tags"
       ]
@@ -274,7 +258,7 @@
     {
       "key": "risk_v52",
       "title": "每日风险报告 v5.2",
-      "desc": "读风险仪表盘 26 维算综合分与风险等级，落 DailyPredict/outputs/YYYYMMDD_daily_risk_v52.json 供 task_tags 转录；报告与飞书通知由任务自己发。",
+      "desc": "读风险仪表盘 V5.2 的 26 个维度算综合分与风险等级，落 DailyPredict/outputs/YYYYMMDD_daily_risk_v52.json 供 task_tags 转录；报告与飞书通知仍由任务自己发。",
       "domains": [
         "risk"
       ],
@@ -289,17 +273,16 @@
           5
         ]
       },
-      "cwd": "/root/.coze/agents/7649998182050545974/workspace",
-      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 /usr/bin/python3 -m data_hub.tech.health_run --name \"风险日报v52\" --timeout 1500 -- /usr/bin/python3 DailyPredict/daily_risk_report.py",
+      "cwd": "{{WORKSPACE_A}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"风险日报v52\" --timeout 1500 -- /usr/bin/python3 DailyPredict/daily_risk_report.py",
       "timeout": 1800,
-      "enabled": true,
-      "depends": [],
-      "note": "2026-11-25 从 crontab 迁入 scheduler"
+      "enabled": false,
+      "depends": []
     },
     {
       "key": "vol_surface_vix",
       "title": "波动率曲面（自算 VIX）",
-      "desc": "算 IV 曲面/偏度/PCR 与自算 VIX，落 outputs/YYYYMMDD_vol_surface.json 供 task_tags 转录；图表与飞书通知由任务自己发。",
+      "desc": "取全量期权数据算 IV 曲面/偏度/PCR 与自算 VIX，落 outputs/YYYYMMDD_vol_surface.json 供 task_tags 转录；图表与飞书通知仍由任务自己发。",
       "domains": [
         "option"
       ],
@@ -314,12 +297,11 @@
           5
         ]
       },
-      "cwd": "/root/.coze/agents/7649998182050545974/workspace",
-      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 /usr/bin/python3 -m data_hub.tech.health_run --name \"波动率曲面\" --timeout 1500 -- /usr/bin/python3 vol_surface_runner.py",
+      "cwd": "{{WORKSPACE_A}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"波动率曲面\" --timeout 1500 -- /usr/bin/python3 vol_surface_runner.py",
       "timeout": 1800,
-      "enabled": true,
-      "depends": [],
-      "note": "2026-11-25 从 crontab 迁入 scheduler"
+      "enabled": false,
+      "depends": []
     },
     {
       "key": "build",
@@ -347,9 +329,10 @@
         "task_tags",
         "task_tags_notify"
       ],
-      "cmd": "python3 build.py",
+      "cwd": "/Coze/Drive/股市监控画布/stock-dashboard",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"看板构建发布\" --timeout 1800 -- bash -c \"python3 build.py && ./publish.sh\"",
       "timeout": 1800,
-      "enabled": true
+      "enabled": false
     },
     {
       "key": "five_strategy",
@@ -369,10 +352,10 @@
           5
         ]
       },
-      "cwd": "/root/.coze/agents/7649998561689780486/workspace",
-      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"五策略综合日报\" --timeout 3600 -- python3 -u strategies/daily_report.py",
+      "cwd": "{{WORKSPACE_B}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"五策略综合日报\" --timeout 3600 -- /usr/bin/python3 -u strategies/daily_report.py",
       "timeout": 3900,
-      "enabled": true,
+      "enabled": false,
       "depends": []
     },
     {
@@ -393,10 +376,10 @@
           5
         ]
       },
-      "cwd": "/root/.coze/agents/7649998561689780486/workspace",
-      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"资金面因子日报\" --timeout 1800 -- bash strategies/run_daily_factor.sh",
+      "cwd": "{{WORKSPACE_B}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"资金面因子日报\" --timeout 1800 -- bash strategies/run_daily_factor.sh",
       "timeout": 2100,
-      "enabled": true,
+      "enabled": false,
       "depends": []
     },
     {
@@ -417,10 +400,10 @@
           5
         ]
       },
-      "cwd": "/root/.coze/agents/7649998561689780486/workspace/limit_up_predictor",
-      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"涨停预测·早盘\" --timeout 1800 -- python3 -u daily_runner.py --mode morning",
+      "cwd": "{{WORKSPACE_B}}/limit_up_predictor",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"涨停预测·早盘\" --timeout 1800 -- /usr/bin/python3 -u daily_runner.py --mode morning",
       "timeout": 2100,
-      "enabled": true,
+      "enabled": false,
       "depends": []
     },
     {
@@ -441,11 +424,19 @@
           5
         ]
       },
-      "cwd": "/root/.coze/agents/7649998561689780486/workspace/limit_up_predictor",
-      "cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u -m data_hub.tech.health_run --name \"涨停预测·午盘\" --timeout 1800 -- python3 -u daily_runner.py --mode noon",
+      "cwd": "{{WORKSPACE_B}}/limit_up_predictor",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.health_run --name \"涨停预测·午盘\" --timeout 1800 -- /usr/bin/python3 -u daily_runner.py --mode noon",
       "timeout": 2100,
-      "enabled": true,
+      "enabled": false,
       "depends": []
     }
-  ]
+  ],
+  "_placeholders": {
+    "{{DATAHUB_ROOT}}": "datahub-multi-tier 仓库在本机的绝对路径",
+    "{{WORKSPACE_A}}": "运行 risk_v52 / vol_surface_vix 的工作目录",
+    "{{WORKSPACE_B}}": "运行 five_strategy / factor_daily / limit_up_* 的工作目录",
+    "{{FEISHU_CLI_DIR}}": "lark-cli 配置目录（含凭据，勿入库）",
+    "{{FEISHU_CHAT_ID}}": "推送目标群 chat_id（oc_ 开头）",
+    "{{ALERT_EMAIL}}": "alert 级通知的收件邮箱"
+  }
 }

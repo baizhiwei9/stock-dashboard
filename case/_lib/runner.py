@@ -72,12 +72,6 @@ STAGE_CN = {"fetch": "取数", "check": "检查", "render": "出报告",
 
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-
-# 共享代码库（report_stats / broad5_risk / portfolio_stats 这类多任务复用的模块）：
-# 由框架统一注入 sys.path，任务不用各自拼绝对路径；私有仓库用 CASE_SHARED_DIR 指过来。
-SHARED_DIR = os.environ.get("CASE_SHARED_DIR") or os.path.join(CASE_DIR, "_shared")
-if os.path.isdir(SHARED_DIR) and SHARED_DIR not in sys.path:
-    sys.path.insert(0, SHARED_DIR)
 import alert as alert_mod                                          # noqa: E402
 import checks as check_mod                                          # noqa: E402
 
@@ -155,6 +149,10 @@ class Ctx:
         self.points: List[Dict] = []
         self.stage = ""
         self.done: set = set()
+        # 最近一次子进程退出码：pipeline.py 的钩子普遍写成
+        # `ctx.sh(..., check=False)` 且不接收返回值，失败会被吞成成功。
+        # 这里记一份，run_stage 在钩子返回 None 时据此判定。
+        self.last_rc = 0
 
     # ── 日志 ──
     def log(self, msg: str) -> None:
@@ -222,6 +220,7 @@ class Ctx:
         except (OSError, ValueError):
             pass
         self.log("退出码 %s，耗时 %.1fs" % (rc, time.time() - t0))
+        self.last_rc = rc
         if check and rc != 0:
             raise RuntimeError("命令退出码 %s：%s" % (rc, cmd))
         return rc
@@ -289,6 +288,7 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
     """跑一个阶段，返回 {name, ok, rc, sec, detail}。异常向外抛，由 main 统一处理。"""
     t0 = time.time()
     ctx.stage = name
+    ctx.last_rc = 0
     ctx.log("▶ 阶段 %s（%s）" % (name, STAGE_CN.get(name, name)))
     detail = ""
     rc = 0
@@ -361,6 +361,12 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
         ret = hook(ctx)
         if isinstance(ret, int) and ret != 0:
             raise RuntimeError("%s 钩子返回 %s" % (name, ret))
+        # 钩子返回 None 时按 last_rc 兜底：pipeline.py 普遍是
+        # `ctx.sh(cmd, check=False)` 不接收返回值，不兜底的话子进程退出码 1
+        # 会被当成通过 → 调度器记 ok → 连败清零 → 失败彻底静默。
+        if ret is None and ctx.last_rc not in (0, None):
+            raise RuntimeError("%s 阶段的命令退出码 %s（钩子未检查返回值）"
+                               % (name, ctx.last_rc))
         detail = "钩子执行完成"
     elif spec.get("cmd"):
         rc = ctx.sh(str(spec["cmd"]), timeout=int(spec.get("timeout") or 0) or None,
@@ -383,6 +389,51 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
 
     return {"name": name, "ok": True, "rc": rc, "sec": round(time.time() - t0, 1),
             "detail": detail}
+
+
+def _task_uses_feishu(task: Dict) -> bool:
+    """任务目录下是否有脚本引用飞书推送入口。
+
+    不靠 task.json 加字段：各 case 的推送方式不统一（feishu_config /
+    feishu_creds / feishu_router 都有），扫源码比加一个容易忘填的开关可靠。
+    """
+    d = task.get("_dir") or ""
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return False
+    for n in names:
+        if not n.endswith(".py"):
+            continue
+        try:
+            with open(os.path.join(d, n), encoding="utf-8", errors="ignore") as f:
+                src = f.read()
+        except OSError:
+            continue
+        # 关键词放宽到 "feishu"：margin_detail 这类是 feishu_push -> feishu_config
+        # 的间接引用，只认直接引用会漏；多校验一次凭据没有副作用。
+        if "feishu" in src.lower():
+            return True
+    return False
+
+
+def _preflight_feishu(task: Dict) -> Optional[str]:
+    """推送类任务的凭据前置校验。返回错误描述，就绪返回 None。
+
+    为什么前移到启动阶段：pmi_export 全链路要跑 8 分钟，凭据缺失时旧行为是
+    跑完全部取数与渲染，最后在 pusher 阶段才炸——最贵的一种失败。
+    """
+    if not _task_uses_feishu(task):
+        return None
+    lib = os.path.dirname(os.path.abspath(__file__))
+    if lib not in sys.path:
+        sys.path.insert(0, lib)
+    try:
+        import feishu_creds
+        feishu_creds.require("webhook_url")
+    except Exception as e:                                 # noqa: BLE001
+        return "飞书凭据未就绪：%s" % str(e)[:180]
+    return None
 
 
 def _check_depends(ctx: Ctx, task: Dict) -> List[str]:
@@ -465,12 +516,12 @@ def main(argv: List[str]) -> int:
         stages = stages[stages.index(a.from_stage):]
 
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    # data/ out/ logs/ 都不入库，新机器上首次跑时目录不存在。
-    # 任务里常见 os.listdir("data/md") 这种写法，目录缺了直接 FileNotFoundError，
-    # 所以进阶段之前统一建好，别让每个任务自己记得 makedirs。
+    run_dir = os.path.join(task["_dir"], "logs")
+    os.makedirs(run_dir, exist_ok=True)
+    # import_py.py 只搬 .py，data/ 这类空目录不进仓库；任务里直接
+    # os.listdir(data/xxx) 会 FileNotFoundError。跑前把常用工作目录先建好。
     for _sub in ("data", "out", "logs"):
         os.makedirs(os.path.join(task["_dir"], _sub), exist_ok=True)
-    run_dir = os.path.join(task["_dir"], "logs")
     logp = os.path.join(run_dir, "run-%s.log" % run_id)
     logf = open(logp, "a", encoding="utf-8")
     started = time.time()
@@ -479,31 +530,30 @@ def main(argv: List[str]) -> int:
     ctx.log("任务 %s（%s）开始，阶段：%s" % (task["key"], task.get("section"), " → ".join(stages)))
     for req in task.get("requires") or []:
         if req == "pylibs":
-            # 依赖不要求装在一起，三种来源都收（顺序：PYLIBS_DIR 靠前优先）：
-            #   1) PYLIBS_DIR：冒号分隔的多个外挂目录（可留空）
-            #   2) case/<key>/_shared：任务自带的依赖（import_py.py --with-shared）
-            #   3) case/_shared/pylibs：跨任务共享的一份
-            dirs = [d.strip() for d in (os.environ.get("PYLIBS_DIR") or "").split(":") if d.strip()]
-            for d in reversed(dirs):
-                if os.path.isdir(d) and d not in sys.path:
-                    sys.path.insert(0, d)
-            shared = [os.path.join(task["_dir"], "_shared"), SHARED_DIR,
-                      os.path.join(CASE_DIR, "_shared", "pylibs")]
-            usable = [d for d in dirs + shared if os.path.isdir(d)]
-            for d in reversed(usable):
-                if d not in sys.path:
-                    sys.path.insert(0, d)
-            # 阶段命令都是子进程（ctx.sh → bash -c），sys.path 传不过去，
-            # 必须同时写进 PYTHONPATH 环境变量，子进程才看得到。
-            if usable:
-                old_pp = os.environ.get("PYTHONPATH") or ""
-                parts = usable + ([old_pp] if old_pp else [])
-                os.environ["PYTHONPATH"] = ":".join(parts)
-            ctx.log("依赖 pylibs → %s" % (":".join(usable) or "(未设 PYLIBS_DIR，任务目录内也无可用的 _shared)"))
+            # 公共库软降级：设了且目录存在就前置进 sys.path；没设/不存在回退系统
+            # site-packages。这里不硬报错——真缺包时 import 会自然抛
+            # ModuleNotFoundError，比「请先设置 PYLIBS_DIR」更有指向性。
+            d = (os.environ.get("PYLIBS_DIR") or "").strip()
+            if not d:
+                ctx.log("未设 PYLIBS_DIR，依赖走系统 site-packages")
+            elif not os.path.isdir(d):
+                ctx.log("PYLIBS_DIR=%s 不存在，回退系统 site-packages" % d)
+            elif d not in sys.path:
+                sys.path.insert(0, d)
+                ctx.log("依赖 pylibs → %s" % d)
+            else:
+                ctx.log("依赖 pylibs → %s（已在 sys.path）" % d)
 
     # 依赖检查：上游产物不满足就不进入 fetch，也不发报告
     results: List[Dict] = []
     dep_problems = [] if a.dry_run else _check_depends(ctx, task)
+    # 凭据前置校验：推送类任务先确认飞书凭据就绪，别跑完全流程才在推送阶段失败
+    if not a.dry_run:
+        _cred_problem = _preflight_feishu(task)
+        if _cred_problem:
+            dep_problems.append(_cred_problem)
+        else:
+            ctx.log("飞书凭据预检通过" if _task_uses_feishu(task) else "无需飞书凭据")
     if dep_problems:
         results.append({"name": "depends", "ok": False, "rc": 1, "sec": 0.0,
                         "detail": "；".join(dep_problems)[:200], "hard": True})

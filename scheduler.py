@@ -18,6 +18,7 @@ HTTP 服务，让管理页面能查状态、启停模块、立刻跑一次、改
   python3 scheduler.py on <key>       启用模块
   python3 scheduler.py off <key>      停用模块
   python3 scheduler.py serve          只起 HTTP 控制台，不跑调度
+  python3 scheduler.py migrate-secrets 把 modules.json 遗留明文迁到统一凭据文件
 
 模块字段（modules.json）：
   key/title/desc/domains/cwd/cmd/timeout/enabled  必填
@@ -56,39 +57,6 @@ TICK_SEC = 15          # 调度轮询间隔
 GRACE_SEC = 6 * 3600   # 错过超过 6 小时就不补跑
 DEFAULT_PORT = 8767    # 与 modules.json / README 保持一致，避免文档里三个端口打架
 
-HB_PATH = os.path.join(LOG_DIR, "scheduler.hb")   # 心跳：每次 tick 写 epoch 秒
-HB_STALE_SEC = 180     # 心跳超过 3 分钟未更新 → 视为僵死（看门狗据此重启，而非只看 pid）
-
-
-def write_heartbeat():
-    """写心跳文件（epoch 秒）。
-
-    看门狗只读这一个文件判断「调度循环还在转」—— 进程活着但循环卡死（僵死）时，
-    只看 pid 会漏判，心跳比 pid 更能代表真的在调度。
-    """
-    try:
-        os.makedirs(LOG_DIR, exist_ok=True)
-        with open(HB_PATH, "w", encoding="utf-8") as f:
-            f.write(str(int(time.time())))
-    except OSError:
-        pass
-
-
-def heartbeat_age():
-    """返回心跳年龄（秒）；无心跳文件（老版本或刚启动）返回 None。"""
-    try:
-        with open(HB_PATH, encoding="utf-8") as f:
-            t = int((f.read() or "0").strip() or 0)
-    except (OSError, ValueError):
-        return None
-    if t <= 0:
-        return None
-    return max(0, int(time.time()) - t)
-
-QUEUE_MAX_DEFAULT = 1   # 全局并发上限，默认 1＝一次只跑一个任务（modules.json 的 queue.max_parallel 可覆盖）
-QUEUE_NAME_DEFAULT = "default"
-ORPHANS = {}            # key -> pid：调度器被杀后仍存活的子进程，仍占队列名额，等它自己结束
-
 LOCK = threading.RLock()
 PROCS = {}             # key -> {proc, started, slot, logf}
 _STOP = threading.Event()
@@ -100,122 +68,6 @@ _STOP = threading.Event()
 CFG_ALERT_PATH = os.path.join(HERE, "state_config_alerts.json")
 _CONFIG_ALERTED = None   # key -> 已经告过警的错误文本（懒加载）
 _CONFIG_CLEARED = set()  # 已经报过「配置恢复正常」的 key，避免反复清零
-
-
-def _queue_conf():
-    """读 modules.json 的 queue 配置。
-
-    {"max_parallel": int, "groups": {组名: int},
-     "pull_forward": bool, "pull_forward_from": "HH:MM", "pull_ahead_min": int}
-
-    缺省即「全局串行」（max_parallel=1）+「16:00 后允许提前拉取」（最多提前 240 分钟）：
-    队列空着且离下一个任务计划点还有很长的空档时，把那个任务提前拉进来串着跑，
-    不硬等它自己的计划点；报告比计划点早交付也接受，只要当天跑掉。
-    """
-    q = (load_cfg() or {}).get("queue") or {}
-
-    def _int(v, d):
-        try:
-            return int(v)
-        except (TypeError, ValueError):
-            return d
-
-    mx = _int(q.get("max_parallel"), QUEUE_MAX_DEFAULT)
-    groups = {}
-    for k, v in (q.get("groups") or {}).items():
-        try:
-            groups[str(k)] = max(0, int(v))
-        except (TypeError, ValueError):
-            continue
-    pf = q.get("pull_forward")
-    pull_forward = True if pf is None else bool(pf)
-    try:
-        _hh, _mm = [int(x) for x in str(q.get("pull_forward_from") or "16:00").split(":")]
-        pull_from = dtime(_hh, _mm)
-    except (ValueError, TypeError):
-        pull_from = dtime(16, 0)
-    ahead = max(0, _int(q.get("pull_ahead_min"), 240))
-    return {"max_parallel": max(0, mx), "groups": groups,
-            "pull_forward": pull_forward, "pull_from": pull_from,
-            "pull_ahead_sec": ahead * 60}
-
-
-def _not_before_time(m):
-    """任务声明的「数据最早几点就绪」（HH:MM）；没配返回 None。提前拉取时用作下限。"""
-    s = str((m or {}).get("not_before") or "").strip()
-    if not s:
-        return None
-    try:
-        hh, mm = [int(x) for x in s.split(":")]
-        return dtime(hh, mm)
-    except (ValueError, TypeError):
-        return None
-
-
-def _next_run_after(sched, now, last_slot):
-    """下一次该跑的时间点，跳过已经跑过的计划点（提前跑完后不能还显示今天那个点）。"""
-    probe = now
-    for _ in range(64):
-        nx = compute_next(sched, probe)
-        if nx is None:
-            return None
-        if nx.strftime("%Y-%m-%d %H:%M") != (last_slot or ""):
-            return nx
-        probe = nx + timedelta(minutes=1)
-    return None
-
-
-def _queue_of(m):
-    """任务所属队列（默认 default）。"""
-    return str((m or {}).get("queue") or QUEUE_NAME_DEFAULT)
-
-
-def _queue_used(mods):
-    """当前占用：运行中的子进程 + 仍存活的孤儿（调度器被杀前起的那批）。返回 (总数, {组: 数})。"""
-    used, total = {}, 0
-    for key in list(ORPHANS.keys()):
-        if not _pid_alive(ORPHANS[key]):
-            ORPHANS.pop(key, None)
-            continue
-        g = _queue_of(mods.get(key))
-        used[g] = used.get(g, 0) + 1
-        total += 1
-    for key in list(PROCS.keys()):
-        g = _queue_of(mods.get(key))
-        used[g] = used.get(g, 0) + 1
-        total += 1
-    return total, used
-
-
-def _queue_room(g, mods, conf):
-    """该组还有没有名额：全局上限与组上限都得有空位。"""
-    total, used = _queue_used(mods)
-    if total >= conf["max_parallel"]:
-        return False
-    return used.get(g, 0) < conf["groups"].get(g, conf["max_parallel"])
-
-
-def _queue_blocker(g, mods):
-    """排队时说明在等谁：先同组，再全局；孤儿进程也点名（有任务没销毁就等它）。"""
-    same = [k for k in PROCS if _queue_of(mods.get(k)) == g]
-    if same:
-        return "/".join(same)
-    alive = [k for k, pid in ORPHANS.items() if _pid_alive(pid) and _queue_of(mods.get(k)) == g]
-    if alive:
-        return "/".join(alive) + "（孤儿进程）"
-    rest = list(PROCS.keys()) or [k for k, pid in ORPHANS.items() if _pid_alive(pid)]
-    return "/".join(rest) if rest else "前一个任务"
-
-
-def _queue_ahead(g, key, cands):
-    """排队序号：本组里排在自己前面的候选数 + 1（同组串行时的位置）。"""
-    n = 1
-    for c in cands:
-        if c["key"] == key:
-            break
-        if _queue_of(c["mod"]) == g:
-            n += 1
-    return n
 
 
 # ────────────────────────────── 基础读写 ──────────────────────────────
@@ -276,6 +128,23 @@ def save_state(st):
 
 def api_conf():
     return (load_cfg().get("api") or {})
+
+
+def _secrets_conf():
+    """统一凭据（~/.config/stock-dashboard/secrets.json 的 scheduler 段）。
+
+    敏感值不再写进 modules.json —— 那个文件是入库的，历史上管理密码就是
+    明文 "123456"。modules.json 里若仍写了 password/registry_key，作为兼容
+    覆盖保留（不推荐），但不再是唯一来源。
+    """
+    try:
+        import app_secrets
+    except ImportError:
+        _lib = os.path.join(os.path.dirname(os.path.abspath(__file__)), "case", "_lib")
+        if _lib not in sys.path:
+            sys.path.insert(0, _lib)
+        import app_secrets
+    return app_secrets.section("scheduler")
 
 
 def load_registry():
@@ -341,6 +210,9 @@ def _config_alert(key, errs):
                 return
             _CONFIG_ALERTED[key] = msg
             _CONFIG_CLEARED.discard(key)
+            # 立刻落盘：只记内存的话，watchdog 每分钟拉起的重启会让去重表归零，
+            # 同一个配置错误会被反复当成「首次发现」重复发邮件。
+            _save_cfg_alerts()
             log("case 任务 %s 配置错误，已停用（不是静默跳过）：%s" % (key, msg))
             ok, threshold, err = False, 1, "配置错误: %s" % msg
         else:
@@ -419,9 +291,68 @@ def _rand(n=8):
 
 
 def reg_key():
-    """注册密钥：modules.json 的 api.registry_key，缺省跟管理密码一致。"""
+    """注册密钥：优先 modules.json（兼容），其次统一凭据的 scheduler.registry_key。
+
+    都没有时返回空串 —— 调用方按 fail-closed 处理，不再用 "123456" 兜底。
+    """
     a = api_conf()
-    return str(a.get("registry_key") or a.get("password") or "123456")
+    sec = _secrets_conf()
+    return str(a.get("registry_key") or sec.get("registry_key") or sec.get("password") or "")
+
+
+def migrate_legacy_api_secrets(verbose=True):
+    """把 modules.json 里遗留的 api.password / api.registry_key 迁到统一凭据文件。
+
+    历史包袱：这两个值曾以明文 "123456" 写在入库的 modules.json 里，随公开仓库外泄。
+    现在源头是 ~/.config/stock-dashboard/secrets.json 的 scheduler 段；本函数在
+    scheduler 启动时自动跑一次，把旧值搬过去再从 modules.json 删掉（先备份），
+    这样正在跑的旧进程不断服、重启后仓库就干净了。
+
+    返回 (迁走的字段列表, 说明)。没有可迁的就返回 ([], "")。
+    """
+    a = api_conf()
+    legacy = {k: a[k] for k in ("password", "registry_key") if a.get(k)}
+    if not legacy:
+        return [], ""
+
+    try:
+        import app_secrets
+    except ImportError:
+        _lib = os.path.join(HERE, "case", "_lib")
+        if _lib not in sys.path:
+            sys.path.insert(0, _lib)
+        import app_secrets
+
+    sec = app_secrets.section("scheduler")
+    moved = []
+    for k, v in legacy.items():
+        # 统一凭据里已有就以其为准（那是安装时录入的），否则把旧值搬过去
+        if not sec.get(k):
+            app_secrets.set_value("scheduler", k, v)
+            moved.append(k + "(已搬入凭据文件)")
+        else:
+            moved.append(k + "(凭据文件已有，丢弃旧值)")
+
+    # 备份后从 modules.json 删掉
+    try:
+        import shutil
+        import time as _t
+        shutil.copy2(CFG_PATH, CFG_PATH + ".bak_" + _t.strftime("%Y%m%d_%H%M%S"))
+    except OSError:
+        pass
+    cfg = load_cfg()
+    api = cfg.get("api") or {}
+    for k in legacy:
+        api.pop(k, None)
+    api["_note"] = ("password / registry_key 已移至 ~/.config/stock-dashboard/secrets.json 的 "
+                    "scheduler 段（见 DEPLOY.md §3.3）")
+    cfg["api"] = api
+    save_cfg(cfg)
+
+    msg = "modules.json 的 %s 已迁移：%s" % (", ".join(legacy), "; ".join(moved))
+    if verbose:
+        print("[scheduler] " + msg)
+    return list(legacy), msg
 
 
 def find_worker(app_id=None, key=None):
@@ -663,24 +594,17 @@ def _finish(key, rc, status, st):
     except OSError:
         pass
     with LOCK:
-        ms = st["modules"].setdefault(key, {})
-        ms.pop("queued", None)
-        ms.pop("orphan_pid", None)
-        ms.update({
+        st["modules"].setdefault(key, {}).update({
             "last_status": status, "exit": rc,
-            "duration": round(dur, 1), "running": False, "pid": None,
+            "duration": round(dur, 1), "running": False,
             "finished": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         })
         save_state(st)
     log("模块结束 %s status=%s exit=%s 耗时 %.1fs" % (key, status, rc, dur))
 
 
-def spawn(key, m, slot, st, pulled=False):
-    """起一个模块子进程。已在跑就返回 False（防 tick 与 HTTP 线程双起）。
-
-    pulled=True 表示「提前执行」：slot 仍是该任务当天的计划点（`last_slot` 记它，当天不重复跑），
-    只是实际启动时间早于计划点 —— 报告早于计划点交付。
-    """
+def spawn(key, m, slot, st):
+    """起一个模块子进程。已在跑就返回 False（防 tick 与 HTTP 线程双起）。"""
     with LOCK:
         if key in PROCS:
             return False
@@ -689,10 +613,9 @@ def spawn(key, m, slot, st, pulled=False):
         f = open(logp, "ab")
         now = datetime.now()
         head = ("\n" + "=" * 72 +
-                "\n[%s] 启动 %s（计划点 %s%s）\n[cmd] %s\n[cwd] %s\n" %
+                "\n[%s] 启动 %s（计划点 %s）\n[cmd] %s\n[cwd] %s\n" %
                 (now.strftime("%Y-%m-%d %H:%M:%S"), key,
-                 slot.strftime("%Y-%m-%d %H:%M"),
-                 "，提前执行" if pulled else "", m.get("cmd"),
+                 slot.strftime("%Y-%m-%d %H:%M"), m.get("cmd"),
                  m.get("cwd") or HERE))
         f.write(head.encode())
         f.flush()
@@ -712,15 +635,10 @@ def spawn(key, m, slot, st, pulled=False):
             log("启动失败 %s: %s" % (key, e))
             return False
         PROCS[key] = {"proc": p, "started": now, "slot": slot, "logf": f}
-        ORPHANS.pop(key, None)          # 该任务已由本进程接管，孤儿登记作废
-        ms = st["modules"].setdefault(key, {})
-        ms.pop("queued", None)          # 起跑即退出排队
-        ms.pop("orphan_pid", None)
-        ms.update({
+        st["modules"].setdefault(key, {}).update({
             "last_slot": slot.strftime("%Y-%m-%d %H:%M"),
             "last_run": now.strftime("%Y-%m-%d %H:%M:%S"),
             "last_status": "running", "running": True, "note": "",
-            "pid": p.pid, "pulled_forward": bool(pulled),
         })
         save_state(st)
     log("启动 %s pid=%d（计划点 %s）" % (key, p.pid, slot.strftime("%Y-%m-%d %H:%M")))
@@ -747,146 +665,48 @@ def tick():
             continue
         _finish(key, rc, "ok" if rc == 0 else "fail", st)
 
-    # ② 到点的起新任务：串行队列 —— 名额没空就排队等；队列空着时把后面的任务提前拉进来串着跑
-    st.setdefault("modules", {})
-    for _ms in st["modules"].values():
-        _ms.pop("queued", None)              # 每 tick 重算排队状态，避免残留
-    conf = _queue_conf()
-    pull_on = conf["pull_forward"] and now.time() >= conf["pull_from"]
-    cands = []
-    for idx, (key, m) in enumerate(mods.items()):
+    # ② 到点的起新任务
+    for key, m in mods.items():
         if not m.get("enabled", True) or key in PROCS:
             continue
         sched = m.get("sched") or {}
-        slot, pulled = compute_slot(sched, now), False
-        ms = st["modules"].setdefault(key, {})
-        # compute_slot 会回看若干天：今天的点还没到时会返回「昨天」那个点。
-        # 昨天的点既不该补跑、也不该天天刷「超宽限」提醒 —— 直接当作没有待跑点。
-        if slot is not None and (now - slot).total_seconds() > GRACE_SEC:
-            if slot.date() == now.date():
-                slotkey = slot.strftime("%Y-%m-%d %H:%M")
-                if ms.get("missed_slot") != slotkey:   # 今天到点却超宽限：只记一次
-                    ms["missed_slot"] = slotkey
-                    ms["note"] = "超过宽限未执行（计划 %s，一直没轮到空档）" % slotkey
-                    log("跳过 %s：计划点 %s 超出 %.0f 小时宽限" % (key, slotkey, GRACE_SEC / 3600))
-                continue
-            slot = None
-        if slot is None:
-            # 还没到点：空档够长就把后面的任务提前拉进来（不卡点，只求当天跑掉）
-            if not pull_on:
-                continue
-            nx = compute_next(sched, now)
-            if nx is None or (nx - now).total_seconds() > conf["pull_ahead_sec"]:
-                continue
-            nb = _not_before_time(m)
-            if nb is not None and now.time() < nb:
-                continue                     # 数据还没就绪，不许提前
-            slot, pulled = nx, True
+        slot = compute_slot(sched, now)
+        if slot is None or (now - slot).total_seconds() > GRACE_SEC:
+            continue
         slotkey = slot.strftime("%Y-%m-%d %H:%M")
-        if ms.get("last_slot") == slotkey:
+        if (st["modules"].get(key) or {}).get("last_slot") == slotkey:
             continue
         deps = m.get("depends") or []
         waiting = [d for d in deps if d in PROCS]
         if waiting:
-            ms["note"] = "等依赖 %s 跑完" % "/".join(waiting)
+            st["modules"].setdefault(key, {})["note"] = "等 %s 跑完" % "/".join(waiting)
             continue
-        cands.append({"slot": slot, "idx": idx, "key": key, "mod": m, "pulled": pulled})
-
-    # 先到先跑：按计划点，再按配置顺序；名额未满才起，其余标排队等下一个 tick 接着试
-    cands.sort(key=lambda c: (c["slot"], c["idx"]))
-    for c in cands:
-        key, m = c["key"], c["mod"]
-        g = _queue_of(m)
-        if not _queue_room(g, mods, conf):
-            ms = st["modules"].setdefault(key, {})
-            ms["queued"] = True
-            ms["queue"] = g
-            ms["note"] = "排队第 %d（等 %s 跑完）" % (
-                _queue_ahead(g, key, cands), _queue_blocker(g, mods))
-            continue
-        spawn(key, m, c["slot"], st, pulled=c["pulled"])
+        spawn(key, m, slot, st)
 
     # ③ 刷新状态
     for key, m in mods.items():
         ms = st["modules"].setdefault(key, {})
         ms["enabled"] = bool(m.get("enabled", True))
-        nx = _next_run_after(m.get("sched") or {}, now, ms.get("last_slot"))
+        nx = compute_next(m.get("sched") or {}, now)
         ms["next_run"] = nx.strftime("%Y-%m-%d %H:%M") if nx else "—"
         rec = PROCS.get(key)
         ms["running"] = rec is not None
         if rec:
             ms["elapsed"] = round((now - rec["started"]).total_seconds())
-    _total, _used = _queue_used(mods)
     st["scheduler"].update({
         "pid": os.getpid(), "tick": now.strftime("%Y-%m-%d %H:%M:%S"),
         "running": len(PROCS), "mode": st["scheduler"].get("mode", "daemon"),
-        "queue": {"max_parallel": conf["max_parallel"], "groups": conf["groups"],
-                  "total_used": _total, "used": _used,
-                  "orphans": {k: p for k, p in ORPHANS.items() if _pid_alive(p)}},
     })
     save_state(st)
 
 
-def _recover_interrupted():
-    """启动时清理上一个进程遗留的 running 状态。
-
-    子进程句柄只存在于内存（PROCS），调度器被 kill 后新进程无法回收它们：
-    state.json 会留下 running=true 且 last_slot 已写，于是该任务当天既不重跑、
-    也不报错 —— 典型的静默失败。这里统一标记 interrupted，让管理页/日报看得见。
-
-    自动补跑默认**关闭**：报告类任务重跑会重复推送飞书/邮件，需人工判断；
-    确认任务幂等后可把 state.json 的 scheduler.auto_retry_interrupted 置 true，
-    下次启动会清空对应 last_slot，在 6 小时宽限内重新命中。
-    """
-    st = load_state()
-    mods = st.get("modules") or {}
-    bad = [k for k, ms in mods.items() if (ms or {}).get("running")]
-    if not bad:
-        return
-    orphans = []
-    for k in bad:
-        try:
-            pid = int(mods[k].get("pid") or 0)
-        except (TypeError, ValueError):
-            pid = 0
-        alive = bool(pid) and _pid_alive(pid)
-        if alive:
-            orphans.append(k)
-            ORPHANS[k] = pid        # 未销毁的子进程仍占队列名额，等它自己结束再放行
-        mods[k].update({
-            "running": False,
-            "last_status": "interrupted",
-            "orphan_pid": pid if alive else None,
-            "note": ("上次调度器退出时该任务仍在运行；子进程 pid=%d 仍存活，继续占队列名额，等它结束后再放行" % pid)
-                    if alive else "上次调度器退出时该任务仍在运行（结果未知，已标记中断）",
-        })
-    sch = st.setdefault("scheduler", {})
-    sch["recovered_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    sch["recovered_tasks"] = bad
-    if sch.get("auto_retry_interrupted"):
-        for k in bad:
-            mods[k]["last_slot"] = ""
-        log("恢复：%d 个任务上次被中断（%s），已标记 interrupted 并清空 last_slot 以便补跑"
-            % (len(bad), ",".join(bad)))
-    else:
-        log("恢复：%d 个任务上次被中断（%s），已标记 interrupted（auto_retry_interrupted=false，不自动补跑）"
-            % (len(bad), ",".join(bad)))
-    save_state(st)
-
-
 def loop():
-    write_heartbeat()          # 先落心跳：看门狗据此判断「循环在转」，与 pid 无关
-    try:
-        _recover_interrupted()
-    except Exception:                                     # noqa: BLE001
-        log("恢复中断任务失败：\n" + traceback.format_exc())
     log("调度器启动 pid=%d，轮询 %ds" % (os.getpid(), TICK_SEC))
     while not _STOP.is_set():
         try:
             tick()
         except Exception:                                    # noqa: BLE001
             log("tick 异常：\n" + traceback.format_exc())
-        write_heartbeat()      # tick 抛异常也要续心跳：僵死判定的是「循环卡住」，不是「任务失败」
         _STOP.wait(TICK_SEC)
     log("调度器退出")
 
@@ -938,7 +758,7 @@ class Handler(BaseHTTPRequestHandler):
     # ── 工具 ──
     def _pw_ok(self):
         """管理密码校验。没配密码时一律拒绝（fail-closed），避免裸奔。"""
-        want = str(api_conf().get("password") or "")
+        want = str(api_conf().get("password") or _secrets_conf().get("password") or "")
         if not want:
             return False
         got = str(self.headers.get("X-SD-PW") or "")
@@ -1224,6 +1044,7 @@ def read_pid():
 
 
 def cmd_start():
+    migrate_legacy_api_secrets()
     pid = read_pid()
     if pid:
         if pid > 0:
@@ -1292,12 +1113,6 @@ def cmd_status():
     print("调度器 %s" % _desc)
     print("  控制台 http://127.0.0.1:%s   tick=%s" %
           (api_conf().get("port") or DEFAULT_PORT, (st.get("scheduler") or {}).get("tick") or "—"))
-    _q = (st.get("scheduler") or {}).get("queue") or {}
-    if _q:
-        print("  队列 max_parallel=%s 在用=%s 孤儿=%s%s" % (
-            _q.get("max_parallel"), _q.get("total_used", 0),
-            len(_q.get("orphans") or {}),
-            ("（%s）" % ",".join(_q.get("orphans") or {})) if _q.get("orphans") else ""))
     print()
     print("  %-11s %-22s %-16s %-9s %-8s %s" %
           ("KEY", "模块", "下次", "状态", "上次耗时", "数据域"))
@@ -1311,10 +1126,6 @@ def cmd_status():
             state = "配置错误"
         if k in PROCS:
             state = "运行中 %ss" % ms.get("elapsed", 0)
-        elif ms.get("queued"):
-            state = "排队"
-        elif ms.get("pulled_forward") and ms.get("last_status") == "ok":
-            state = "成功(提前)"
         print("  %-11s %-22s %-16s %-9s %-8s %s" %
               (k, (m.get("title") or "")[:20],
                ms.get("next_run") or "—",
@@ -1375,6 +1186,7 @@ def _daemon():
 
 
 def cmd_fg():
+    migrate_legacy_api_secrets()
     os.makedirs(LOG_DIR, exist_ok=True)
     with open(PID_PATH, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
@@ -1388,27 +1200,6 @@ def cmd_fg():
             os.unlink(PID_PATH)
         except OSError:
             pass
-    return 0
-
-
-def cmd_health():
-    """供看门狗调用的健康检查。退出码：0=健康，1=未运行，2=僵死（进程在但心跳过期）。
-
-    与 cmd_status 的区别：这里只回答「要不要拉起」，不打印表格，适合每分钟被调用。
-    """
-    pid = read_pid()
-    if pid is None:
-        print("未运行")
-        return 1
-    age = heartbeat_age()
-    if age is None:
-        # 老版本/刚启动还没有心跳文件：有 pid 或端口响应就不判僵死，避免误重启
-        print("运行中 pid=%s（暂无心跳文件）" % pid)
-        return 0
-    if age > HB_STALE_SEC:
-        print("僵死 pid=%s 心跳 %ds 未更新（阈值 %ds）" % (pid, age, HB_STALE_SEC))
-        return 2
-    print("健康 pid=%s 心跳 %ds 前" % (pid, age))
     return 0
 
 
@@ -1430,14 +1221,22 @@ def main(argv):
         return cmd_start()
     if cmd == "status":
         return cmd_status()
-    if cmd == "health":
-        # 看门狗专用：0=健康 / 1=未运行 / 2=僵死，不打印表格
-        return cmd_health()
+    if cmd == "migrate-secrets":
+        moved, msg = migrate_legacy_api_secrets()
+        if not moved:
+            print("modules.json 里没有遗留的 password / registry_key，无需迁移")
+            return 0
+        print(msg)
+        print("\n⚠️  正在运行的 scheduler 仍是旧代码（只读 modules.json），")
+        print("    现在重启会短暂断服（新进程从凭据文件读，正常）。")
+        print("    执行：python3 scheduler.py restart")
+        return 0
     if cmd == "fg":
         return cmd_fg()
     if cmd == "serve":
         # 网页服务即任务管理器：serve 起来就把调度循环一起带上。
         # 不再依赖 cron / 独立守护进程 —— 页面在跑，任务就在跑。
+        migrate_legacy_api_secrets()
         os.makedirs(LOG_DIR, exist_ok=True)
         with open(PID_PATH, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))

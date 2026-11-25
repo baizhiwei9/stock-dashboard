@@ -1,4 +1,10 @@
-# 部署手册
+# 部署手册（旧版 · 架构与队列说明仍有效）
+
+> ⚠️ **敏感配置的录入方式已变，以根目录 [DEPLOY.md](../DEPLOY.md) §3 为准。**
+> 本文第 5 节「首次配置」里让手改 `modules.json` 的做法已废弃：管理密码与注册密钥
+> 现在统一走 `~/.config/stock-dashboard/secrets.json`，由 `python3 setup.py` 强制录入
+> （弱口令直接拒收），`modules.json` 本身也已改为本地安装配置、不再入库。
+> 本文保留的价值在第 0 节的架构说明、第 6–9 节的启动 / 排障 / 队列规则。
 
 面向把 stock-dashboard 部署到一台新机器的人。按顺序做完第 1–6 节即可跑起来，
 第 7 节是让它在没人管的时候也不会静默停摆，第 9 节是出事时先看哪里。
@@ -99,25 +105,27 @@ export SD_ALERT_WEBHOOK=                                 # 可选：调度器拉
 
 ---
 
-## 5. 首次配置（三件必改）
+## 5. 首次配置
+
+> 本节已随敏感配置收口改写。旧的「手改 modules.json 里的 password」做法作废——
+> 现在密码不在任何仓库文件里。
 
 ```bash
-# ① modules.json 里的 api.password / api.registry_key 初始是 123456，必须改掉
-#    （HTTP 控制台与 Worker 注册都用它做校验）
-python3 - <<'PY'
-import json, secrets
-p = "modules.json"
-d = json.load(open(p, encoding="utf-8"))
-d["api"]["password"] = secrets.token_urlsafe(12)
-d["api"]["registry_key"] = secrets.token_urlsafe(16)
-json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-print("已写入新口令，请自行记录")
-PY
+# ① 复制模板成本机配置（modules.json 已改为本地安装配置，不入库）
+cp modules.example.json modules.json
+#    然后把里面的 {{DATAHUB_ROOT}} / {{WORKSPACE_A}} / {{WORKSPACE_B}} 等占位符
+#    换成这台机器的真实路径（文件末尾 _placeholders 有对照表）
 
-# ② 确认端口没被占用（默认 8767）
+# ② 录入敏感配置（飞书凭据 + 管理密码 + 注册密钥，缺失或弱口令会中断安装）
+python3 setup.py
+
+# ③ 校验三段是否齐备（退出码 0 才算过）
+python3 setup.py --check
+
+# ④ 确认端口没被占用（默认 8767）
 ss -lntp | grep 8767 || echo "8767 空闲"
 
-# ③ 任务清单核对：能列出所有 key 就说明 modules.json + case/*/task.json 都读到了
+# ⑤ 任务清单核对：能列出所有 key 就说明 modules.json + case/*/task.json 都读到了
 python3 scheduler.py status
 ```
 

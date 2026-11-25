@@ -15,10 +15,10 @@
       5
     ]
   },
-  "cmd": "python3 -u bond_yield_daily/run_daily.py",
+  "cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}../bond_three_factor:.\" python3 -u bond_yield_daily/run_daily.py",
   "cwd": ".",
   "timeout": 1800,
-  "enabled": true,
+  "enabled": false,
   "deliver": {
     "report": true,
     "email": false
@@ -67,6 +67,6 @@
       }
     ]
   },
-  "legacy_cmd": "python3 -u bond_yield_daily/run_daily.py",
+  "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}../bond_three_factor:.\" python3 -u bond_yield_daily/run_daily.py",
   "visibility": "public"
 }

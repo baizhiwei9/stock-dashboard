@@ -29,6 +29,7 @@ import argparse
 import bisect
 import json
 import os
+import sqlite3
 import re
 import smtplib
 import subprocess
@@ -45,6 +46,49 @@ WS = os.path.dirname(HERE)
 
 # ---------------- 监控对象 ----------------
 SERIES = {"AA": "BAMLC0A2CAA", "BB": "BAMLH0A1HYBB", "CCC": "BAMLH0A3HYC"}
+
+# 统一口径：信用利差一律优先取 data_hub EDB（与环流/中线日报同源），
+# FRED 直连只作降级。2026-11 实测本机到 fred.stlouisfed.org 全面超时，
+# 只走 FRED 会让信用利差预警整块失败。
+EDB_OAS = {"BAMLC0A2CAA": "CREDIT.US.OAS.AA",
+           "BAMLH0A1HYBB": "CREDIT.US.OAS.BB",
+           "BAMLH0A3HYC": "CREDIT.US.OAS.CCC"}
+
+
+def _edb_db_path():
+    env = (os.environ.get("EDB_REPO") or "").strip()
+    cands = []
+    if env:
+        cands.append(env)
+    cands += [
+        "/opt/coze/.fuse_drive/dataHub_三级体系",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__)))), "dataHub_三级体系"),
+    ]
+    for repo in cands:
+        p = os.path.join(repo, "data_hub", "edb", "data", "edb.sqlite3")
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def _edb_series(series_id, min_obs=30):
+    """从 data_hub EDB 取整条序列 [(date, value)]，不足 min_obs 返回 None。"""
+    db = _edb_db_path()
+    if not db:
+        return None
+    try:
+        con = sqlite3.connect("file:%s?mode=ro" % db, uri=True, timeout=10)
+        try:
+            rows = con.execute(
+                "SELECT date, value FROM edb_points WHERE series_id=? "
+                "AND value IS NOT NULL ORDER BY date", (series_id,)).fetchall()
+        finally:
+            con.close()
+    except Exception:  # noqa: BLE001
+        return None
+    out = [(str(r[0]), float(r[1])) for r in rows if r[1] is not None]
+    return out if len(out) >= min_obs else None
 RATING_LABEL = {"AA": "AA 级", "BB": "BB 级", "CCC": "CCC 及以下"}
 RATING_RANK = {"AA": 0, "BB": 1, "CCC": 2}   # 越大 = 信用越低
 # 三对两两利差，按用户命名顺序（前 - 后）
@@ -119,6 +163,11 @@ def fetch_series(series_id):
 
     主通道：FRED 官方 API（需 key，稳定）；回退：fredgraph.csv（无 key）。
     """
+    edb_id = EDB_OAS.get(series_id)
+    if edb_id:
+        edb = _edb_series(edb_id)
+        if edb:
+            return edb, "data_hub EDB %s" % edb_id
     key = get_fred_key()
     if key:
         try:

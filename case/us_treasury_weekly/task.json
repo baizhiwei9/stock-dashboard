@@ -14,7 +14,7 @@
   "cmd": "python3 -u run_treasury_weekly.py",
   "cwd": ".",
   "timeout": 1800,
-  "enabled": true,
+  "enabled": false,
   "deliver": {
     "report": true,
     "email": false

@@ -23,7 +23,7 @@ buyback           财政部回购公告时间表 XML + 回购结果 API
   - fiscaldata        https://api.fiscaldata.treasury.gov/services/api/fiscal_service
                       /v1/debt/mspd/mspd_table_1、/v1/accounting/od/auctions_query
   - FRED 无 key CSV    https://fred.stlouisfed.org/graph/fredgraph.csv?id=...
-                      DFEDTARU / DFEDTARL / DGS2（python requests 间歇超时，用 curl 子进程）
+                      DFEDTARU / DFEDTARL / DGS2（urllib 优先，curl 子进程降级）
   - Treasury.gov 收益率 https://home.treasury.gov/resource-center/...  (DGS2 同源备用)
   - 回购公告 XML        https://home.treasury.gov/system/files/221/Tentative-Buyback-Schedule.xml
   - 回购结果 API        https://api.fiscal.treasury.gov/ap/exp/v1/marketable-securities/buybacks
@@ -38,9 +38,11 @@ import io
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import time
+import urllib.request
 from datetime import date, datetime, timedelta
 
 import pandas as pd
@@ -58,11 +60,25 @@ TREASURY_YIELD_URL = ("https://home.treasury.gov/resource-center/data-chart-cent
                       "TextView?type=daily_treasury_yield_curve&field_tdr_date_value=%d")
 BUYBACK_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Tentative-Buyback-Schedule.xml"
 BUYBACK_API = "https://api.fiscal.treasury.gov/ap/exp/v1/marketable-securities/buybacks"
-# client_id / client_secret 取自 treasurydirect 官网 buy-backs 页面公开脚本（页面表格同源接口）
-BUYBACK_HEADERS = {
-    "client_id": "8c94af521a854babb36ad4112c83df03",
-    "client_secret": "c33631F97444440cbb527E79549CFc40",
-}
+# client_id / client_secret 取自 treasurydirect 官网 buy-backs 页面公开脚本（页面表格同源接口）。
+# 值本身是页面公开的，但仍按「敏感配置不入库」统一收口到
+# ~/.config/stock-dashboard/secrets.json 的 treasury 段（或 TREASURY_CLIENT_ID /
+# TREASURY_CLIENT_SECRET 环境变量）。缺失时该模块降级跳过，不阻断其它取数。
+def _buyback_headers():
+    try:
+        _lib = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "_lib")
+        if _lib not in sys.path:
+            sys.path.insert(0, _lib)
+        import app_secrets
+        sec = app_secrets.section("treasury")
+    except Exception:                                      # noqa: BLE001
+        sec = {}
+    if not (sec.get("client_id") and sec.get("client_secret")):
+        return None
+    return {"client_id": sec["client_id"], "client_secret": sec["client_secret"]}
+
+
+BUYBACK_HEADERS = _buyback_headers()
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -94,19 +110,42 @@ def _get(url, params=None, headers=None, retries=3, timeout=90):
 
 
 def _curl(url, tries=3, timeout=30):
-    """curl 子进程抓取（FRED 对 python requests/urllib 间歇超时，curl 稳定）。"""
-    last_err = None
+    """抓取 URL 文本：requests 优先，curl 作降级。
+
+    历史实现只走 curl（当时 FRED 对 python 侧间歇超时）。2026-11 复测环境反转：
+    本机 curl 直连 fred.stlouisfed.org 稳定 exit 28（30s 超时），而 requests
+    1.8s 正常返回 210KB。单一通道会把整条取数链路拖死，故改成双通道互为备份，
+    任一成功即返回；两条都失败才抛错，错误信息带两侧原因便于定位。
+    """
+    last_err = []
+    # 1) urllib（2026-11 实测本机对 FRED 唯一稳定通道：1.8s / 210KB；
+    #    同环境 requests 稳定 ReadTimeout 25s、curl 稳定 exit 28）
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+            if body:
+                return body
+            last_err.append("urllib: empty body")
+        except Exception as exc:  # noqa: BLE001
+            last_err.append("urllib: %s" % exc)
+        time.sleep(1 + i)
+    # 2) curl 降级（强制 --http1.1：部分网络下 HTTP/2 会返回 CURLE_HTTP2_STREAM）
     for i in range(tries):
         try:
             out = subprocess.check_output(
-                ["curl", "-s", "--max-time", str(timeout),
+                ["curl", "-s", "--http1.1", "--compressed",
+                 "--max-time", str(timeout),
                  "-A", "Mozilla/5.0", url],
                 stderr=subprocess.DEVNULL, timeout=timeout + 10)
-            return out.decode("utf-8", errors="replace")
+            if out:
+                return out.decode("utf-8", errors="replace")
+            last_err.append("curl: empty body")
         except Exception as exc:  # noqa: BLE001
-            last_err = str(exc)
-            time.sleep(2 + i * 2)
-    raise RuntimeError("curl 抓取失败 %s: %s" % (url, last_err))
+            last_err.append("curl: %s" % exc)
+        time.sleep(2 + i * 2)
+    raise RuntimeError("抓取失败 %s: %s" % (url, " | ".join(last_err[-4:])))
 
 
 def _fiscal(endpoint, params, timeout=90):
@@ -383,30 +422,125 @@ def _treasury_yield_2y():
     raise RuntimeError("Treasury.gov 收益率页无有效 2Y 观测")
 
 
-def fetch_rates():
-    """R = 联邦基金目标区间中值（FRED DFEDTARU/L，失败读本地缓存）；
-    Y2 = 两年美债（FRED DGS2，失败回退 Treasury.gov 官方收益率页）。"""
-    r_src = "FRED DFEDTARU/DFEDTARL"
+def _edb_db_path():
+    """定位 data_hub EDB 库（统一接口；多路径探测，兼容换机/换挂载）。"""
+    env = (os.environ.get("EDB_REPO") or "").strip()
+    cands = []
+    if env:
+        cands.append(env)
+    cands += [
+        "/opt/coze/.fuse_drive/dataHub_三级体系",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__)))), "dataHub_三级体系"),
+    ]
+    for repo in cands:
+        p = os.path.join(repo, "data_hub", "edb", "data", "edb.sqlite3")
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def _edb_latest(series_id, db=None):
+    """从 data_hub EDB 取某序列最新 (date, value)；取不到返回 None。
+
+    口径统一规则：利率/行情一律引用 data_hub 统一接口，不各自直连源站。
+    """
+    db = db or _edb_db_path()
+    if not db:
+        return None
     try:
-        r_date, r_up = _fred_csv("DFEDTARU")
-        _, r_lo = _fred_csv("DFEDTARL")
-        cache = {"r_date": r_date, "r_up": r_up, "r_lo": r_lo}
-        with open(RATES_CACHE, "w", encoding="utf-8") as fp:
-            json.dump(cache, fp, ensure_ascii=False)
-    except RuntimeError:
-        r_src = "本地缓存（FRED 暂不可达）"
+        con = sqlite3.connect("file:%s?mode=ro" % db, uri=True, timeout=10)
+        try:
+            row = con.execute(
+                "SELECT date, value FROM edb_points WHERE series_id=? "
+                "ORDER BY date DESC LIMIT 1", (series_id,)).fetchone()
+        finally:
+            con.close()
+        if row and row[1] is not None:
+            return str(row[0]), float(row[1])
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def _nyfed_target_range(timeout=20):
+    """纽约联储官方 API 取联邦基金目标区间 (date, upper, lower)。
+
+    FRED DFEDTARU/L 的唯一权威同源替代（同一 FOMC 决议值）。
+    2026-11 实测：本机到 fred.stlouisfed.org 全面超时，markets.newyorkfed.org 正常。
+    """
+    url = "https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json"
+    txt = _curl(url, tries=2, timeout=timeout)
+    data = json.loads(txt)
+    for item in data.get("refRates") or []:
+        if item.get("type") == "EFFR" and item.get("targetRateTo") is not None:
+            return (item.get("effectiveDate"),
+                    float(item["targetRateTo"]), float(item["targetRateFrom"]))
+    raise RuntimeError("NY Fed EFFR 无 targetRate 字段")
+
+
+def fetch_rates():
+    """R = 联邦基金目标区间（data_hub EDB → NY Fed 官方 API → FRED → 本地缓存）；
+    Y2 = 两年美债（data_hub EDB → FRED DGS2 → Treasury.gov 官方收益率页）。"""
+    # ---- R：目标区间上/下限 ----
+    r_src = None
+    r_date = r_up = r_lo = None
+
+    hit_u = _edb_latest("US.FED.TARGET.UPPER")
+    hit_l = _edb_latest("US.FED.TARGET.LOWER")
+    if hit_u and hit_l:
+        r_date, r_up = hit_u
+        _, r_lo = hit_l
+        r_src = "data_hub EDB（US.FED.TARGET.UPPER/LOWER）"
+
+    if r_src is None:
+        try:
+            r_date, r_up, r_lo = _nyfed_target_range()
+            r_src = "NY Fed markets API（EFFR targetRateTo/From）"
+        except Exception:  # noqa: BLE001
+            pass
+
+    if r_src is None:
+        try:
+            r_date, r_up = _fred_csv("DFEDTARU")
+            _, r_lo = _fred_csv("DFEDTARL")
+            r_src = "FRED DFEDTARU/DFEDTARL"
+        except RuntimeError:
+            pass
+
+    if r_src is not None:
+        # 成功拿到就落本地缓存，下次源站全挂时还能降级
+        try:
+            with open(RATES_CACHE, "w", encoding="utf-8") as fp:
+                json.dump({"r_date": r_date, "r_up": r_up, "r_lo": r_lo,
+                           "source": r_src}, fp, ensure_ascii=False)
+        except OSError:
+            pass
+    else:
         if not os.path.exists(RATES_CACHE):
-            raise
+            raise RuntimeError("联邦基金目标区间全部数据源不可达，且无本地缓存")
         with open(RATES_CACHE, encoding="utf-8") as fp:
             c = json.load(fp)
         r_date, r_up, r_lo = c["r_date"], c["r_up"], c["r_lo"]
+        r_src = "本地缓存（%s）" % (c.get("source") or "历史值")
 
-    y2_src = "FRED DGS2"
-    try:
-        y2_date, y2 = _fred_csv("DGS2")
-    except RuntimeError:
-        y2_date, y2 = _treasury_yield_2y()
-        y2_src = "Treasury.gov 日收益率页（FRED 暂不可达）"
+    # ---- Y2：两年美债 ----
+    y2_src = None
+    y2_date = y2 = None
+
+    hit2 = _edb_latest("RATE.US.2Y")
+    if hit2:
+        y2_date, y2 = hit2
+        y2_src = "data_hub EDB（RATE.US.2Y）"
+
+    if y2_src is None:
+        try:
+            y2_date, y2 = _fred_csv("DGS2")
+            y2_src = "FRED DGS2"
+        except RuntimeError:
+            y2_date, y2 = _treasury_yield_2y()
+            y2_src = "Treasury.gov 日收益率页"
+
     return {
         "r_date": r_date, "r_up": r_up, "r_lo": r_lo,
         "r_mid": round((r_up + r_lo) / 2.0, 4),

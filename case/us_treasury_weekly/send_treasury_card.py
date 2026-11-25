@@ -14,7 +14,13 @@ ROUTER_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/feish
 if ROUTER_DIR not in sys.path:
     sys.path.insert(0, ROUTER_DIR)
 
-import feishu_router  # noqa: E402  统一推送路由：默认「债券宏观」群，含股票内容时加推「AI股票消息」群
+# feishu_router 是 DoMate 侧的共享推送路由，路径只在原运行机存在。
+# 换机/云盘环境下缺它是常态，不能因此让整条取数链路判失败——
+# 卡片 JSON 照常落盘，推送降级为「跳过并告警」，等路由模块可用时自动恢复。
+try:
+    import feishu_router  # noqa: E402  统一推送路由：默认「债券宏观」群，含股票内容时加推「AI股票消息」群
+except ImportError:  # pragma: no cover - 环境相关
+    feishu_router = None
 
 WEBHOOK = ""  # 旧自定义机器人 webhook 已停用
 TITLE = "美债监控 | 来自 DoMate"
@@ -242,38 +248,67 @@ def _maturity_block(d):
     f, t, rv, au = d["fed"], d["treasury"], d["rollover"], d["auction_month"]
     fc, tc, rc, auc, dc = f["compare"], t["compare"], rv["compare"], au["compare"], rv["compare"]
 
+    def _d(a, b):
+        """差值：任一侧缺失返回 None，避免 None - float 抛 TypeError。
+
+        拍卖/存量对比表在源站缺发布时（如 bills_share_pct 当期未出）会整块为 None，
+        旧写法直接相减会让卡片构造整体崩溃，连带推送和取数都判失败。"""
+        if a is None or b is None:
+            return None
+        try:
+            return a - b
+        except TypeError:
+            return None
+
+    def _s(v, spec, na="—"):
+        """安全格式化：None 或类型不符输出占位符，不打断卡片构造。"""
+        if v is None:
+            return na
+        try:
+            return spec % v
+        except (TypeError, ValueError):
+            return na
+
     fed_qq = fc["qoq"]["change_pct"]
     fed_wk = fc["wow"]["change_pct"]
     fed_yoy = fc["yoy"]["change_pct"]
     tbill = t["tbill_share_pct"]
-    tbill_mom = tbill - tc["mom"]["tbill_share_pct"]
-    tbill_yoy = tbill - tc["yoy"]["tbill_share_pct"]
+    tbill_mom = _d(tbill, tc["mom"]["tbill_share_pct"])
+    tbill_yoy = _d(tbill, tc["yoy"]["tbill_share_pct"])
     roll = rv["rollover_12m_pct"]
-    roll_mom = roll - rc["mom"]["rollover_12m_pct"]
-    roll_yoy = roll - rc["yoy"]["rollover_12m_pct"]
+    roll_mom = _d(roll, rc["mom"]["rollover_12m_pct"])
+    roll_yoy = _d(roll, rc["yoy"]["rollover_12m_pct"])
     au_now = au["bills_share_pct"]
-    au_mom = au_now - auc["mom"]["bills_share_pct"]
-    au_yoy = au_now - auc["yoy"]["bills_share_pct"]
+    au_mom = _d(au_now, auc["mom"]["bills_share_pct"])
+    au_yoy = _d(au_now, auc["yoy"]["bills_share_pct"])
     dur = rv["avg_maturity_months"]
-    dur_mom = dur - dc["mom"]["avg_maturity_months"]
-    dur_yoy = dur - dc["yoy"]["avg_maturity_months"]
+    dur_mom = _d(dur, dc["mom"]["avg_maturity_months"])
+    dur_yoy = _d(dur, dc["yoy"]["avg_maturity_months"])
 
     pts = []
-    gap = 23.0 - tbill
-    pts.append("T-bill 占可交易 %.2f%%（已过 **20%% 关注线**，距 23%% 强警线 %.2fpct）" % (tbill, gap))
-    pts.append("美联储持仓短债占比 %.2f%%，同比 **%+.2fpct**（1年内升幅最大），季环比 %+.2fpct"
-               % (f["short_share_pct"], fed_yoy, fed_qq))
-    pts.append("滚动偿债比 %.1f%%，同比 %+.2fpct，距 35%% 告警线 %.1fpct" % (roll, roll_yoy, 35.0 - roll))
-    pts.append("平均剩余期限 %.1f 个月，同比 %+.1f 个月，未破 65 个月告警线" % (dur, dur_yoy))
+    gap = _d(23.0, tbill)
+    pts.append("T-bill 占可交易 %s%%（20%% 为关注线，距 23%% 强警线 %s pct）"
+               % (_s(tbill, "%.2f"), _s(gap, "%.2f")))
+    pts.append("美联储持仓短债占比 %s%%，同比 **%s pct**（1年内升幅最大），季环比 %s pct"
+               % (_s(f["short_share_pct"], "%.2f"), _s(fed_yoy, "%+.2f"), _s(fed_qq, "%+.2f")))
+    pts.append("滚动偿债比 %s%%，同比 %s pct，距 35%% 告警线 %s pct"
+               % (_s(roll, "%.1f"), _s(roll_yoy, "%+.2f"), _s(_d(35.0, roll), "%.1f")))
+    pts.append("平均剩余期限 %s 个月，同比 %s 个月，未破 65 个月告警线"
+               % (_s(dur, "%.1f"), _s(dur_yoy, "%+.1f")))
 
     rows = [_make_row(["指标", "当前", "环比", "同比"])]
     rows += [
-        _make_row(["美联储短债占比", "%.2f%%" % f["short_share_pct"],
-                   "周 %+.2f / 季 %+.2f" % (fed_wk, fed_qq), "%+.2fpct" % fed_yoy]),
-        _make_row(["T-bill 占可交易", "%.2f%%" % tbill, "月 %+.2f" % tbill_mom, "%+.2fpct" % tbill_yoy]),
-        _make_row(["滚动偿债比(12m)", "%.2f%%" % roll, "月 %+.2f" % roll_mom, "%+.2fpct" % roll_yoy]),
-        _make_row(["发债结构比(Bills)", "%.2f%%" % au_now, "月 %+.2f" % au_mom, "%+.2fpct" % au_yoy]),
-        _make_row(["平均剩余期限", "%.1f 月" % dur, "%+.1f" % dur_mom, "%+.1f 月" % dur_yoy]),
+        _make_row(["美联储短债占比", _s(f["short_share_pct"], "%.2f%%"),
+                   "周 %s / 季 %s" % (_s(fed_wk, "%+.2f"), _s(fed_qq, "%+.2f")),
+                   "%s pct" % _s(fed_yoy, "%+.2f")]),
+        _make_row(["T-bill 占可交易", _s(tbill, "%.2f%%"), "月 %s" % _s(tbill_mom, "%+.2f"),
+                   "%s pct" % _s(tbill_yoy, "%+.2f")]),
+        _make_row(["滚动偿债比(12m)", _s(roll, "%.2f%%"), "月 %s" % _s(roll_mom, "%+.2f"),
+                   "%s pct" % _s(roll_yoy, "%+.2f")]),
+        _make_row(["发债结构比(Bills)", _s(au_now, "%.2f%%"), "月 %s" % _s(au_mom, "%+.2f"),
+                   "%s pct" % _s(au_yoy, "%+.2f")]),
+        _make_row(["平均剩余期限", _s(dur, "%.1f 月"), _s(dur_mom, "%+.1f"),
+                   "%s 月" % _s(dur_yoy, "%+.1f")]),
         _make_row(["政策信号", "待确认", "—", "—"]),
     ]
     return (
@@ -615,6 +650,10 @@ def main():
              buyback is not None, auction is not None, options is not None))
 
     if "--send" in sys.argv:
+        if feishu_router is None:
+            print("[WARN] feishu_router 不可用（%s 不存在），卡片已落盘 treasury_card.json，本次跳过推送"
+                  % ROUTER_DIR)
+            return
         results = feishu_router.push_card(card, tag="美债监控周报")
         ok = feishu_router.all_ok(results)
         sys.exit(0 if ok else 1)

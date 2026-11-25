@@ -18,7 +18,7 @@
   "cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u weekly_report.py",
   "cwd": ".",
   "timeout": 1800,
-  "enabled": true,
+  "enabled": false,
   "deliver": {
     "report": true,
     "email": false

@@ -42,8 +42,7 @@ for _p in (HUB_DEPS, HUB_ROOT):
         sys.path.insert(0, _p)
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
-WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/6d34534a-af18-48ba-be77-a30c524734a8"
-
+from feishu_config import WEBHOOK_URL  # noqa: E402  凭据脱敏：见 DEPLOY.md「飞书凭据」
 # 沙箱依赖持久化: pip 安装到工作区内 .pydeps, 避免 /tmp 被清理后模块丢失
 LOCAL_DEPS = os.path.join(OUTPUT_DIR, '.pydeps')
 if os.path.isdir(LOCAL_DEPS):
@@ -157,8 +156,36 @@ def merge_with_cache(new_df, existing=None):
     else:
         combined = pd.concat([existing, new_df], ignore_index=True)
         combined = combined.drop_duplicates(subset=['trade_date', 'industry'], keep='last')
+    if 'trade_date' not in combined.columns or 'industry' not in combined.columns:
+        # 面板缺主键列（历史上游结构变化时会出现），此时无法排序去重，
+        # 原样返回让上层新鲜度校验判为不新鲜，静默不发，而不是抛 KeyError 炸掉整条链路。
+        return combined
     combined = combined.sort_values(['trade_date', 'industry']).reset_index(drop=True)
     return combined
+
+
+#: DataHub sector_flow 输出 schema → 本文件 ANB 因子所需 schema 的字段映射。
+#: DataHub 侧列名是 sector_name / inflow_amount / outflow_amount / main_net_inflow / change_pct，
+#: 本文件 compute_anb 按 industry / net_buy_amount / net_sell_amount / net_amount / pct_change 取数。
+#: 两套命名统一在这里归一，避免下游到处 KeyError。
+_SF_COLMAP = {
+    'sector_name': 'industry',
+    'inflow_amount': 'net_buy_amount',
+    'outflow_amount': 'net_sell_amount',
+    'main_net_inflow': 'net_amount',
+    'change_pct': 'pct_change',
+}
+
+
+def _normalize_sector_flow(df, trade_date):
+    """把 DataHub sector_flow 的返回归一成本文件 ANB 面板所需的列名。"""
+    df = df.copy()
+    for src, dst in _SF_COLMAP.items():
+        if src in df.columns and dst not in df.columns:
+            df[dst] = df[src]
+    if 'trade_date' not in df.columns:
+        df['trade_date'] = str(trade_date)
+    return df
 
 
 def fetch_from_tushare(recent_dates):
@@ -170,7 +197,7 @@ def fetch_from_tushare(recent_dates):
     倒序拉取(最新日期优先), 每个失败日期最多3轮重试(间隔递增).
     返回 (df_ok, missing_dates)
     """
-    from data_hub.collectors.stocks.sector_flow import get_sector_flow_detail
+    from data_hub.collectors.stocks.sector_flow import get_sector_flow  # 新 API（旧名 get_sector_flow_detail 已合并）
     all_data = []
     missing = []
 
@@ -179,8 +206,17 @@ def fetch_from_tushare(recent_dates):
         ok = False
         for attempt in range(3):  # 每日期最多3次尝试
             try:
-                df = get_sector_flow_detail(dt)
+                df = get_sector_flow(trade_date=dt)
                 if df is not None and len(df) > 0:
+                    # DataHub 各 tier 源返回的是「当日快照」，列名与本文件 ANB 面板不同，
+                    # 且不带 trade_date。统一在这里归一（含补 trade_date），
+                    # 否则下游 compute_anb 会 KeyError。
+                    df = _normalize_sector_flow(df, dt)
+                    if 'industry' not in df.columns:
+                        # 归一后仍无行业主键，这条数据无法进面板，按该日缺失处理
+                        print(f"  {dt} 归一后仍缺 industry 列，视为该日缺失")
+                        time.sleep(3)
+                        continue
                     all_data.append(df)
                     ok = True
                     break

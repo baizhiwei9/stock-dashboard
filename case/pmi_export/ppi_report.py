@@ -61,6 +61,31 @@ def cell(table, name, key):
     return it.get(key)
 
 
+def _sub(a, b):
+    """表格差值：任一为 None（该指标未公布/EDB 未刷新）时返回 None，
+    交给 f() 输出「未公布」，避免 None - None 抛 TypeError 打断整份报告。"""
+    if a is None or b is None:
+        return None
+    try:
+        return a - b
+    except TypeError:
+        return None
+
+
+def _absf(v):
+    """绝对值：None 透传，交给 f() 输出「未公布」。
+
+    官方归因类指标（UPSIDE9.PTS / DOWNSIDE5.PTS / MOM.UP6.PTS）是从解读稿
+    正则反解的，解读稿未同步发布时取不到值；直接 abs(None) 会抛
+    TypeError 打断整份报告。"""
+    if v is None:
+        return None
+    try:
+        return abs(v)
+    except TypeError:
+        return None
+
+
 def _yoy_trend(series):
     """同比序列趋势：返回 (最新, 上月, 去年同期基数说明)。"""
     rows = [r for r in (series or []) if r.get("ppi_yoy") is not None]
@@ -201,14 +226,14 @@ def step3(d, c):
     pr_y, pr_m = cell(t, "加工", "yoy"), cell(t, "加工", "mom")
     lines = ["### 【第三步：生产资料内部拆解——弹性谁最大？】", ""]
     lines.append(f"环比看：采掘 **{f(cg_m,1,True)}%** > 原材料 **{f(rm_m,1,True)}%** > 加工 **{f(pr_m,1,True)}%**，"
-                 f"梯度差分别为 {f(cg_m-rm_m,1)} 与 {f(rm_m-pr_m,1)} 个百分点；"
+                 f"梯度差分别为 {f(_sub(cg_m, rm_m),1)} 与 {f(_sub(rm_m, pr_m),1)} 个百分点；"
                  f"同比看：采掘 **{f(cg_y,1,True)}%** > 原材料 **{f(rm_y,1,True)}%** > 加工 **{f(pr_y,1,True)}%**，"
-                 f"首尾相差 **{f(cg_y-pr_y,1)}** 个百分点。")
+                 f"首尾相差 **{f(_sub(cg_y, pr_y),1)}** 个百分点。")
     lines.append("**符合「采掘 > 原材料 > 加工」的典型成本传导链条，但传导强度逐级衰减**："
                  "上游价格弹性是下游的 5~8 倍，加工工业同比仅 3.5%、低于 PPI 总体 5.7%，"
                  "说明涨价在到达加工环节时已被显著稀释。")
     lines.append(f"对照生活资料 **{f(cell(t,'生活资料','yoy'),1,True)}%**（几乎不动），"
-                 f"采掘与生活资料的同比落差达 **{f(cg_y-(cell(t,'生活资料','yoy') or 0),1)}** 个百分点——"
+                 f"采掘与生活资料的同比落差达 **{f(_sub(cg_y, cell(t,'生活资料','yoy')),1)}** 个百分点——"
                  f"**上游热、下游冷的传导阻塞格局明确成立**：本轮是上游能源与原材料的价格重估，"
                  f"尚未转化为中下游制成品与消费品涨价。")
     lines.append("补充证据：加工工业环比仅 +0.2%，其中通用设备 0.0%、汽车 0.0%、电子 +0.1%，"
@@ -223,7 +248,7 @@ def step4(d, c):
     lines.append("**（一）官方归因锚点**：国家统计局解读稿明确，同比上拉最大的 9 个行业"
                  f"合计影响 PPI 同比上涨约 **{f(c['yoy_up_pts'],2)}** 个百分点（较上月增加 0.64pct）；"
                  f"价格下拉最大的 5 个行业（酒饮料、医药、非金属矿制品、汽车、电力热力）合计影响下降约 "
-                 f"**{f(abs(c['yoy_down_pts']),2)}** 个百分点（下拉减少 0.06pct）。"
+                 f"**{f(_absf(c['yoy_down_pts']),2)}** 个百分点（下拉减少 0.06pct）。"
                  f"环比端，6 个能源相关行业合计影响 PPI 环比上涨约 **{f(c['mom_up_pts'],2)}** 个百分点，"
                  f"**超过总涨幅的八成**。")
     lines.append("")
@@ -376,7 +401,7 @@ def step8(d, c):
                      f"0.036×({f(al.get('yoy'),1)}) = **{f(c['reg_oct'],2,True)}%**，实际 **{f(c['ppi_yoy'],1,True)}%**，"
                      f"残差 **{f(c['resid'],2,True)}pct**。")
         lines.append(f"- 残差解释：公式只含油、钢、铝三项，**未包含煤炭与化工**，而煤炭开采同比 +36.6% 是本轮第一驱动，"
-                     f"故公式系统性低估约 {f(abs(c['resid']),1)}pct。这不是公式失效，而是变量缺失。")
+                     f"故公式系统性低估约 {f(_absf(c['resid']),1)}pct。这不是公式失效，而是变量缺失。")
     if c["reg_nov"] is not None:
         lines.append(f"- 下期（本月至今高频）：0.050×({f(brent.get('cur_yoy'),1)}) + 0.063×({f(rebar.get('cur_yoy'),1)}) "
                      f"+ 0.036×({f(al.get('cur_yoy'),1)}) = **{f(c['reg_nov'],2,True)}%**；"

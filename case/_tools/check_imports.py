@@ -11,7 +11,8 @@
     python3 case/_tools/check_imports.py --only tda_spd
     python3 case/_tools/check_imports.py --json
 
-环境变量 PYLIBS_DIR 指向第三方包目录；不设则只看任务目录与标准库。
+环境变量 PYLIBS_DIR 指向第三方包目录（可选）；不设则按「任务目录 → 仓库根 →
+当前解释器已装包」解析。
 """
 from __future__ import annotations
 
@@ -31,14 +32,9 @@ REPO_PATHS = [ROOT, os.path.join(ROOT, "case"), os.path.join(ROOT, "case", "_lib
 
 def _search_dirs(task_dir: str) -> list:
     dirs = [task_dir] + REPO_PATHS
-    # 与 runner.py 同口径：PYLIBS_DIR（冒号分隔，可留空）+ 任务自带 _shared + 全局 _shared
-    extra = (os.environ.get("PYLIBS_DIR") or "").split(":")
-    extra += [os.path.join(task_dir, "_shared"),
-              os.path.join(CASE_DIR, "_shared", "pylibs")]
-    for pl in extra:
-        pl = (pl or "").strip()
-        if pl and os.path.isdir(pl) and pl not in dirs:
-            dirs.append(pl)
+    pl = (os.environ.get("PYLIBS_DIR") or "").strip()
+    if pl and os.path.isdir(pl):
+        dirs.append(pl)
     return dirs
 
 

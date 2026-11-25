@@ -104,7 +104,13 @@ def fetch_us():
 
 def refresh_data():
     ch = fetch_china_hard()
-    old = pd.read_csv(DATA + "/china_hard.csv", dtype={"month": str}).rename(columns={"month_cum": "month"})
+    os.makedirs(DATA, exist_ok=True)
+    # 首跑时历史库可能不在（data/ 空目录不进仓库），用空表起步，本次抓到的直接落盘
+    _old_p = DATA + "/china_hard.csv"
+    if os.path.exists(_old_p):
+        old = pd.read_csv(_old_p, dtype={"month": str}).rename(columns={"month_cum": "month"})
+    else:
+        old = pd.DataFrame(columns=["month", "inventory_yoy", "revenue_cum_yoy"])
     old["month"] = old["month"].str.replace("-", "")
     allc = pd.concat([old[["month", "inventory_yoy", "revenue_cum_yoy"]], ch]).drop_duplicates("month").sort_values("month")
     allc.to_csv(DATA + "/china_hard.csv", index=False)

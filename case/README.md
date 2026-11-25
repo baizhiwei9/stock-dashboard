@@ -104,7 +104,7 @@ case/
 
 | 变量 | 必需 | 说明 |
 |---|---|---|
-| `PYLIBS_DIR` | 否（**可留空**） | 第三方包目录，**可写多个、冒号分隔**。**依赖不需要装在一起**：每个任务用自己的方式找到依赖（自带 `_shared/`、已装进系统 `site-packages`、或各自的目录），本变量只用来补「还没装进环境」的那部分。命令里用 `${PYLIBS_DIR:+...}`，空着也照跑，不会因为没设就 exit 127 |
+| `PYLIBS_DIR` | 否 | 第三方公共库目录（akshare/tushare 等集中放一份）。命令里写 `${PYLIBS_DIR:+$PYLIBS_DIR:}.`：**设了就前置进 PYTHONPATH，没设自动回退系统 site-packages**，不硬报错 |
 | `PYTHONPATH` | 是（依赖 DataHub 的任务） | 指到含 `data_hub/` 的仓库根，`publish.py` 与取数都要用 |
 | `EDB_REPO` | 部分任务 | 指到含 `data_hub` 的 EDB 仓库目录（`margin_flow` / `margin_detail` 等） |
 | `CASE_DATA_SRC` | 部分任务 | 上游输入数据目录（周/月度任务） |
@@ -122,17 +122,8 @@ case/
 ## 四、跑起来
 
 ```bash
-# 最小启动：PYLIBS_DIR 可以完全不给（依赖已装进 /usr/bin/python3 的 site-packages 时）
+# export PYLIBS_DIR=/path/to/pylibs   # 可选：不设就走系统 site-packages
 export PYTHONPATH=/path/to/datahub-repo:$PWD
-
-# 只有「依赖散在几个目录、又不想 pip install」时才需要它，冒号分隔，靠前的优先：
-# export PYLIBS_DIR=/opt/coze/.fuse_drive/dataHub_三级体系/options:/path/to/another/libs
-# runner 与 check_imports 都按冒号拆开、逐个加进 sys.path；不存在的目录自动跳过。
-
-# 三种放依赖的方式，任选其一（不必统一到一个 pylibs）：
-#   1) 系统已装：/usr/bin/python3 -m pip install -r requirements.txt
-#   2) 任务自带：python3 case/_tools/import_py.py --task <key> --with-shared  （依赖落到 case/<key>/_shared/）
-#   3) 外挂目录：export PYLIBS_DIR=dirA:dirB:dirC
 
 python3 case/_lib/runner.py --task tech_consensus              # 完整五阶段
 python3 case/_lib/runner.py --task tech_consensus --dry-run     # 只打印阶段，不执行
@@ -198,40 +189,10 @@ python3 case/_tools/make_pipeline.py --only tech_consensus --force
 - `cds_weekly` / `repo_collateral` / `macro_four_dim`：必须由大模型完成的环节（检索 CDS 报价、
   判定报告期、联网补财政数据），纯定时会卡住，按用户要求未上传。
 
-## 八、部署：依赖怎么放（**不要求装在一起**）
+## 八、已知待办（目标机首次运行需确认）
 
-`PYLIBS_DIR` **可以是空的**，任务照样能跑。三种放依赖的方式任选，也可以混着用：
-
-| 方式 | 怎么做 | 适用 |
-|---|---|---|
-| A. 装进系统 | `/usr/bin/python3 -m pip install -r requirements.txt` | 依赖本来就是标准 PyPI 包 |
-| B. 任务自带 | 依赖放进 `case/<key>/_shared/`（`import_py.py --with-shared` 会拷一份） | 只有这一个任务用，或版本跟别处冲突 |
-| C. 外挂目录 | `export PYLIBS_DIR=dirA:dirB:dirC` | 依赖已在机器上某个目录，不想再拷 |
-
-runner 会把这三种来源都加进 `sys.path` 和子进程的 `PYTHONPATH`；`PYLIBS_DIR` 里写的目录
-不存在就跳过，不会报错。**不需要把所有依赖收敛到一个 pylibs 目录。**
-
-### 首次部署清单
-
-```bash
-# 1) 必需：DataHub 仓库根（含 data_hub/），取数与落库都要
-export PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系
-# 2) 部分任务：EDB 仓库（与上一条通常同一个目录）
-export EDB_REPO=/opt/coze/.fuse_drive/dataHub_三级体系
-# 3) 可选：只有依赖散在几个目录时才设，可留空
-# export PYLIBS_DIR=/path/a:/path/b
-
-python3 case/_lib/case_registry.py          # 先看 29 个任务是否 0 错误
-python3 case/_tools/check_imports.py        # 再看 import 闭包缺什么
-python3 case/_lib/runner.py --task <key> --dry-run
-```
-
-### 已知待办（目标机首次运行需确认）
-
-- 部分任务代码里硬编码了旧机器的绝对路径（`/home/work/dumate/.../workspace`），
-  需要在目标机上按实际目录替换，或由部署脚本注入 `CASE_WS_ROOT`（待做）。
-- 外部模块 `report_stats` / `feishu_config` / `ts_config` / `broad5_risk` 不在本仓库，
-  要么从旧机器带过来放进 `PYLIBS_DIR` 的某个目录，要么按任务改成读环境变量。
+- 依赖 DataHub 的任务（`margin_flow`、`margin_detail` 等）
+  需要 `PYTHONPATH` 指到 DataHub 仓库、`EDB_REPO` 指到 EDB 仓库，本机无此环境，未做真跑验证。
 - `twosigma_rotation` 等少数任务依赖静态输入数据（如 `data/sw_l3_full.csv`），需用
   `CASE_DATA_SRC` 注入或用上游任务产出补到 `data/`。
 - 自动抽取的指标键名（`<task>.<文件>.<字段>`）只是过渡命名，真正上海报前建议按业务语义

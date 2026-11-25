@@ -98,7 +98,7 @@ def rekey(old: Dict, key: str, task: Dict, entry: str, nfiles: int,
     """生成 task.json；保留手工改过的 cmd / metrics / enabled / deliver。"""
     base = task.get("cmd") or (("python3 -u %s" % entry) if entry else "python3 -u main.py")
     if requires and "PYTHONPATH" not in base:
-        # 公共库走环境变量；没设就明确报错，不去猜相对路径（cwd 是 case/<key>）
+        # 公共库走环境变量：设了才前置进 PYTHONPATH，没设回退系统 site-packages
         base = ('PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." ' + base)
     cmd = base
     cwd = "."

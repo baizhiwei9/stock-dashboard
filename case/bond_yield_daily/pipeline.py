@@ -18,7 +18,8 @@ for _p in (HERE, LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-CMD_FETCH = 'python3 -u bond_yield_daily/run_daily.py'
+# commodities_strategies 与 bond_three_factor 共用一份，靠 PYTHONPATH 前置引用
+CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}../bond_three_factor:/opt/coze/.fuse_drive/dataHub_三级体系:." python3 -u bond_yield_daily/run_daily.py'
 CMD_SEND = ''
 SEC = 'CN.BOND'
 TIMEOUT = 1800

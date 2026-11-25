@@ -28,6 +28,15 @@ import pandas as pd
 
 import lib_adapter as LIB  # 期权计算原语走 options_utility（用户口径 2026-11-13）
 
+
+def _basic_files(d):
+    """合约基础表清单：basic_extra.json 是仓库外补充表，新环境常见缺失。
+    存在才读，缺了用 sse/szse/cffex 三张照跑，不整条链路炸。"""
+    return [f for f in ("basic_sse.json", "basic_szse.json", "basic_cffex.json",
+                        "basic_extra.json")
+            if os.path.exists(os.path.join(d, f))]
+
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 CH = os.path.join(DATA, "chains")
@@ -127,8 +136,7 @@ def main():
 
     basics = pd.concat([pd.read_json(os.path.join(DATA, f), orient="records",
                                      dtype={"ts_code": str})
-                        for f in ["basic_sse.json", "basic_szse.json", "basic_cffex.json",
-                                  "basic_extra.json"]], ignore_index=True)
+                        for f in _basic_files(DATA)], ignore_index=True)
     basics = basics.drop_duplicates("ts_code")
     bmap = basics.set_index("ts_code")[
         ["opt_code", "call_put", "exercise_price", "maturity_date", "per_unit"]].to_dict("index")

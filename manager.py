@@ -39,6 +39,19 @@ from typing import Dict, List, Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = os.path.join(HERE, "modules.json")
 SEC_CFG = os.path.join(HERE, "sections.json")
+
+_LIB = os.path.join(HERE, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+
+def _secrets():
+    """统一凭据（~/.config/stock-dashboard/secrets.json 的 scheduler 段）。"""
+    try:
+        import app_secrets
+        return app_secrets
+    except Exception:                                      # noqa: BLE001
+        return None
 DH_ROOT = "/opt/coze/.fuse_drive/dataHub_三级体系"
 LOG_DIR = os.path.join(HERE, "logs")
 CASE_DIR = os.path.join(HERE, "case")
@@ -415,8 +428,11 @@ def cmd_sections(argv: List[str]) -> int:
     cfg = _sec_load()
     secs = cfg.get("sections", [])
     if not argv:
+        _sec = _secrets()
+        _pw = (_sec.get("scheduler", "password") if _sec else "") or ""
+        _pw_desc = ("已配置（%d 位，见 %s）" % (len(_pw), _sec.source())) if _pw else "未配置 —— 先跑 python3 setup.py"
         print("\n%s看板板块%s（配置 %s，管理密码 %s）\n"
-              % (YEL, RST, SEC_CFG, cfg.get("password")))
+              % (YEL, RST, SEC_CFG, _pw_desc))
         for m in secs:
             st = (GRN + "显示" + RST) if m.get("enabled", True) else (RED + "隐藏" + RST)
             print("  %-12s %-14s %s" % (m["key"], m["title"][:12], st))
@@ -430,11 +446,15 @@ def cmd_sections(argv: List[str]) -> int:
     if a == "pw":
         if len(argv) < 2:
             raise SystemExit("用法: manager.py sections pw <新密码>")
-        cfg["password"] = argv[1]
-        with open(SEC_CFG, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-            f.write("\n")
-        print("管理密码已改为 %s" % argv[1])
+        _sec = _secrets()
+        if _sec is None:
+            raise SystemExit("读不到 case/_lib/app_secrets.py，无法写统一凭据")
+        path = _sec.set_value("scheduler", "password", argv[1])
+        print("管理密码已写入 %s（权限 600，未落任何仓库文件）" % path)
+        if os.environ.get("SCHEDULER_PASSWORD"):
+            print("%s注意%s：检测到环境变量 SCHEDULER_PASSWORD，运行时仍以环境变量为准，"
+                  "请一并改掉或清除。" % (YEL, RST))
+        print("改完执行 python3 scheduler.py restart 生效")
         return 0
     if a in ("on", "off"):
         if len(argv) < 2:

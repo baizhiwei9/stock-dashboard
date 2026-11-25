@@ -23,6 +23,22 @@ EXT_ELASTICITY_LO, EXT_ELASTICITY_HI = 0.41, 0.43
 BASE_DRAG_LO, BASE_DRAG_HI = 0.5, 1.0
 
 
+def _n1(v, plus=False, suffix=""):
+    """数值格式化：None 输出「未公布」（不带单位），避免 NoneType.__format__ 打断整份报告。
+
+    出口累计同比（export_cum_yoy）、PMI 分项环比最大变动（max_mom）等字段
+    在源站缺发布时会取不到；旧写法 f"{v:.1f}" 直接抛 TypeError。
+    suffix 用于把 "%" / "pt" 这类单位一起交给本函数，缺数据时才不会输出
+    「未公布%」「未公布pt」这种半截文案。
+    """
+    if v is None:
+        return "未公布"
+    try:
+        return (("%+.1f" if plus else "%.1f") % v) + suffix
+    except (TypeError, ValueError):
+        return "未公布"
+
+
 def load_latest():
     with open(os.path.join(DATA_DIR, "latest.json"), encoding="utf-8") as f:
         return json.load(f)
@@ -195,7 +211,7 @@ def build_export(data):
         lines.append("- **趋势定性**：出口数据缺失，无法定性。")
     else:
         lines.append(f"- **趋势定性**：**韧性高增放缓**——{exp_month_label}出口同比 {exp_yoy:.1f}%（美元口径），"
-                     f"{trend_dir(exp_yoy, prev_yoy)}；累计同比 {exp_cum:.1f}%，"
+                     f"{trend_dir(exp_yoy, prev_yoy)}；累计同比 {_n1(exp_cum, suffix='%')}，"
                      f"在抢出口与AI链带动下维持高景气，但基数抬升与圣诞季补库接近尾声，增速中枢面临下移。")
     lines.append(
         "- **高频信号**：需实时跟踪八大枢纽港口集装箱吞吐量（量端）、SCFI/CCFI运价（价端）、"
@@ -291,7 +307,7 @@ def build_pmi_section():
     head_word = "环比涨幅最大分项" if (max_mom or 0) > 0 else "环比普遍回落、降幅最小分项"
     return f"""## 四、PMI 分项剔除法 · 看真实底色（追加模块）
 
-**{month} {head_word}**：{max_item}（Δ{max_mom:+.1f}pt{contrib_txt}）。
+**{month} {head_word}**：{max_item}（Δ{_n1(max_mom, plus=True, suffix='pt')}{contrib_txt}）。
 
 分项明细（本月→上月，环比Δ）：
 {chr(10).join(item_lines)}

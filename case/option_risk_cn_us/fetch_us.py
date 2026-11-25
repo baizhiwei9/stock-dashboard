@@ -33,8 +33,14 @@ def fetch_chain(sym):
     raw = curl(f"https://cdn.cboe.com/api/global/delayed_quotes/options/_{sym}.json", timeout=90)
     if not raw or raw[:15].lower().startswith(b"<?xml"):
         print("FAIL chain", sym); return
-    j = json.loads(raw)
-    d = j["data"]
+    try:
+        j = json.loads(raw)
+        d = j["data"]
+    except Exception:                                       # noqa: BLE001
+        # CBOE 延迟链偶发返回空/HTML 错误页（网络抖动或反爬），跳过该标的即可，
+        # 下游按「该标的数据缺失」处理，不炸整条链路。
+        print("FAIL chain(parse)", sym, "head=", raw[:80])
+        return
     keep = ["option", "bid", "ask", "iv", "delta", "gamma", "vega", "theta",
             "open_interest", "volume", "last_trade_price"]
     rows = [{k: o.get(k) for k in keep} for o in d["options"]]

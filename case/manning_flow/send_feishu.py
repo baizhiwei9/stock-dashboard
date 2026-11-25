@@ -9,8 +9,7 @@ import requests
 from datetime import datetime
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
-WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/6d34534a-af18-48ba-be77-a30c524734a8"
-
+from feishu_config import WEBHOOK_URL  # noqa: E402  凭据脱敏：见 DEPLOY.md「飞书凭据」
 # 加载数据
 with open(os.path.join(OUTPUT_DIR, "backtest_metrics.json"), 'r', encoding='utf-8') as f:
     metrics = json.load(f)

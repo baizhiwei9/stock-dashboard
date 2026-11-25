@@ -12,6 +12,42 @@ import sys
 import pandas as pd
 import requests
 
+
+_SW_EMPTY = {
+    "countries": {
+        "china": {"current": {"demand": "—", "inventory": "—"},
+                  "predicted_switch": {"center": "", "window": ["", ""],
+                                       "early_case": [""], "target_side": "—"},
+                  "triggers": {}},
+        "us": {"current": {"demand": "—", "inventory": "—"},
+               "predicted_switch": {"center": "", "window": ["", ""],
+                                    "early_case": [""], "target_side": "—"},
+               "triggers": {}},
+    }
+}
+
+
+def _load_switches(path):
+    """switches.json 是人工研判的周期切换配置（仓库外维护，新环境/首跑常见缺失）。
+    缺失或字段不全时按占位结构补齐：报告照常出，只是预测切换相关字段显示「—」，
+    而不是整条链路炸掉。"""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except Exception:                                       # noqa: BLE001
+        raw = {}
+    out = json.loads(json.dumps(_SW_EMPTY))
+    for ck, cv in (raw.get("countries") or {}).items():
+        base = json.loads(json.dumps(_SW_EMPTY["countries"]["china"]))
+        tgt = out["countries"].setdefault(ck, base)
+        for f, v in (cv or {}).items():
+            if isinstance(v, dict) and isinstance(tgt.get(f), dict):
+                tgt[f].update(v)
+            else:
+                tgt[f] = v
+    return out
+
+
 BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7d65e97affeGRaKRrqXn281SL"
 OUT = BASE + "/库存周期切换预测报告.html"
 FEISHU_CFG = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5febb5eaeeffe0mTIpBeu5w0Nq0/feishu_config.py"
@@ -165,26 +201,31 @@ def panel_for(base_df, key, unit, color, ylabel, tag):
     svg = panel(sl(months), sl(hist_d), sl(hist_i), proj_d, proj_i, sl(phases), pi, color, ylabel, unit,
                 f"{tag}库存周期：库存同比 vs 需求同比（含四阶段）")
     # 在内嵌图的图面内标注「当前周期 → 下一周期」
-    _sw = json.load(open(BASE + "/data/switches.json", encoding="utf-8"))
+    _sw = _load_switches(BASE + "/data/switches.json")
     _nxt = {"主动补库存": "被动补库存", "被动补库存": "主动去库存",
             "主动去库存": "被动去库存", "被动去库存": "主动补库存"}
     _cur = str(base_df["phase"].iloc[-1])
-    _cen = _sw["countries"][key]["predicted_switch"]["center"].replace("-", "")
-    _ann = f"当前周期：{_cur}　→　下一周期：{_nxt.get(_cur, '—')}（预计 {_cen[:4]}-{_cen[4:]} 切换）"
+    _cen = (_sw["countries"].get(key) or {}).get("predicted_switch", {}).get("center", "").replace("-", "")
+    _tail = ("（预计 %s-%s 切换）" % (_cen[:4], _cen[4:])) if len(_cen) >= 6 else ""
+    _ann = f"当前周期：{_cur}　→　下一周期：{_nxt.get(_cur, '—')}{_tail}"
     svg = svg.replace("</svg>", f'<text x="874" y="20" font-size="12.5" text-anchor="end" fill="#A8240F">{_ann}</text></svg>')
     return {"svg": svg, "last": last, "phase": base_df["phase"].iloc[-1],
             "d": d_val[-1], "i": i_val[-1]}
 
 
 def mfmt0(m):
+    if not m:
+        return "—"
     m = m.replace("-", "")
+    if len(m) < 6 or not m.isdigit():
+        return "—"
     return f"{m[:4]}年{int(m[4:]):d}月"
 
 
 def main(push=True):
     ch = pd.read_csv(BASE + "/data/china_hard_base.csv", dtype={"month": str})
     us = pd.read_csv(BASE + "/data/us_base.csv", dtype={"month": str})
-    sw = json.load(open(BASE + "/data/switches.json", encoding="utf-8"))
+    sw = _load_switches(BASE + "/data/switches.json")
     fc = json.load(open(BASE + "/data/forecast2.json", encoding="utf-8"))
     gen = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
     cn = panel_for(ch, "china", "%", CN_COLOR, "中国同比 %", "中国")
@@ -202,8 +243,7 @@ def main(push=True):
     us_early = mfmt0(sw["countries"]["us"]["predicted_switch"]["early_case"][0])
 
     def mfmt(m):
-        m = m.replace("-", "")
-        return f"{m[:4]}年{int(m[4:]):d}月"
+        return mfmt0(m)
 
     rows = ""
     for key, nm, cur in (("china", "中国", cn), ("us", "美国", usc)):

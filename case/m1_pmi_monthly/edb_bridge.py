@@ -14,8 +14,38 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORKSPACE = os.path.dirname(HERE)
-DEFAULT_REPO = os.path.join(WORKSPACE, "ses_gffe5e3bd864efffe9ENnDdpdPZ1V6E", "_dh")
-EDB_REPO = os.environ.get("EDB_REPO", DEFAULT_REPO)
+# 老默认值指向会话级临时目录（ses_xxx/_dh），换机/换会话就失效，不能当唯一入口。
+_LEGACY_REPO = os.path.join(WORKSPACE, "ses_gffe5e3bd864efffe9ENnDdpdPZ1V6E", "_dh")
+
+
+def _find_edb_repo() -> str:
+    """探测 DataHub 仓库：EDB_REPO 环境变量 → 常见挂载路径 → workspace 下候选。"""
+    def ok(p: str) -> bool:
+        return bool(p) and os.path.isdir(os.path.join(p, "data_hub"))
+
+    env = (os.environ.get("EDB_REPO") or "").strip()
+    if ok(env):
+        return env
+
+    cands = [
+        "/opt/coze/.fuse_drive/dataHub_三级体系",
+        os.path.join(WORKSPACE, "dataHub_三级体系"),
+        os.path.join(WORKSPACE, "datahub-multi-tier"),
+        os.path.join(os.path.dirname(WORKSPACE), "datahub-multi-tier"),
+        _LEGACY_REPO,
+    ]
+    try:
+        for name in sorted(os.listdir(WORKSPACE)):
+            cands.append(os.path.join(WORKSPACE, name, "_dh"))
+    except OSError:
+        pass
+    for p in cands:
+        if ok(p):
+            return p
+    return env or _LEGACY_REPO
+
+
+EDB_REPO = _find_edb_repo()
 
 _READY = False
 

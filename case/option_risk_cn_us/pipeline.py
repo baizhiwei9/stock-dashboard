@@ -18,7 +18,7 @@ for _p in (HERE, LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u 中美期权风险释放汇总.py'
+CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}/opt/coze/.fuse_drive/dataHub_三级体系/options:." PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u 中美期权风险释放汇总.py'
 CMD_SEND = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u 中美期权风险释放汇总.py --send'
 SEC = 'CN.STOCK'
 TIMEOUT = 1800

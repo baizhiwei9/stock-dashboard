@@ -19,8 +19,4 @@ python3 case/_lib/runner.py --task my_task --no-publish  # 真跑，不落库
 | emit | 内置 emit（可换 emit.py） | `out/latest.json` |
 | dispatch | dispatch.py | 无（自己发消息） |
 
-默认不要提交 `data/`、`out/`、`logs/`，它们已在 `.gitignore`。
-
-例外：任务带模型（权重、元数据、特征面板）时，这些是**要入库的资产**，不是运行产物 ——
-在 `.gitignore` 里显式放行该任务的 `data/`，并补一个 `train_model.py` 做训练兜底，
-让权重缺失时任务能自己训出来。口径见 `case/CONTRACT.md` 的「模型资产与训练兜底」。
+不要提交 `data/`、`out/`、`logs/`，它们已在 `.gitignore`。

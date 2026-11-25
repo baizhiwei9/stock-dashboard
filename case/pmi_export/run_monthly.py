@@ -36,10 +36,17 @@ def main():
     # 0. EDB 统一刷新（唯一联网入口）：一次刷新报告所需全部序列，后续脚本只读库
     if os.environ.get("SKIP_EDB_REFRESH") != "1":
         env = dict(os.environ, EDB_UPDATE="1")
-        rr = subprocess.run([sys.executable, "edb_refresh.py"], cwd=HERE,
-                            capture_output=True, text=True, env=env)
-        if rr.returncode != 0:
-            print("[run_monthly] EDB 刷新失败（将用库内已有数据继续）：", rr.stdout[-400:], rr.stderr[-400:])
+        # edb_refresh 联网逐指标补数，源站慢时会挂很久（实测能挂 20 分钟以上）。
+        # 这里加超时兜底：超时就放弃本次刷新，用库里已有数据继续出报告，不拖垮整条链路。
+        timeout = int(os.environ.get("EDB_REFRESH_TIMEOUT") or 600)
+        try:
+            rr = subprocess.run([sys.executable, "edb_refresh.py"], cwd=HERE,
+                                capture_output=True, text=True, env=env, timeout=timeout)
+            if rr.returncode != 0:
+                print("[run_monthly] EDB 刷新失败（将用库内已有数据继续）：",
+                      rr.stdout[-400:], rr.stderr[-400:])
+        except subprocess.TimeoutExpired:
+            print("[run_monthly] EDB 刷新超时（%ss），跳过刷新，用库内已有数据继续" % timeout)
 
     # 1. 取数（主数据，读 EDB）
     r1 = run([sys.executable, "fetch_data.py"])

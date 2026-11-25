@@ -25,15 +25,34 @@ import os
 import sys
 import pandas as pd
 
-BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace"
-_LIB_PATHS = [
-    os.path.join(BASE, "projects", "options_utility"),
-    os.path.join(BASE, "projects", "datahub-three-tier"),
-    os.path.join(BASE, "pylibs"),
-    os.path.join(BASE, ".pip_libs"),
+# DoMate 原运行机的 workspace 根。换机/云盘环境下该路径不存在，
+# 旧写法会把 _LIB_PATHS 全部落空，导致 `import calc` / `import data_hub` 直接
+# ModuleNotFoundError（2026-11-25 option_risk_cn_us fetch 阶段整块失败即此因）。
+# 改为多路径探测：先试原机路径，再试云盘 data_hub 仓库。
+_BASE_CANDS = [
+    os.environ.get("DUMATE_WORKSPACE") or "",
+    "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace",
+    "/opt/coze/.fuse_drive/dataHub_三级体系",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))), "dataHub_三级体系"),
+    "/opt/coze/.fuse_drive/股市监控画布",
 ]
+_LIB_PATHS = []
+for _b in _BASE_CANDS:
+    if not _b or not os.path.isdir(_b) or _b in _LIB_PATHS:
+        continue
+    # 原机上期权计算库在 projects/options_utility；云盘版统一放在 <repo>/options
+    # 同时把 <repo> 本身加入，`import data_hub` 才能解析。
+    for _sub in ("projects/options_utility", "options", ""):
+        _p = os.path.join(_b, _sub) if _sub else _b
+        if os.path.isdir(_p) and _p not in _LIB_PATHS:
+            _LIB_PATHS.append(_p)
+    for _sub in ("projects/datahub-three-tier", "pylibs", ".pip_libs"):
+        _p = os.path.join(_b, _sub)
+        if os.path.isdir(_p) and _p not in _LIB_PATHS:
+            _LIB_PATHS.append(_p)
 for _p in _LIB_PATHS:
-    if os.path.isdir(_p) and _p not in sys.path:
+    if _p not in sys.path:
         # 追加到末尾而不是插到最前：链路自身的模块（如 macro_monthly_report/config.py）
         # 必须优先被解析，第三方库只做补充。
         sys.path.append(_p)

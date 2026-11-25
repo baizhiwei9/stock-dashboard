@@ -17,8 +17,7 @@ from PIL import Image
 import subprocess
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
-WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/6d34534a-af18-48ba-be77-a30c524734a8"
-
+from feishu_config import WEBHOOK_URL  # noqa: E402  凭据脱敏：见 DEPLOY.md「飞书凭据」
 # 字体
 result = subprocess.run(['fc-list', ':lang=zh', 'file'], capture_output=True, text=True)
 zh_font_path = None

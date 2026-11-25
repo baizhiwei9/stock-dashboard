@@ -7,6 +7,42 @@ import pandas as pd
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
+
+_SW_EMPTY = {
+    "countries": {
+        "china": {"current": {"demand": "—", "inventory": "—"},
+                  "predicted_switch": {"center": "", "window": ["", ""],
+                                       "early_case": [""], "target_side": "—"},
+                  "triggers": {}},
+        "us": {"current": {"demand": "—", "inventory": "—"},
+               "predicted_switch": {"center": "", "window": ["", ""],
+                                    "early_case": [""], "target_side": "—"},
+               "triggers": {}},
+    }
+}
+
+
+def _load_switches(path):
+    """switches.json 是人工研判的周期切换配置（仓库外维护，新环境/首跑常见缺失）。
+    缺失或字段不全时按占位结构补齐：报告照常出，只是预测切换相关字段显示「—」，
+    而不是整条链路炸掉。"""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except Exception:                                       # noqa: BLE001
+        raw = {}
+    out = json.loads(json.dumps(_SW_EMPTY))
+    for ck, cv in (raw.get("countries") or {}).items():
+        base = json.loads(json.dumps(_SW_EMPTY["countries"]["china"]))
+        tgt = out["countries"].setdefault(ck, base)
+        for f, v in (cv or {}).items():
+            if isinstance(v, dict) and isinstance(tgt.get(f), dict):
+                tgt[f].update(v)
+            else:
+                tgt[f] = v
+    return out
+
+
 BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7d65e97affeGRaKRrqXn281SL"
 DATA = BASE + "/data"
 OUT_PNG = BASE + "/中美库存周期图表.png"
@@ -39,7 +75,7 @@ def load():
     ch = pd.read_csv(DATA + "/china_hard_base.csv", dtype={"month": str})
     us = pd.read_csv(DATA + "/us_base.csv", dtype={"month": str})
     fc = json.load(open(DATA + "/forecast2.json", encoding="utf-8"))
-    sw = json.load(open(DATA + "/switches.json", encoding="utf-8"))
+    sw = _load_switches(DATA + "/switches.json")
     return ch, us, fc, sw
 
 
@@ -61,8 +97,11 @@ def panel(d, dr, key, color, title, unit, sw, x_start, x_end):
         mm = r["month"]
         if mm in dem:
             dem[mm] = round(dm[-1] + sd * k, 2); inv[mm] = round(im[-1] + si * k, 2); phz[mm] = r["phase"]
-    _win = [x.replace("-", "") for x in sw["countries"][key]["predicted_switch"]["window"]]
-    _cen = sw["countries"][key]["predicted_switch"]["center"].replace("-", "")
+    _ps = (sw.get("countries") or {}).get(key, {}).get("predicted_switch") or {}
+    _win = [str(x).replace("-", "") for x in (_ps.get("window") or [])]
+    _cen = str(_ps.get("center") or "").replace("-", "")
+    if len(_win) < 2:
+        _win = ["", ""]
     _cur = str(d["phase"].iloc[-1])
     return {"months": months, "dem": dem, "inv": inv, "phz": phz,
             "last_hist": hist_m[-1], "f0": f_m[0], "f1": f_m[-1],
@@ -180,8 +219,10 @@ def draw_panel(dr, info, x0, y0, w, h, ymin, ymax):
     # 面板标题（左）与图例（右）分行排布，避免重叠
     dr.text((x0 + ml, y0 - 28), info["title"], font=F(17), fill=(30, 30, 30))
     # 当前周期 / 下一周期 标注（标题右侧，同一行）
+    _ct = info.get("center") or ""
+    _tail = ("（预计 %s-%s 切换）" % (_ct[:4], _ct[4:])) if len(_ct) >= 6 else ""
     ann = (f"当前周期：{info['cur']}（截至 {info['last_hist'][:4]}-{info['last_hist'][4:]}）"
-           f"　→　下一周期：{info['nxt']}（预计 {info['center'][:4]}-{info['center'][4:]} 切换）")
+           f"　→　下一周期：{info['nxt']}{_tail}")
     ax = x0 + ml + 78
     aw = tw(dr, ann, F(14))
     dr.rectangle([ax - 6, y0 - 36, ax + aw + 6, y0 - 14], fill=(255, 247, 242), outline=(214, 126, 96))
