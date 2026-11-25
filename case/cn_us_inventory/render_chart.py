@@ -47,12 +47,27 @@ def _load_switches(path):
 BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7d65e97affeGRaKRrqXn281SL"
 DATA = BASE + "/data"
 OUT_PNG = BASE + "/中美库存周期图表.png"
-FONT = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/.fonts/NotoSansSC-Regular.ttf"
+FONT = font_path()        # workspace/.fonts → 系统 Noto CJK
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 _LIB = os.path.join(_ROOT, "case", "_lib")
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
+
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import font_path
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import font_path
+
 
 import app_secrets  # noqa: E402
 

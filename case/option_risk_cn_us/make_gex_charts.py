@@ -20,9 +20,24 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import font_path
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import font_path
+
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
-FP = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/.fonts/NotoSansSC-Regular.ttf"
+FP = font_path()          # workspace/.fonts → 系统 Noto CJK，保证是存在的文件
 HALF = 126
 
 GEX = (31, 78, 121); NEG = (200, 40, 40); DIST = (112, 48, 160)
