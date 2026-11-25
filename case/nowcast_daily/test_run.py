@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""nowcast_daily 的离线单测：变动计算 / 触发挑选 / 指标与报告产出。
+"""nowcast_daily 的离线单测：变动计算 / 指标与报告产出。
 
 不联网、不读 EDB：只测 ``run.py`` 里的纯函数。跑法：
     cd <stock-dashboard 根>
@@ -50,27 +50,14 @@ def test_measure_empty_and_single_row():
     assert run.measure([("2026-11-20", 3.0)], 7)["delta"] is None
 
 
-def _metric(spec, value, delta, date="2026-11-20"):
-    return {"spec": spec, "value": value, "delta": delta, "date": date}
-
-
-def test_pick_triggers_uses_per_series_threshold():
-    """每条序列用自己的阈值；未达阈值不进邮件。"""
-    gdpnow = next(s for s in run.SERIES if s["key"] == "nowcast.gdpnow")
-    wei = next(s for s in run.SERIES if s["key"] == "nowcast.wei")
-    metrics = [
-        _metric(gdpnow, 2.5, -0.6),   # 阈值 0.5 → 触发
-        _metric(wei, 3.0, -0.8),      # 阈值 1.0 → 不触发
-    ]
-    got = run.pick_triggers(metrics)
-    assert [item["spec"]["key"] for item in got] == ["nowcast.gdpnow"]
+def _metric(spec, value, delta, date="2026-11-20", rows=None):
+    return {"spec": spec, "value": value, "delta": delta, "date": date,
+            "rows": rows if rows is not None else [(date, value)]}
 
 
 def test_build_points_covers_all_registered_keys():
     """10 个水平 + 5 个变动 = 15 条，键名与 DataHub 登记表一致。"""
-    metrics = []
-    for spec in run.SERIES:
-        metrics.append(_metric(spec, 1.0, 0.1))
+    metrics = [_metric(spec, 1.0, 0.1) for spec in run.SERIES]
     points = run.build_points(metrics)
     assert len(points) == 15
     keys = {point["key"] for point in points}
@@ -79,28 +66,44 @@ def test_build_points_covers_all_registered_keys():
     assert all(point["sec"] == "US.NOWCAST" for point in points)
 
 
-def test_build_points_clamps_future_quarter_end():
-    """核心 PCE 季折年的目标季末在未来，落库观测日必须夹到今天。"""
+def test_build_points_pins_quarter_ann_to_revision_day():
+    """季折年不能用未来目标季末，也不能每天写一条同值新观测。"""
     qann = next(s for s in run.SERIES if s["key"] == "nowcast.core_pce_qann")
-    metrics = [_metric(qann, 3.38, None, date="2026-12-31")]
-    point = run.build_points(metrics)[0]
-    assert point["obs_date"] == run.dt.date.today().isoformat()
+    rows = [("2026-11-19", 3.38), ("2026-11-20", 3.38), ("2026-11-21", 3.38)]
+    point = run.build_points([_metric(qann, 3.38, None, date="2026-12-31", rows=rows)])[0]
+    # 这一版 3.38 是从 11-19 开始的 → 观测日固定在那一天，反复跑不新增行
+    assert point["obs_date"] == "2026-11-19"
 
 
-def test_mail_subject_lists_top_triggers():
-    """邮件标题带前三个触发项，方便手机通知栏直接看。"""
-    gdpnow = next(s for s in run.SERIES if s["key"] == "nowcast.gdpnow")
-    metrics = [_metric(gdpnow, 2.2, -0.9)]
-    subject, body = run.build_mail(metrics, metrics, "2026-11-25 22:00")
-    assert "GDPNow" in subject
-    assert "-0.90pp" in subject
+def test_build_points_pins_to_first_day_of_same_value_run_only():
+    """值一旦变了，观测日跟着换到新版第一天。"""
+    qann = next(s for s in run.SERIES if s["key"] == "nowcast.core_pce_qann")
+    rows = [("2026-11-19", 3.30), ("2026-11-20", 3.30), ("2026-11-21", 3.38)]
+    point = run.build_points([_metric(qann, 3.38, None, date="2026-12-31", rows=rows)])[0]
+    assert point["obs_date"] == "2026-11-21"
+
+
+def test_report_has_no_threshold_section():
+    """报告只展示读数与变动；阈值判定归 DataHub nowcast_alert。"""
+    metrics = [_metric(spec, 1.0, 0.0) for spec in run.SERIES]
+    text = run.render_report(metrics, "2026-11-25 22:00")
+    assert "GDPNow" in text
+    assert "核心 PCE 同比" in text
+    assert "较上次取数" in text
+    assert "触发" not in text
+
+
+def test_mail_is_manual_digest_only():
+    """邮件是人工日报：标题带日期，不含触发项列表。"""
+    metrics = [_metric(spec, 1.0, 0.0) for spec in run.SERIES]
+    subject, body = run.build_mail(metrics, "2026-11-25 22:00")
+    assert "2026-11-25" in subject
     assert "美国 Nowcast 日报" in body
 
 
-def test_report_marks_no_trigger():
-    """无触发时报告明确写「无」，不留空。"""
-    metrics = [_metric(spec, 1.0, 0.0) for spec in run.SERIES]
-    text = run.render_report(metrics, [], "2026-11-25 22:00")
-    assert "本期无" in text
-    assert "GDPNow" in text
-    assert "核心 PCE 同比" in text
+def test_dws_cli_absent_is_not_fatal(monkeypatch):
+    """dws 找不到时返回明确错误，不抛异常（由 SMTP 回退接管）。"""
+    monkeypatch.setattr(run.mail, "DWS_CLI", "")
+    ok, info = run.mail._dws("s", "b", "a@b.c", ["c@d.e"])
+    assert ok is False
+    assert "dws" in info

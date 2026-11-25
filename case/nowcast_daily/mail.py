@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import smtplib
 import subprocess
 import sys
@@ -29,7 +30,20 @@ if LIB not in sys.path:
 
 import app_secrets  # noqa: E402
 
-DWS_CLI = os.path.expanduser("~/.local/bin/dws")
+def _dws_cli() -> str:
+    """dws CLI 路径：环境变量 > PATH > ~/.local/bin。
+
+    写死 ``~/.local/bin/dws`` 在换机器时会静默退到 SMTP，邮件通道悄悄变了却
+    没人知道；这里按优先级找得到哪个用哪个，全找不到返回空串（由 _dws 报错）。
+    """
+    for candidate in (os.environ.get("DWS_CLI"), shutil.which("dws"),
+                      os.path.expanduser("~/.local/bin/dws")):
+        if candidate and os.path.exists(candidate):
+            return candidate
+    return ""
+
+
+DWS_CLI = _dws_cli()
 SENDER_NAME = "DuMate 美国 Nowcast 日更"
 
 
