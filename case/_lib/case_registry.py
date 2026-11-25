@@ -234,6 +234,9 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "timeout": int(t.get("timeout") or 1800),
             "enabled": bool(t.get("enabled", True)),
             "sched": t.get("sched"),
+            # not_before 是 scheduler 的「不许提前拉」闸门（见 _not_before_time）。
+            # 不透传的话，pipeline 任务即使写了 not_before 也会被 pull_forward 提前起。
+            "not_before": t.get("not_before"),
             "metrics": t.get("metrics") or [],
             "source": "case",
             "_errors": t.get("_errors") or [],
@@ -267,6 +270,9 @@ def as_workers(base: Optional[str] = None) -> List[Dict]:
             "desc": t.get("desc") or "",
             "sec": t.get("section"),
             "sched": t.get("sched"),
+            # not_before 是 scheduler 的「不许提前拉」闸门（见 _not_before_time）。
+            # 不透传的话，pipeline 任务即使写了 not_before 也会被 pull_forward 提前起。
+            "not_before": t.get("not_before"),
             "metrics": t.get("metrics") or [],
             "deliver": t.get("deliver") or {},
         })
