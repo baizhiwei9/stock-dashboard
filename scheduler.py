@@ -40,6 +40,8 @@ from datetime import datetime, timedelta, time as dtime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from datahub_path import datahub_root, expand_module
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG_PATH = os.path.join(HERE, "modules.json")
 SEC_PATH = os.path.join(HERE, "sections.json")
@@ -388,9 +390,7 @@ def _config_alert(key, errs):
     def _run():
         # record() 在触发阈值时会同步发 SMTP（最坏 60s），不能卡住 tick。
         try:
-            dh = (os.environ.get("DATAHUB_DIR")
-                  or os.environ.get("DATA_HUB_PATH")
-                  or "/opt/coze/.fuse_drive/dataHub_三级体系")
+            dh = datahub_root()
             if dh not in sys.path:
                 sys.path.insert(0, dh)
             from data_hub.tech.health import record
@@ -414,12 +414,18 @@ def _save_cfg_alerts():
 
 
 def all_modules():
-    """内置 modules.json + 外部注册 registry.json + case 任务。key 唯一，内置优先。"""
+    """内置 modules.json + 外部注册 registry.json + case 任务。key 唯一，内置优先。
+
+    cwd/cmd 里的 {{DATAHUB_ROOT}} 在这里展开：modules.example.json 用占位而不是
+    本机绝对路径，任务 cmd 里的 PYTHONPATH 与 sd_watchdog.sh / 各入口用的是同一个
+    DataHub 根，不会出现「看门狗认为 datahub 在、子进程 import 失败」。
+    """
     mods = []
     seen = set()
+    root = datahub_root()
     for m in (load_cfg().get("modules") or []):
         if m.get("key") and m["key"] not in seen:
-            m = dict(m)
+            m = expand_module(m, root)
             m["source"] = "builtin"
             mods.append(m)
             seen.add(m["key"])
@@ -428,13 +434,14 @@ def all_modules():
         if w.get("status") != "approved":
             continue
         if k and k not in seen:
-            w = dict(w)
+            w = expand_module(w, root)
             w["source"] = "registered"
             mods.append(w)
             seen.add(k)
     for m in _case_modules():
         k = m.get("key")
         if k and k not in seen:
+            m = expand_module(m, root)
             mods.append(m)
             seen.add(k)
     return mods

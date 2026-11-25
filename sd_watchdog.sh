@@ -33,19 +33,18 @@ FAILF="logs/watchdog.fail"
 ALERT_AT="${SD_ALERT_AT:-3}"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
 
-# 环境自举：cron 的 env 极简，PYTHONPATH 一般为空。任务命令自己在 cmd 里带了
-# PYTHONPATH，但 scheduler 进程内的 task_health 上报（record）要 import
-# data_hub.tech.health，那条路只认 DATAHUB_DIR / DATA_HUB_PATH / 代码里的兜底路径。
-# 这里按部署约定（datahub 与 stock-dashboard 同级 checkout）补一次，换机器就不用
-# 去改 scheduler.py 里的兜底常量。已经配过（systemd / DEPLOY.md §4）就完全不动。
-if [ -z "${PYTHONPATH:-}" ] && [ -z "${DATAHUB_DIR:-}" ] && [ -z "${DATA_HUB_PATH:-}" ]; then
-  for _c in "$HERE/../datahub-multi-tier" "$HERE/datahub-multi-tier" "${EDB_REPO:-}"; do
-    if [ -n "$_c" ] && [ -d "$_c/data_hub" ]; then
-      export PYTHONPATH="$_c"
-      export EDB_REPO="$_c"
-      break
-    fi
-  done
+# 环境自举：cron 的 env 极简，PYTHONPATH 一般为空。DataHub 根统一交给
+# datahub_path.py 解析（DATA_HUB_PATH → DATAHUB_DIR → EDB_REPO → 同级 checkout
+# → /opt 兜底），与 scheduler.py 用的是同一份逻辑；补进 PYTHONPATH 后，
+# scheduler 内的 task_health 上报和任务子进程看到的是同一个根，不会出现
+# 「看门狗认为 datahub 在、子进程 import 失败」。已有的 PYTHONPATH 只增不覆盖。
+DH="$("$PY" "$HERE/datahub_path.py" 2>/dev/null || true)"
+if [ -n "$DH" ]; then
+  case ":${PYTHONPATH:-}:" in
+    *":$DH:"*) ;;
+    *) export PYTHONPATH="$DH${PYTHONPATH:+:$PYTHONPATH}" ;;
+  esac
+  export EDB_REPO="${EDB_REPO:-$DH}"
 fi
 
 say() { echo "$TS $*" >> "$LOG"; }

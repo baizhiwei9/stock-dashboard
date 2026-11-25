@@ -27,7 +27,9 @@ import sys
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
-DATAHUB_ROOT = os.environ.get("DATA_HUB_PATH") or "/opt/coze/.fuse_drive/dataHub_三级体系"
+from datahub_path import datahub_root
+
+DATAHUB_ROOT = datahub_root()
 if DATAHUB_ROOT not in sys.path:
     sys.path.insert(0, DATAHUB_ROOT)
 
