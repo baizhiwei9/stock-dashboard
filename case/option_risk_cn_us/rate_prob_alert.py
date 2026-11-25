@@ -152,12 +152,15 @@ def main(argv=None):
     prev_meet = st.get("meeting") or ""
     meet = cur.get("meeting") or ""
 
-    # 首次记录：只建基线，不提醒
+    # 首次记录：只建基线，不提醒。dry-run 不写任何状态，避免预演把当天真发送幂等掉。
     if not prev:
-        save_state({"meeting": meet, "obs": obs, "current": {k: cur.get(k) for k in
-                    ("ease", "hold", "hike", "target_mid", "days")},
-                    "last_alert_obs": st.get("last_alert_obs")})
-        print("[rate_prob] 初次记录会议（%s），已建基线，不提醒" % (meet or "—"))
+        if a.send:
+            save_state({"meeting": meet, "obs": obs, "current": {k: cur.get(k) for k in
+                        ("ease", "hold", "hike", "target_mid", "days")},
+                        "last_alert_obs": st.get("last_alert_obs")})
+            print("[rate_prob] 初次记录会议（%s），已建基线，不提醒" % (meet or "—"))
+        else:
+            print("[rate_prob] dry-run：初次记录会议（%s），未写基线" % (meet or "—"))
         return 0
 
     # 换场：两场会议的概率不可直接相减，但仍要提醒——把「上一场最终定价」与
@@ -203,11 +206,14 @@ def main(argv=None):
                 print("[rate_prob] 邮件发送异常：%s" % exc)
                 ok = False
         if ok:
-            save_state({"meeting": meet, "obs": obs,
-                        "current": {k: cur.get(k) for k in
-                                    ("ease", "hold", "hike", "target_mid", "days")},
-                        "last_alert_obs": obs})
-            print("[rate_prob] 换场提醒%s（%s）" % ("已发送" if a.send else "（dry-run 未发）", obs))
+            if a.send:
+                save_state({"meeting": meet, "obs": obs,
+                            "current": {k: cur.get(k) for k in
+                                        ("ease", "hold", "hike", "target_mid", "days")},
+                            "last_alert_obs": obs})
+                print("[rate_prob] 换场提醒已发送（%s）" % obs)
+            else:
+                print("[rate_prob] 换场提醒（dry-run 未发，不写基线，%s）" % obs)
             return 2
         print("[rate_prob] 换场邮件发送失败，基线不推进，下次继续尝试")
         return 1
@@ -222,9 +228,10 @@ def main(argv=None):
     hit = [c for c in changes if abs(c[3]) >= THRESHOLD_PP]
     mid_hit = mid_chg is not None and abs(mid_chg) >= THRESHOLD_MID_BP
     if not hit and not mid_hit:
-        save_state({"meeting": meet, "obs": obs,
-                    "current": {k: cur.get(k) for k in ("ease", "hold", "hike", "target_mid", "days")},
-                    "last_alert_obs": st.get("last_alert_obs")})
+        if a.send:
+            save_state({"meeting": meet, "obs": obs,
+                        "current": {k: cur.get(k) for k in ("ease", "hold", "hike", "target_mid", "days")},
+                        "last_alert_obs": st.get("last_alert_obs")})
         print("[rate_prob] 概率变动未达阈值（%s）" % (
             "、".join("%s%+.1fpp" % (c[0], c[3]) for c in changes) or "无有效对比"))
         return 0
@@ -244,10 +251,13 @@ def main(argv=None):
             print("[rate_prob] 邮件发送异常：%s" % exc)
             ok = False
     if ok:
-        save_state({"meeting": meet, "obs": obs,
-                    "current": {k: cur.get(k) for k in ("ease", "hold", "hike", "target_mid", "days")},
-                    "last_alert_obs": obs})
-        print("[rate_prob] 已触发%s（%s）" % ("并发送" if a.send else "（dry-run 未发）", obs))
+        if a.send:
+            save_state({"meeting": meet, "obs": obs,
+                        "current": {k: cur.get(k) for k in ("ease", "hold", "hike", "target_mid", "days")},
+                        "last_alert_obs": obs})
+            print("[rate_prob] 已触发并发送（%s）" % obs)
+        else:
+            print("[rate_prob] 已触发（dry-run 未发，不写基线，%s）" % obs)
         return 2
     print("[rate_prob] 邮件发送失败，基线不推进，下次继续尝试")
     return 1

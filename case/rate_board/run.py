@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 """rate_board —— 中美利率与政策预期（看板「流动性 → 利率」子页的数据源）
 
-一次跑完三件事：
+一次跑完两件事：
   1) 美国侧：CME FedWatch 加息/降息概率（DataHub EDB `US.FEDWATCH.NEXT.*`，
      采集器 data_hub/edb/fetchers/cme_fedwatch.py）+ EFFR / 目标区间上下限；
   2) 中国侧：降准降息预期利差（国开/存单 1Y-3M、3M 国开-逆回购政策利率）、
-     LPR、存款准备金率，以及土狗地产日报的框架读数（中性利率 / 贴现率 / 状态机）；
-  3) 信用侧：AI 相关公司 5 年期美元 CDS 最新 par spread（读 cds_monitor 的最新 run）。
+     LPR、存款准备金率，以及土狗地产日报的框架读数（中性利率 / 贴现率 / 状态机）。
 
 数据全部经 DataHub / 上游任务产物，不直连行情源；取不到的项写 missing，
 不补零、不用旧值顶替。
@@ -19,7 +18,6 @@
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import sys
@@ -37,7 +35,6 @@ for _p in (os.path.join(WS, "pylibs"), os.path.join(WS, "py_deps")):
         sys.path.insert(0, _p)
 
 FEEDWATCH_JSON = os.path.join(DH, "data_hub", "edb", "data", "fedwatch", "latest.json")
-CDS_RUNS = os.path.join(WS, "ses_gffe5e68d79352ffetXPewcLEJH7PZs", "cds_monitor", "runs")
 TUGOU_LATEST = os.path.join(HERE, "..", "realestate_daily", "out", "latest.json")
 
 POINTS: list = []

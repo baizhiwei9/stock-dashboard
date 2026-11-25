@@ -1590,11 +1590,11 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
 
 
 def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple:
-    """利率子页（流动性 → 利率）：FedWatch 概率矩阵 + 中国降准降息预期 + AI 公司 CDS。
+    """利率子页（流动性 → 利率）：FedWatch 概率矩阵 + 中国降准降息预期。
 
     数据口径见 `case/rate_board/run.py`：美国侧读 DataHub EDB
     `US.FEDWATCH.NEXT.*`（采集器 quikstrike:fedwatch），中国侧读 EDB 的
-    1Y-3M 利差与土狗地产日报产物，CDS 读 cds_monitor 最新 run。
+    1Y-3M 利差与土狗地产日报产物。CDS 已拆成独立私有任务，不在本页展示。
     矩阵走 `case/rate_board/out/fedwatch.json`（EDB 只存标量序列，矩阵单独落盘）。
     """
     RSEC = "RATE.BOARD"
@@ -1661,8 +1661,7 @@ def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
     cn_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note), val)
                       for n, val, note in cn)
 
-# 信用 CDS 不在这里展示：CDS 已拆成独立私有任务（precious-task/case/cds_weekly），
-    # 走 internal 口径只落指标仓 + 触发告警邮件，不上公开面板。
+    # 信用 CDS 已拆成独立私有任务（precious-task/case/cds_weekly），本页不展示。
 
     # 目标区间概率矩阵
     m = {}
