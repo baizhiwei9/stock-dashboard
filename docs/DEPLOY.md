@@ -331,7 +331,10 @@ python3 case/_lib/runner.py --task <key> --dry-run
 ```
 
 - 扫描顺序：先 `case/`，再 `CASE_EXTRA_DIRS`；同一个 key 重复时**先命中的生效**，后出现的记一条冲突（stderr）。
-- 私有任务的 `visibility` 应设 `internal`：照常定时跑、照常写指标仓，但不上牌面。
+- 私有任务 `task.json` 的 `visibility` 写 `private`（历史写法 `internal` 等价）：照常定时跑、照常写指标仓，
+  并与公开任务一起上同一块牌面，卡片标「私有」；没有 `section` 时按 `section_domain` 归 Tab。
+- 私有任务要出数值，需要它在本机跑过并由 `publish` 回填（`out/latest.json` 或指标仓有点）；
+  还没跑过的先显示任务卡，属正常状态。
 
 ---
 

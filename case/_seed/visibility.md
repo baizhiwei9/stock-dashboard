@@ -1,7 +1,7 @@
 # 任务可见性清单
 
-`public` 上牌面（按 section 归 Tab），`private` 只跑与落库、不上牌面。
-改可见性只改 `task.json` 的 `visibility`（private 时 `section` 必须为空）。
+`public` 与 `private` 都在**同一块牌面**展示：public 卡片标「公开」，private 标「私有」。
+改可见性只改 `task.json` 的 `visibility`；私有任务 `section` 可留空，归 Tab 时退到 `section_domain`。
 
 > 2026-11-25 起枚举只有 `public` / `private` 两个值。旧的 `internal` **保留为
 > `private` 的别名**（过渡期）：写了不报错、按 `private` 处理，但不要再新写。

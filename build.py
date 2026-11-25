@@ -734,6 +734,10 @@ nav.jump a:hover{border-color:var(--blue);color:var(--blue)}
 .blk h4{margin:0 0 11px;font-size:13px;font-weight:600;color:var(--tx);
   display:flex;align-items:baseline;gap:8px}
 .blk h4 em{font-style:normal;font-size:10.5px;color:var(--tx3);font-weight:400}
+/* 暂无指标的私有任务：紧凑任务卡，不铺大块空白 */
+.blk.mini{padding:10px 18px}
+.blk.mini h4{margin:0 0 3px;font-size:12.5px}
+.blk.mini .note{margin:0}
 
 /* 键值对 */
 .kvs{display:grid;grid-template-columns:1fr 1fr;gap:5px 14px}
@@ -2462,13 +2466,25 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
     ch_html = "".join(
         '<div class="blk"><h4>%s</h4><div class="chart" id="%s"></div></div>' % (nm, cid)
         for cid, _k, nm, _c, _u, _d in charts)
-    meta = ('<span class="sm">注册 Worker %s · %s</span>'
-            % (html.escape(str(w.get("app_id") or "")),
+    badge = ""
+    if str(w.get("app_id") or "").startswith("case:"):
+        # 同一个页面：开源仓的 public 单日报标「公开」，precious-task 的私有任务标「私有」
+        badge = ('<span class="tag">私有</span> ' if w.get("visibility") == "private"
+                 else '<span class="tag">公开</span> ')
+    meta = ('%s<span class="sm">%s · %s</span>'
+            % (badge,
+               "任务 " + html.escape(str(key)) if badge else "注册 Worker %s"
+               % html.escape(str(w.get("app_id") or "")),
                html.escape(_sched_txt(w.get("sched")))))
+    note = html.escape(w.get("desc") or "")
+    if not rows:
+        # 暂无指标（多为私有任务首跑前）：出紧凑任务卡，不铺大块空白
+        return ('<div class="blk mini"><h4>%s %s</h4>'
+                '<p class="note">%s <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p>'
+                '</div>' % (html.escape(w.get("title") or key), meta, note)), []
     head = ('<div class="blk"><h4>%s %s</h4>'
             '<p class="note">%s</p><div class="kvs">%s</div></div>'
-            % (html.escape(w.get("title") or key), meta,
-               html.escape(w.get("desc") or ""), "".join(rows)))
+            % (html.escape(w.get("title") or key), meta, note, "".join(rows)))
     return head + ch_html, charts
 
 

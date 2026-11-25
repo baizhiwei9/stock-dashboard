@@ -205,19 +205,19 @@ python3 case/_tools/make_pipeline.py --only tech_consensus --force
 
 ### 一条规则
 
-`task.json` 的 `visibility` 决定这个任务**上不上牌面**：
+`task.json` 的 `visibility` 决定这个任务在牌面上**标什么**，公有私有都在同一页：
 
 | visibility | 定时跑 | 写指标仓 | 上牌面 | 用途 |
 |---|---|---|---|---|
-| `public`（默认） | ✓ | ✓ | ✓（按 `section` 归 Tab） | 基础数据、结构图这类可以给人看的 |
-| `private` | ✓ | ✓ | ✗ | 选行业/选股/中间算法这类只自己用的 |
+| `public`（默认） | ✓ | ✓ | ✓（按 `section` 归 Tab，标「公开」） | 基础数据、结构图这类可以给人看的 |
+| `private` | ✓ | ✓ | ✓（同页同 Tab，标「私有」） | 选行业/选股/中间算法这类只自己用的 |
 
-`private` 任务必须把 `section` 留空（原标签挪到 `section_domain` 备查）。枚举只有 `public`/`private`，
+`private` 任务的 `section` 可以留空，届时退到 `section_domain` 归 Tab。枚举只有 `public`/`private`，
 旧的 `internal` 保留为 `private` 的别名（过渡期，`precious-task` 改完后删），写了不报错。
 真正非法的值不会被当成 `public`：任务以「配置错误 + 停用」留在调度台，首次发现时发一封告警邮件，
 不会静默消失。
-看板通过 `case_registry.as_workers()` 拿数据，它只返回 `public` 且 `section` 非空的；
-索引与调度走 `as_modules()`，两种可见性都在，只是 `private` 在模块管理页带标记。
+看板通过 `case_registry.as_workers()` 拿数据，公有私有一起返回，`visibility` 只影响卡片上的标记；
+索引与调度走 `as_modules()`，两种可见性都在，模块管理页也标出公有/私有。
 
 ### 私有仓库怎么接
 
