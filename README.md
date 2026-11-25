@@ -11,7 +11,8 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | 文件 | 作用 |
 |---|---|
 | `build.py` | 生成 `index.html`（唯一渲染入口，纯 Python，无前端框架） |
-| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑，**不用 crontab** |
+| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑；**业务任务不写 crontab**，只用一条 cron 巡检本进程存活（见「调度与守护」） |
+| `sd_watchdog.sh` | scheduler 看门狗：cron 每分钟调一次，按心跳判定存活，未运行/僵死则拉起、重启，连续失败才告警 |
 | `manager.py` | 命令行运维：模块清单 / 体检 / 手动跑 / 启停 / 板块显隐 |
 | `modules.json` | 模块与调度配置，**含密码与注册密钥**（入库方便改；对外公开前必须先改） |
 | `sections.json` | Tab 与子类结构 |
@@ -93,9 +94,15 @@ python3 manager.py list                      # 清单里 case 任务标 case
 打包到其他服务器：整目录拷过去，`PYTHONPATH` 指到 DataHub 根，`python3 scheduler.py fg` 即可。
 `cwd` 全部相对，不绑死本机绝对路径。细节见 [case/README.md](case/README.md)。
 
+要脱离终端常驻，别用 `nohup`（工具调用结束会连带清掉派生的子进程），改由 `sd_watchdog.sh`
+加一条 cron 拉起，见「调度与守护」。
+
+新机器从零部署——前置条件、目录布局、环境变量、首次配置、cron 守护、故障排查、升级回滚——
+看 **[docs/DEPLOY.md](docs/DEPLOY.md)**。
+
 ## 调度
 
-弃用 crontab。`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
+业务任务不再逐条写 crontab：`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
 
 | 模块 | 时间 | 说明 |
 |---|---|---|
@@ -116,8 +123,37 @@ python3 manager.py list                      # 清单里 case 任务标 case
 | limit_up_noon | 12:00 | 涨停预测 · 午盘（每日一次） |
 
 后 4 个原来是 crontab 里的独立行，现在归 scheduler 管，统一包一层
-`data_hub.tech.health_run`：单次失败静默、连败 5 次才发一封邮件、成功一次清零，
-不需要额外的巡检 crontab。
+`data_hub.tech.health_run`：单次失败静默、连败 5 次才发一封邮件、成功一次清零。
+
+### 调度与守护（唯一需要的一条 cron）
+
+业务任务不需要巡检 crontab，但 **scheduler 进程本身需要**：它是单点常驻进程，被 kill 后
+所有任务都不会再被触发。所以留一条 cron 专门守护它，每分钟一次：
+
+```bash
+* * * * * /path/to/stock-dashboard/sd_watchdog.sh >/dev/null 2>&1
+```
+
+看门狗不碰业务，只做三件事：
+
+1. 用 `scheduler.py health` 判定：`0`=健康 / `1`=未运行 / `2`=僵死（进程还在，但心跳
+   `logs/scheduler.hb` 超过 3 分钟没更新）。心跳由调度循环每 tick 写，**比 pid 更能代表
+   "真的在调度"**；僵死走 `restart`（`start` 会因「已在运行」而空转）。
+2. 拉起后再查一次；连续 `SD_ALERT_AT` 次（默认 3）拉不起来才告警，避免每分钟刷屏。配了
+   `SD_ALERT_WEBHOOK`（钉钉/飞书自定义机器人）才推送，否则只写 `logs/watchdog.log`。
+3. 健康时只更新 `logs/watchdog.hb`（最后巡检时间），日志保持安静 —— 想确认 cron 这行还在
+   跑，看这个文件的时间即可。
+
+几件容易踩的事：
+
+- **漏跑窗口 = `GRACE_SEC` 6 小时**：scheduler 一分钟内被拉起时任务照常补跑；停摆超过 6 小时
+  才会静默跳过（日志能看到该 slot 未执行）。
+- **半途被杀**：子进程句柄只在内存里，新进程收不回来，`state.json` 会留下 `running=true`。
+  启动时统一标记 `interrupted` 并写 `scheduler.recovered_tasks`，不再让它假装「跑完了」。
+  默认**不自动重跑**（报告类任务重跑会重复推送飞书/邮件）；确认任务幂等后可把 `state.json`
+  里 `scheduler.auto_retry_interrupted` 置 `true`，启动时清空该任务 `last_slot`，在宽限内补跑一次。
+- **看门狗要能拉起自己**：脚本用 `BASH_SOURCE` 定位自身目录，不写死绝对路径；cron 那行的路径
+  换成你的实际部署路径即可，换机器不用改脚本。
 
 ## 注册机制
 
