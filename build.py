@@ -1589,6 +1589,147 @@ def render_liquidity_section(latest: Dict, series: Dict, obs: Optional[str]) -> 
             '%s</div></section>' % (rate_html, sp_html, mg_html, ch_html)), charts
 
 
+def render_rate_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple:
+    """利率子页（流动性 → 利率）：FedWatch 概率矩阵 + 中国降准降息预期 + AI 公司 CDS。
+
+    数据口径见 `case/rate_board/run.py`：美国侧读 DataHub EDB
+    `US.FEDWATCH.NEXT.*`（采集器 quikstrike:fedwatch），中国侧读 EDB 的
+    1Y-3M 利差与土狗地产日报产物，CDS 读 cds_monitor 最新 run。
+    矩阵走 `case/rate_board/out/fedwatch.json`（EDB 只存标量序列，矩阵单独落盘）。
+    """
+    RSEC = "RATE.BOARD"
+
+    _cache: Dict = {}
+
+    def _rec(k):
+        """先查 latest，再回落指标仓：load_all 只预载固定板块，RATE.BOARD 需按需读。"""
+        if k not in _cache:
+            r = latest.get((k, RSEC))
+            if r is None:
+                try:
+                    r = (read_latest([k], [RSEC]) or {}).get((k, RSEC))
+                except Exception:                              # noqa: BLE001
+                    r = None
+            _cache[k] = r
+        return _cache[k]
+
+    def _v2(k):
+        r = _rec(k)
+        return r.get("value_num") if r and r.get("quality") == "ok" else None
+
+    def _t2(k):
+        r = _rec(k)
+        return r.get("value_text") if r and r.get("quality") == "ok" else None
+
+    def _val(k, dec=1, unit="%"):
+        return num(_v2(k), dec, unit)
+
+    def _txt(k):
+        return html.escape(_t2(k) or "—")
+
+    us = [
+        ("下次 FOMC 会议", _txt("rate.us.fedwatch.meeting"), "30天联邦基金期货定价"),
+        ("距会议", _val("rate.us.fedwatch.days", 0, " 天"), ""),
+        ("加息概率", _val("rate.us.fedwatch.hike_next", 1, "%"), "至少加一次"),
+        ("不变 / 降息", "%s / %s" % (_val("rate.us.fedwatch.hold_next", 1),
+                                    _val("rate.us.fedwatch.ease_next", 1)), ""),
+        ("隐含目标中值", _val("rate.us.fedwatch.target_mid", 3, "%"), "区间概率加权"),
+        ("有效利率 EFFR", _val("rate.us.effr", 3, "%"), "实际成交口径"),
+        ("目标区间", "%s – %s" % (_val("rate.us.target_lower", 2, "%"),
+                                  _val("rate.us.target_upper", 2, "%")), ""),
+        ("美债 2Y", _val("rate.us.2y", 3, "%"), "近24个月预期锚"),
+    ]
+    us_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note), val)
+                      for n, val, note in us)
+
+    cn = [
+        ("国开 1Y-3M", _val("rate.cn.cdb_1y3m", 1, " bp"),
+         "降准降息预期核心"),
+        ("存单 1Y-3M", _val("rate.cn.ncd_1y3m", 1, " bp"),
+         "同口径印证"),
+        ("3M 国开-逆回购", _val("rate.cn.cdb3m_policy", 1, " bp"),
+         "短端对政策利率溢价"),
+        ("隔夜逆回购利率", _val("rate.cn.omo_policy", 2, "%"), "政策利率"),
+        ("存款准备金率", _val("rate.cn.rrr", 2, "%"), "大型机构口径"),
+        ("LPR 1Y / 5Y", "%s / %s" % (_val("rate.cn.lpr1y", 2, "%"),
+                                     _val("rate.cn.lpr5y", 2, "%")), ""),
+        ("土狗中性利率", _val("rate.cn.tugou_neutral", 2, "%"), "潜在增速+CPI"),
+        ("贴现率", _val("rate.cn.tugou_discount", 3, "%"), "FFTR+1Y掉期年化"),
+        ("按揭-租金利差", _val("rate.cn.tugou_kill_spread", 2, " pp"), "双杀判定"),
+        ("土狗状态机", _txt("rate.cn.tugou_state"), ""),
+    ]
+    cn_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note), val)
+                      for n, val, note in cn)
+
+# 信用 CDS 不在这里展示：CDS 已拆成独立私有任务（precious-task/case/cds_weekly），
+    # 走 internal 口径只落指标仓 + 触发告警邮件，不上公开面板。
+
+    # 目标区间概率矩阵
+    m = {}
+    try:
+        with open(os.path.join(HERE, "case", "rate_board", "out", "fedwatch.json"),
+                  encoding="utf-8") as _f:
+            m = json.load(_f) or {}
+    except (OSError, ValueError):
+        m = {}
+    rows = [r for r in (m.get("rows") or [])
+            if max(r.get("now") or 0, r.get("d1") or 0,
+                   r.get("w1") or 0, r.get("m1") or 0) > 0]
+    mat_blk = ""
+    if rows:
+        tr = "".join(
+            "<tr><td>%s%s</td><td>%.1f%%</td><td>%.1f%%</td><td>%.1f%%</td><td>%.1f%%</td></tr>"
+            % (r.get("range"), "（当前）" if r.get("current") else "",
+               r.get("now") or 0, r.get("d1") or 0, r.get("w1") or 0, r.get("m1") or 0)
+            for r in rows)
+        mat_blk = ('<div class="blk"><h4>目标区间概率 '
+                   '<span class="sm">（%s 会议 · 数据 %s CT）</span></h4>'
+                   '<table class="mod-tab"><thead><tr><th>目标区间(bp)</th>'
+                   '<th>现在</th><th>1天前</th><th>1周前</th><th>1月前</th></tr></thead>'
+                   '<tbody>%s</tbody></table>'
+                   '<p class="note">概率为 CME FedWatch 口径（30 天联邦基金期货定价），'
+                   '与芝商所工具页同源；Ease/Hold/Hike 三档合计 100%%。</p></div>'
+                   % (html.escape(str(m.get("meeting_date") or "—")),
+                      html.escape(str(m.get("asof_ct") or "—")), tr))
+
+    charts = []
+    ch_html = ""
+    for _cid, _k, _nm, _c, _u, _d in (
+        ("rt_hike", "rate.us.fedwatch.hike_next", "下次会议加息概率", "#ff4d5e", "%", 1),
+        ("rt_cdb", "rate.cn.cdb_1y3m", "国开 1Y-3M 利差", "#4a9eff", "bp", 1),
+    ):
+        _rows = series.get((_k, RSEC))
+        if _rows is None:
+            try:
+                _rows = read_series(_k, RSEC)
+            except Exception:                                  # noqa: BLE001
+                _rows = []
+        _p = chart_payload(_cid, _rows, _nm, _c, unit=_u, dec=_d)
+        if _p:
+            ch_html += ('<div class="blk"><h4>%s</h4><div class="chart" id="%s"></div></div>'
+                        % (_nm, _cid))
+            charts.append(_p)
+
+    _any = any(_v2(k) is not None for k in (
+        "rate.us.fedwatch.hike_next", "rate.cn.cdb_1y3m", "rate.cn.rrr"))
+    if not (_any or rows):
+        return "", []
+
+    return ('<section class="idx-card sec" id="liquidity_rate" '
+            'data-sec="liquidity_rate" data-def="1">'
+            '<header><h3>利率与政策预期 <em>FedWatch · 降准降息预期</em></h3>'
+            '<div class="obs">%s</div></header>'
+            '<div class="idx-body">'
+            '<div class="blk"><h4>美国 · CME FedWatch</h4><div class="kvs">%s</div></div>'
+            '%s'
+            '<div class="blk"><h4>中国 · 政策利率与降准降息预期</h4><div class="kvs">%s</div>'
+            '<p class="note">降准降息预期看「1Y − 3M」利差而非 OMO：预期宽松时利差被压平，'
+            '压到 20bp 附近通常对应降准/降息落地窗口（口径见 DataHub registry）。</p></div>'
+            '%s</div></section>'
+            % (html.escape(m.get("fetch_date") or obs or "—"),
+               us_html, mat_blk, cn_html, ch_html)), charts
+
+
 def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple:
     """债券与理财：利率曲线 / 期限结构 / 信用利差 / 理财替代锚。
 
@@ -2277,6 +2418,10 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     re_sec = render_realestate_section()
     macro_sec, macro_charts = render_macro_section(latest, series, obs)
     liq_sec, liq_charts = render_liquidity_section(latest, series, obs)
+    rate_sec, rate_charts = render_rate_section(latest, series, obs)
+    if rate_sec:
+        liq_sec = (liq_sec or "") + rate_sec
+        liq_charts = list(liq_charts or []) + list(rate_charts or [])
     bond_sec, bond_charts = render_bond_section(latest, series, obs)
     mod_sec = render_modules_panel(os.path.join(HERE, "modules.json"), st)
 
@@ -2369,7 +2514,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     # 导航只给「真渲染出来」的板块出链接（空板块不显示，链接也别留）
     _NAV = [("stock", "股票 · 宽基"), ("futures", "期货 · 基差"),
             ("realestate", "地产"), ("macro", "宏观"),
-            ("liquidity", "流动性"), ("bond", "债券 · 理财"),
+            ("liquidity", "流动性"), ("liquidity_rate", "利率"),
+            ("bond", "债券 · 理财"),
             ("option", "期权 · 波动率"), ("risk", "风险 · 结构"),
             ("modules", "模块管理")]
     _has = {
@@ -2378,6 +2524,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         "realestate": bool((re_sec or "").strip() or reg_in.get("realestate")),
         "macro": bool((macro_sec or "").strip() or reg_in.get("macro")),
         "liquidity": bool((liq_sec or "").strip() or reg_in.get("liquidity")),
+        "liquidity_rate": bool((rate_sec or "").strip()),
         "bond": bool((bond_sec or "").strip() or reg_in.get("bond")),
         "option": bool((opt_sec or "").strip() or reg_in.get("option")),
         "risk": bool((risk_sec or "").strip() or reg_in.get("risk")),

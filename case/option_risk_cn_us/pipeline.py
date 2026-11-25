@@ -39,4 +39,6 @@ def emit(ctx):
 
 
 def dispatch(ctx):
+    # 利率概率变化提醒：挂在本任务里每日执行（阈值 5 个百分点、按数据日幂等）
+    ctx.sh("python3 -u rate_prob_alert.py --send", timeout=300, check=False)
     ctx.sh(CMD_SEND, timeout=TIMEOUT, check=False)
