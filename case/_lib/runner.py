@@ -72,6 +72,12 @@ STAGE_CN = {"fetch": "取数", "check": "检查", "render": "出报告",
 
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+
+# 共享代码库（report_stats / broad5_risk / portfolio_stats 这类多任务复用的模块）：
+# 由框架统一注入 sys.path，任务不用各自拼绝对路径；私有仓库用 CASE_SHARED_DIR 指过来。
+SHARED_DIR = os.environ.get("CASE_SHARED_DIR") or os.path.join(CASE_DIR, "_shared")
+if os.path.isdir(SHARED_DIR) and SHARED_DIR not in sys.path:
+    sys.path.insert(0, SHARED_DIR)
 import alert as alert_mod                                          # noqa: E402
 import checks as check_mod                                          # noqa: E402
 
@@ -174,6 +180,7 @@ class Ctx:
         e.setdefault("CASE_TASK", self.key)
         e.setdefault("CASE_DATA_DIR", self.data_dir)
         e.setdefault("CASE_OUT_DIR", self.out_dir)
+        e.setdefault("CASE_SHARED_DIR", SHARED_DIR)
         e.update(env or {})
         self.log("$ %s" % cmd)
         os.makedirs(self.data_dir, exist_ok=True)
@@ -528,6 +535,8 @@ def main(argv: List[str]) -> int:
 
     ctx = Ctx(task, run_dir, logf, started, do_publish=not a.no_publish, dry=a.dry_run)
     ctx.log("任务 %s（%s）开始，阶段：%s" % (task["key"], task.get("section"), " → ".join(stages)))
+    if os.path.isdir(SHARED_DIR):
+        ctx.log("共享库 → %s" % SHARED_DIR)
     for req in task.get("requires") or []:
         if req == "pylibs":
             # 公共库软降级：设了且目录存在就前置进 sys.path；没设/不存在回退系统
