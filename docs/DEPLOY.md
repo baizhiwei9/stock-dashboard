@@ -23,7 +23,7 @@
 
 | 项 | 要求 | 说明 |
 |---|---|---|
-| Python | 3.9+（实测 3.12） | `scheduler.py`、`case/_lib/*` **纯标准库**；`build.py` 只额外依赖 `data_hub` 仓库（不是 pip 包） |
+| Python | **3.11+**（实测 3.12 / 3.13） | `scheduler.py`、`case/_lib/*` **纯标准库**；`build.py` 只额外依赖 `data_hub` 仓库（不是 pip 包）。**按 3.11 基线写，别在 3.11 上跑 3.12 语法**：f-string 内嵌同类型引号在 3.12+ 才合法，降级会 import 阶段直接 SyntaxError |
 | 第三方包 | 见 `requirements.txt` | 只有任务脚本要用（pandas / matplotlib / akshare / lightgbm / POT 等） |
 | DataHub 仓库 | `datahub-multi-tier` | 需与本站同级 checkout；`PYTHONPATH` 指到含 `data_hub/` 的仓库根 |
 | 时区 | `Asia/Shanghai` | 调度按本地时间算，机器时区错了所有任务都会错点 |
@@ -131,18 +131,30 @@ cp modules.example.json modules.json
 
 # ② 录入敏感配置（飞书凭据 + 管理密码 + 注册密钥，缺失或弱口令会中断安装）
 python3 setup.py
-#   等价入口：./install.sh   —— 先 --init 补齐，再校验，不合格非 0 退出
-#     api.password      ≥10 位，禁止 123456（HTTP 控制台 / X-SD-PW）
-#     api.registry_key  ≥16 位，且不要与管理密码相同（Worker 注册 / X-SD-KEY）
+#   有终端时这是交互引导，缺项逐条问、弱口令直接拒收。
+#   门禁口径（缺一不装，与根 DEPLOY.md §3.0 一致）：
+#     feishu.app_id / app_secret / webhook  必填，默认联网校验（--skip-live 可跳）
+#     api.password                          必填，≥12 位、含两类字符、非弱口令
+#                                           （HTTP 控制台 / X-SD-PW）
+#     api.registry_key                      必填，且不要与管理密码相同（Worker 注册 / X-SD-KEY）
+#     treasury.* / tushare.* / email.* / fred.api_key / alert.webhook
+#                                           选填，缺了对应通道降级，不影响启动
 
-#    非交互部署（CI / 自动化装机）：用环境变量喂值，--init 会落盘
-export COZE_SEC_API_PASSWORD='<至少10位>'
+#    非交互部署（CI / 自动化装机，没有 TTY）：用环境变量喂值，--init 会落盘
+export COZE_SEC_API_PASSWORD='<至少12位，含两类字符>'
 export COZE_SEC_API_REGISTRY_KEY='<至少16位>'
-python3 setup.py
+export COZE_SEC_FEISHU_APP_ID='cli_xxx'
+export COZE_SEC_FEISHU_APP_SECRET='xxx'
+export COZE_SEC_FEISHU_WEBHOOK='https://open.feishu.cn/open-apis/bot/v2/hook/xxx'
+python3 setup.py --init            # 只落盘 + 校验，不交互；离线加 --skip-live
 
-# ③ 校验必填项与文件权限（退出码 0 才算过，不打印任何值）
+# ③ 校验（退出码 0 才算过，不打印任何值）
 python3 setup.py --check
-#   等价：python3 case/_tools/check_secrets.py
+#   ./install.sh 内部走的就是 ② 的 --init + ③ 的 --check，两个都过才放行。
+#   不要用 case/_tools/check_secrets.py 当安装门禁：它只判 api.password /
+#   api.registry_key（REQUIRED_KEYS），飞书在 OPTIONAL_KEYS 里，只过它会出现
+#   「安装通过但所有推送必失败」——最贵的一种失败。check_secrets 的定位是
+#   日常排查工具（--paths 看 6 级查找链、不带参看当前生效值）。
 
 # ④ 确认端口没被占用（默认 8767）
 ss -lntp | grep 8767 || echo "8767 空闲"

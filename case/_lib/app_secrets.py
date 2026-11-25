@@ -316,6 +316,30 @@ def _raw_get(dotted):
     return _MISSING if _is_placeholder(val) else val
 
 
+def _file_value(dotted):
+    """只查配置文件，**不看环境变量**。
+
+    给 _persist_env_required 用：那里要判断「文件里到底有没有」，
+    不能用 has()/get()——它们会先查环境变量，env 给了值就误以为文件里也有。
+
+    注意 _walk 找不到时返回 _MISSING，而 _is_placeholder 只认 None 和 str，
+    对 _MISSING 会返回 False（当成「不是占位、是个真值」）。所以这里必须先
+    把 _MISSING 归一成 None，否则「文件里没有」会被误判成「文件里有」。
+    """
+    def _pick(k):
+        v = _walk(_read_config(), k)
+        return None if v is _MISSING or _is_placeholder(v) else v
+
+    v = _pick(dotted)
+    if v is not None:
+        return v
+    for alt in _KEY_ALIASES.get(dotted, ()):
+        v = _pick(alt)
+        if v is not None:
+            return v
+    return None
+
+
 def _resolve(dotted):
     """查一个点号 key，带别名兜底。返回 _MISSING 表示没有。"""
     val = _raw_get(dotted)
@@ -566,20 +590,34 @@ _SECRET_KEYS = ("api.password", "feishu.app_secret", "email.password",
                 "tushare.token", "tushare.official_token")
 
 
-def _persist_env_required(path):
-    """把环境变量里给到的必填项落盘，避免只活在当前 shell。"""
+def _persist_env_required(path, keys=None):
+    """把环境变量里给到的配置落盘，避免只活在当前 shell（批量装机 / CI 用）。
+
+    这里**必须**用 _file_value 判断，不能用 has()：
+    has() 走 _resolve → _raw_get，而 _raw_get 是「先查环境变量、再查文件」，
+    所以 env 给了值时 has() 已经是 True。原来写成 `if has(key): continue`，
+    等于「env 给了反而跳过落盘」——环境变量有值时提前 continue，没值时循环里
+    也取不到值，两条路都写不进文件，整段是死代码。表现就是无 TTY 环境下
+    `--init` 只落出一个空壳 secrets.json。
+    """
     wrote = []
-    for key in REQUIRED_KEYS:
-        if has(key):
+    for key in (keys or (REQUIRED_KEYS + OPTIONAL_KEYS)):
+        if _file_value(key) is not None:
             continue
         for name in _env_names(key):
             val = os.environ.get(name)
             if val is not None and not _is_placeholder(val):
-                set_value(key, val.strip(), path)
+                set_value(key, val.strip(), path=path)
                 wrote.append(key)
                 break
     if wrote:
-        print("已把环境变量中的必填项写入 %s：%s" % (path, ", ".join(wrote)))
+        print("已把环境变量中的配置写入 %s：%s" % (path, ", ".join(wrote)))
+    return wrote
+
+
+def persist_env(path=None, keys=None):
+    """把环境变量里给到的配置落盘（批量装机 / CI 的公开入口）。"""
+    return _persist_env_required(path or write_target(), keys)
 
 
 def _cmd_init():

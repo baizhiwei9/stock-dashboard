@@ -369,6 +369,9 @@ def _upgrade_local_secrets():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只校验不录入")
+    ap.add_argument("--init", action="store_true",
+                    help="非交互：把环境变量里的配置落盘，然后按 --check 校验"
+                         "（批量装机 / CI 用，不需要 TTY）")
     ap.add_argument("--force", action="store_true", help="已有配置也重新录入")
     ap.add_argument("--skip-live", action="store_true", help="跳过联网校验（离线环境）")
     ap.add_argument("--audit", action="store_true",
@@ -408,6 +411,18 @@ def main():
         print("\n✗ 共 %d 处命中，%d 个文件。开源前必须清干净。" % (len(hits), len(by_file)))
         print("  修 modules.json 弱口令：python3 setup.py --audit --fix")
         return 1
+
+    # ---------- 非交互落盘（批量装机 / CI） ----------
+    if a.init:
+        print("\n--- 从环境变量落盘 ---")
+        wrote = app_secrets.persist_env(TARGET)
+        if not wrote:
+            print("  环境变量里没有新配置可落盘（已有的不覆盖）。")
+            print("  需要设置的变量（COZE_SEC_ 前缀）：")
+            for k in ("api.password", "api.registry_key",
+                      "feishu.app_id", "feishu.app_secret", "feishu.webhook"):
+                print("    %s" % ", ".join(app_secrets._env_names(k)))
+        a.check = True          # 落盘后照常走完整校验
 
     # ---------- 只校验 ----------
     if a.check:

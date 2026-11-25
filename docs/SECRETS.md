@@ -16,7 +16,7 @@
 
 | key | 必填 | 说明 |
 |---|---|---|
-| `api.password` | 是 | 看板管理密码 / 调度器 HTTP 鉴权（`X-SD-PW`）。≥10 位，禁止 `123456`。 |
+| `api.password` | 是 | 看板管理密码 / 调度器 HTTP 鉴权（`X-SD-PW`）。≥12 位、含两类字符（大小写/数字/符号任两类），弱口令直接拒收。 |
 | `api.registry_key` | 是 | 外部模块注册密钥（`X-SD-KEY`）。≥16 位，不要与管理密码相同。 |
 | `feishu.app_id` | 否 | 飞书自建应用 App ID（发应用消息/上传图片时需要）。 |
 | `feishu.app_secret` | 否 | 飞书应用 App Secret。 |
@@ -77,8 +77,22 @@ export SMTP_PASSWORD='...'
 
 `$COZE_SECRETS` 可以显式指定另一个配置文件路径（设置后就只用它，不静默回退）。
 
-安装时用环境变量喂必填项，`check_secrets.py --init` 会把它们落盘到配置文件，
-后续启动不用再带同样的环境变量。
+无 TTY 的机器（CI / 批量装机 / agent 设备）用环境变量喂值，`setup.py --init`
+会把它们落盘到配置文件，后续启动不用再带同样的环境变量：
+
+```bash
+export COZE_SEC_API_PASSWORD='<至少12位，含两类字符>'
+export COZE_SEC_API_REGISTRY_KEY='<至少16位>'
+export COZE_SEC_FEISHU_APP_ID='cli_xxx'
+export COZE_SEC_FEISHU_APP_SECRET='xxx'
+export COZE_SEC_FEISHU_WEBHOOK='https://open.feishu.cn/open-apis/bot/v2/hook/xxx'
+python3 setup.py --init            # 落盘 + 完整校验，不交互
+```
+
+`--init` 只补**文件里还没有**的项，已有值不覆盖，所以重复跑是幂等的。
+`check_secrets.py --init` 也保留（交互式补齐，有终端时更省事），但它只判
+`REQUIRED_KEYS`（api.password / api.registry_key），**不能当安装门禁用**——
+飞书在选填组里，装过了但推送必失败。安装门禁一律用 `setup.py --check`。
 
 ## 只认环境变量的老脚本
 
