@@ -11,8 +11,11 @@
 
 退出码
 ------
-0 两地都成功；2 有一边成功（部分可用）；1 全失败。
-框架按非零判失败，这里区分 1/2 是为了让「上海通了、北京挂了」不至于整任务报红。
+0 至少一边主口径（北京/上海二手）成功 —— 有产出；1 两地主口径全失败 —— 无产出。
+
+**不再用 2 表达「部分成功」**：本任务是 cmd 模式，`scheduler._finish` 只看 `rc == 0`，
+2 同样会被记 fail。部分失败改由 `out/fetch.json` 的 `partial` / `failed` 与摘要顶部的
+「部分口径失败」提醒表达。
 """
 from __future__ import annotations
 
@@ -42,9 +45,30 @@ def _fmt(v, unit=""):
     return "%s%s" % (format(v, ","), unit)
 
 
+def _exit_code(res):
+    """退出码与失败项：主口径（北京/上海二手）至少一边成功就算有产出。
+
+    返回 ``(rc, failed)``；``failed`` 是中文口径名列表（含上海一手这类次口径）。
+    """
+    cities = res.get("cities") or {}
+    names = (("BJ", "北京"), ("SH", "上海"), ("SH_NEW", "上海一手"))
+    ok, failed = {}, []
+    for key, name in names:
+        v = cities.get(key)
+        if isinstance(v, dict):
+            ok[key] = bool(v.get("ok"))
+            if not ok[key]:
+                failed.append(name)
+    return (0 if (ok.get("BJ") or ok.get("SH")) else 1), failed
+
+
 def build_summary(res):
     """把库里的周度/月度拼成人读摘要。数据不足时明说不足，不四舍五入成整数糊过去。"""
     lines = ["# 京沪房产成交取数 %s" % (res.get("fetched_at") or "").split(" ")[0], ""]
+    if res.get("failed"):
+        lines.append("> **部分口径失败**：%s。其余口径可用（退出码仍为 0，仅此处提醒）。"
+                     % "、".join(res["failed"]))
+        lines.append("")
 
     for city in ("BJ", "SH", "SH_NEW"):
         rows = realestate.daily(city)
@@ -86,6 +110,10 @@ def main():
     res = realestate.fetch_all()
     os.makedirs(OUT, exist_ok=True)
 
+    rc, failed = _exit_code(res)
+    res["partial"] = bool(failed) and rc == 0
+    res["failed"] = failed
+
     with open(os.path.join(OUT, "fetch.json"), "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=2, default=str)
 
@@ -97,19 +125,7 @@ def main():
     print()
     print(summary)
 
-    # 按「地区」而不是按 dict 条目计数：SH 和 SH_NEW 同属上海，
-    # 分开计数会在北京失败、上海两项都成功时误判为 0（两地都成功）。
-    cities = res.get("cities") or {}
-    bj_ok = isinstance(cities.get("BJ"), dict) and bool(cities["BJ"].get("ok"))
-    sh_ok = isinstance(cities.get("SH"), dict) and bool(cities["SH"].get("ok"))
-    if not (bj_ok and sh_ok):
-        return 2 if (bj_ok or sh_ok) else 1
-    # 两地**主口径**都成之后再看次口径：上海一手（SH_NEW）挂掉原本也被算成 0，
-    # 一手连续失败没人会发现，所以降级成 2（部分成功）。次口径没取（键不存在）不算失败。
-    sub = cities.get("SH_NEW")
-    if isinstance(sub, dict) and not sub.get("ok"):
-        return 2
-    return 0
+    return rc
 
 
 if __name__ == "__main__":
