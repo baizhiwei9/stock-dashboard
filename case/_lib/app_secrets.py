@@ -646,7 +646,7 @@ def _cmd_init():
             val = val.strip()
             if key == "api.password":
                 if len(val) < 10:
-                    print("  api.password 至少 10 位，且不要用 123456。")
+                    print("  api.password 至少 12 位，且需含两类字符（不能全数字），不要用 123456。")
                     continue
                 confirm = _prompt("再输入一次 %s（不回显）：" % key, secret=True)
                 if confirm is None:

@@ -128,9 +128,30 @@ def _pw_problem(pw):
     return None
 
 
-def _state():
-    """读取当前三段配置。"""
-    return {name: app_secrets.section(name) for name in ("feishu", "scheduler", "treasury")}
+# 值注入用的环境变量裸名（FEISHU_APP_ID 这类），file_only 校验时临时摘掉。
+# 路径类（COZE_SECRETS / APP_SECRETS_FILE）不在其中 —— 它们指定「读哪个文件」，要保留。
+_VALUE_ENV_NAMES = {n for _names in app_secrets.ENV_ALIASES.values() for n in _names}
+
+
+def _state(file_only=False):
+    """读取当前三段配置。
+
+    file_only=True 只认凭据文件，忽略值注入的环境变量。安装门禁用这个：
+    `--init` 写盘失败（比如 COZE_SECRETS 指到不可写路径）但 COZE_SEC_* 还在环境里时，
+    普通校验读到的是 env，会全绿 —— 于是「打印安装成功、磁盘空空如也」，
+    等第一次启动才 fail-closed。校验磁盘才算校验安装。
+    """
+    names = ("feishu", "scheduler", "treasury")
+    if not file_only:
+        return {name: app_secrets.section(name) for name in names}
+    saved = {}
+    for k in list(os.environ):
+        if k.startswith("COZE_SEC_") or k in _VALUE_ENV_NAMES:
+            saved[k] = os.environ.pop(k)
+    try:
+        return {name: app_secrets.section(name) for name in names}
+    finally:
+        os.environ.update(saved)
 
 
 def _feishu_ready(f, skip_live):
@@ -374,6 +395,9 @@ def main():
                          "（批量装机 / CI 用，不需要 TTY）")
     ap.add_argument("--force", action="store_true", help="已有配置也重新录入")
     ap.add_argument("--skip-live", action="store_true", help="跳过联网校验（离线环境）")
+    ap.add_argument("--file-only", action="store_true",
+                    help="配合 --check：只校验凭据文件里真实落了什么，忽略 COZE_SEC_* 环境变量。"
+                         "安装门禁（install.sh）用这个 —— 否则 --init 写盘失败但 env 还在时会假通过")
     ap.add_argument("--audit", action="store_true",
                     help="扫全仓有没有真凭据漏在文件里（开源 / push 前的硬门禁）")
     ap.add_argument("--fix", action="store_true",
@@ -386,7 +410,7 @@ def main():
     print("凭据文件：%s" % TARGET)
     print("当前来源：%s" % app_secrets.source())
 
-    cur = _state()
+    cur = _state(a.file_only)
     f, s, t = cur["feishu"], cur["scheduler"], cur["treasury"]
 
     # ---------- 仓库审计（开源 / push 门禁） ----------
@@ -423,6 +447,7 @@ def main():
                       "feishu.app_id", "feishu.app_secret", "feishu.webhook"):
                 print("    %s" % ", ".join(app_secrets._env_names(k)))
         a.check = True          # 落盘后照常走完整校验
+        a.file_only = True      # 但校验的是「磁盘上真的写了什么」，不是 env 里还剩下什么
 
     # ---------- 只校验 ----------
     if a.check:
