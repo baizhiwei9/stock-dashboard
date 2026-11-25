@@ -1,9 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "note": [
     "case 产物的保留期规则（issue #80）。按文件 mtime 判年龄，超过 keep_days 才进候选。",
     "安全兜底写在 cleanup.py 里：git 跟踪的文件一律不删、latest.json/check.json/status.json/task.json 永不删、",
-    "后缀必须在 ALLOWED_EXT 内、只能删根目录内的路径、--max-delete 防止一次删太多。",
+    "后缀必须在 ALLOWED_EXT 内（按点分段判，兼容 x.log.<时间戳>）、只能删根目录内的路径、--max-delete 全轮累计防一次删光。",
+    "规则可带 exclude glob：给「不能重建的历史数据」单独定长保留期，别被短保留期的目录规则先删掉。",
     "新增任务若把产物写到别的目录，在这里加一条规则（glob 相对仓库根）。"
   ],
   "rules": [
@@ -12,7 +13,15 @@
       "glob": "case/*/data/**/*",
       "keep_days": 30,
       "ext": [".csv", ".json", ".pkl", ".parquet"],
-      "why": "删了会重取；chains/<date>.json 这类单日全市场快照最占盘"
+      "exclude": ["case/*/data/chains/**/*"],
+      "why": "删了会重取；chains/ 例外，见下一条（日报只补当日、不回补历史）"
+    },
+    {
+      "name": "期权链历史（不可重建）",
+      "glob": "case/*/data/chains/**/*",
+      "keep_days": 400,
+      "ext": [".json"],
+      "why": "compute_ashare / analyze_ashare 按 trade_cal.last252 逐日读链条，日报的 fetch_rt chains 只落当日、不回补历史；30 天清掉会永久少一段 252 日窗口，算出来的分位与趋势跟着变"
     },
     {
       "name": "报告产物",
@@ -40,7 +49,14 @@
       "glob": "case/*/reports/**/*",
       "keep_days": 90,
       "ext": [".png", ".jpg", ".jpeg", ".html", ".md", ".csv", ".json"],
-      "why": "bond_three_factor / xi_d_rrg 等把周报写这里"
+      "why": "xi_d_rrg 等把周报写这里"
+    },
+    {
+      "name": "嵌套代码目录里的报告",
+      "glob": "case/*/*/reports/**/*",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg", ".html", ".md", ".csv", ".json"],
+      "why": "bond_three_factor 的 ROOT 在 commodities_strategies/ 下（config.ROOT=包目录父级），周报与状态文件落在 case/<key>/<pkg>/reports/"
     },
     {
       "name": "图表目录",
@@ -80,7 +96,7 @@
       "glob": "logs/*.log.*",
       "keep_days": 30,
       "ext": [".log", ".txt"],
-      "why": "scheduler 按 20MB 轮转出的历史日志"
+      "why": "scheduler 按 20MB 轮转出的 <key>.log.<时间戳>；后缀按点分段判，别被时间戳后缀挡住"
     },
     {
       "name": "清理清单",

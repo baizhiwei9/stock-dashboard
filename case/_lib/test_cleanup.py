@@ -105,6 +105,59 @@ class CleanupCase(unittest.TestCase):
                 if x.endswith(".csv")]
         self.assertEqual(len(left), 3)
 
+    def test_max_delete_is_global_across_rules(self):
+        """--max-delete 是整轮上限，不是每条规则各给一份（曾经 2 条规则各删 2 个）。"""
+        for i in range(5):
+            _touch(os.path.join(self.root, "case", "t", "data", "f%d.csv" % i), 40)
+            _touch(os.path.join(self.root, "case", "t", "out", "o%d.png" % i), 400)
+        self.assertEqual(self._run("--apply", "--max-delete", "3"), 0)
+        left_csv = [x for x in os.listdir(os.path.join(self.root, "case", "t", "data"))
+                    if x.endswith(".csv")]
+        left_png = [x for x in os.listdir(os.path.join(self.root, "case", "t", "out"))
+                    if x.endswith(".png")]
+        self.assertEqual(len(left_csv) + len(left_png), 7, "整轮只该删 3 个")
+
+    def test_rotated_log_matched_by_dot_segment(self):
+        """logs/<key>.log.<时间戳> 的 splitext 后缀是时间戳，必须按点分段判后缀。"""
+        rules = os.path.join(self.root, "log_rules.json")
+        with open(rules, "w", encoding="utf-8") as f:
+            json.dump({"rules": [{"name": "rotated", "glob": "logs/*.log.*",
+                                  "keep_days": 30, "ext": [".log", ".txt"]}]}, f)
+        old = _touch(os.path.join(self.root, "logs", "margin_flow.log.20261101-043000"), 40)
+        self.assertEqual(cleanup.main(["--root", self.root, "--rules", rules,
+                                       "--apply", "--quiet"]), 0)
+        self.assertFalse(os.path.exists(old), "轮转日志必须能被清理规则命中")
+
+    def test_task_scopes_root_level_rule(self):
+        """--task 也要管任务根级规则（case/*/*.png），别退化成 case/<task>/ 目录。"""
+        rules = os.path.join(self.root, "root_rules.json")
+        with open(rules, "w", encoding="utf-8") as f:
+            json.dump({"rules": [{"name": "rootpng", "glob": "case/*/*.png",
+                                  "keep_days": 90, "ext": [".png"]}]}, f)
+        keep = _touch(os.path.join(self.root, "case", "other", "x.png"), 400)
+        drop = _touch(os.path.join(self.root, "case", "t", "img.png"), 400)
+        self.assertEqual(cleanup.main(["--root", self.root, "--rules", rules, "--task", "t",
+                                       "--apply", "--quiet"]), 0)
+        self.assertFalse(os.path.exists(drop))
+        self.assertTrue(os.path.exists(keep), "别的任务不该被 --task t 清到")
+
+    def test_exclude_keeps_history(self):
+        """短保留期的目录规则要能用 exclude 放过「不可重建」的历史数据。"""
+        rules = os.path.join(self.root, "ex_rules.json")
+        with open(rules, "w", encoding="utf-8") as f:
+            json.dump({"rules": [
+                {"name": "cache", "glob": "case/*/data/**/*", "keep_days": 30,
+                 "ext": [".json"], "exclude": ["case/*/data/chains/**/*"]},
+                {"name": "chains", "glob": "case/*/data/chains/**/*", "keep_days": 400,
+                 "ext": [".json"]},
+            ]}, f)
+        keep = _touch(os.path.join(self.root, "case", "t", "data", "chains", "20260101.json"), 100)
+        drop = _touch(os.path.join(self.root, "case", "t", "data", "cache.json"), 100)
+        self.assertEqual(cleanup.main(["--root", self.root, "--rules", rules,
+                                       "--apply", "--quiet"]), 0)
+        self.assertTrue(os.path.exists(keep), "chains 历史不在 30 天规则里被删")
+        self.assertFalse(os.path.exists(drop))
+
     def test_tracked_file_never_deleted(self):
         try:
             subprocess.run(["git", "init", "-q", self.root], check=True,

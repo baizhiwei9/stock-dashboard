@@ -24,7 +24,9 @@ case 任务会往 `data/`（取数缓存）、`out/`、`output/`、`reports/`、
 3. 关键文件名永不删：`latest.json / check.json / status.json / task.json / metrics.json`；
 4. 只能删**根目录内部**的路径（`realpath` 必须落在 root 下，挡符号链接穿越）；
 5. 默认 `--dry-run`，只打印清单；`--apply` 才真删；
-6. 不管删不删，都先把「清单 + 字节数」写进 `logs/cleanup-<时间戳>.txt`，便于回查。
+6. 不管删不删，都先把「清单 + 字节数」写进 `logs/cleanup-<时间戳>.txt`，便于回查；
+7. 规则可带 `exclude` glob（如 `case/*/data/chains/**/*`）：命中即跳过，给「不能重建的
+   历史数据」留一条更高保留期的规则，不被短保留期规则先删掉。
 
 用法
 ----
@@ -121,15 +123,51 @@ def _skip_dir(path: str) -> bool:
     return any(part in PROTECTED_DIRS for part in path.split(os.sep))
 
 
+def _ext_ok(name: str, allow: set) -> bool:
+    """后缀判定按「点分段」做，不能用 ``splitext``。
+
+    ``margin_flow.log.20261101-043000`` 这种轮转日志，``splitext`` 取到的后缀是
+    时间戳本身（``.20261101-043000``），永远不在白名单里 —— 按点分段则能命中 ``.log``。
+    """
+    return bool({"." + seg.lower() for seg in name.split(".")[1:]} & allow)
+
+
+def _excluded(posix: str, excludes: list) -> bool:
+    """规则级 exclude 判定。
+
+    ``fnmatch`` 里 ``*`` 会吃掉斜杠但 ``**/*`` 仍要求「再有一层目录」，所以
+    ``case/*/data/chains/**/*`` 匹配不到 ``chains/20260101.json``。这里对
+    ``/**/*`` 与 ``/**`` 结尾的模式改成「逐级祖先目录逐个比对前缀」，前缀里的
+    通配符才不会被当成字面量。
+    """
+    for ex in excludes:
+        if fnmatch.fnmatch(posix, ex):
+            return True
+        pat = None
+        if ex.endswith("/**/*"):
+            pat = ex[:-5]
+        elif ex.endswith("/**"):
+            pat = ex[:-3]
+        if pat:
+            d = os.path.dirname(posix)
+            while d and d not in ("/", ""):
+                if fnmatch.fnmatch(d, pat):
+                    return True
+                d = os.path.dirname(d)
+    return False
+
+
 def _collect(root: str, rule: dict, tracked: set, refs: set, task: str | None):
     """按一条规则收集候选（返回 (rel, size, age_days) 列表）。"""
     pattern = rule["glob"]
-    if task:
-        # 任务过滤只对 case/<task>/... 生效，其它规则（assets/logs）照常
-        if pattern.startswith("case/"):
-            pattern = "case/%s/%s" % (task, pattern.split("/", 2)[2] if pattern.count("/") > 2 else "")
+    if task and pattern.startswith("case/"):
+        # 任务过滤只对 case/<task>/... 生效，其它规则（assets/logs）照常。
+        # 剥掉 "case/*" 后只留尾巴：case/*/*.png → *.png，case/*/data/**/* → data/**/*
+        tail = pattern.split("/", 2)[2] if pattern.count("/") > 1 else "**/*"
+        pattern = "case/%s/%s" % (task, tail)
 
     ext_allow = {e.lower() for e in rule.get("ext", [])} or ALLOWED_EXT
+    excludes = [os.path.join(root, g).replace(os.sep, "/") for g in rule.get("exclude", [])]
     keep_days = float(rule.get("keep_days", MAX_AGE_DAYS_DEFAULT))
     now = time.time()
     out = []
@@ -141,11 +179,14 @@ def _collect(root: str, rule: dict, tracked: set, refs: set, task: str | None):
         name = os.path.basename(path)
         if name in PROTECTED_NAMES:
             continue
-        if os.path.splitext(name)[1].lower() not in ext_allow:
+        if not _ext_ok(name, ext_allow):
             continue
         if not _inside(root, path):
             continue
         norm = os.path.normpath(path)
+        posix = norm.replace(os.sep, "/")
+        if _excluded(posix, excludes):                       # 规则显式排除（历史数据）
+            continue
         if norm in tracked:                                  # git 跟踪的一律不删
             continue
         rel = os.path.relpath(norm, root).replace(os.sep, "/")
@@ -181,7 +222,7 @@ def main(argv=None) -> int:
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--no-manifest", action="store_true", help="不写 logs/cleanup-*.txt")
     ap.add_argument("--max-delete", type=int, default=0,
-                    help="单次最多删多少个文件（0=不限），防止规则写错一次删光")
+                    help="整轮最多删多少个文件（0=不限，跨规则/跨根累计），防止规则写错一次删光")
     a = ap.parse_args(argv)
 
     try:
@@ -207,8 +248,12 @@ def main(argv=None) -> int:
     report = {"mode": "apply" if a.apply else "dry-run", "roots": roots,
               "rules": [], "deleted": 0, "bytes": 0, "skipped_tracked": 0}
     budget = a.max_delete if a.max_delete > 0 else None
+    total_del = 0            # 跨规则、跨根累计的删除数（--max-delete 的真实口径）
 
+    exhausted = False
     for root in roots:
+        if exhausted:
+            break
         tracked = _git_tracked(root)
         for rule in cfg.get("rules", []):
             refs = _html_refs(root, rule["respect_html"]) if rule.get("respect_html") else set()
@@ -221,8 +266,9 @@ def main(argv=None) -> int:
                             rule.get("keep_days", MAX_AGE_DAYS_DEFAULT),
                             os.path.relpath(root, REPO) if root != REPO else "."))
             for rel, size, age in sorted(cand, key=lambda x: -x[2]):
-                if budget is not None and rule_del >= budget:
-                    lines.append("  ... 达到 --max-delete=%d，本条规则停止" % budget)
+                if budget is not None and total_del >= budget:
+                    lines.append("  ... 达到 --max-delete=%d，本轮停止" % budget)
+                    exhausted = True
                     break
                 lines.append("  %-8s %8s  %5.0fd  %s"
                              % ("DELETE" if a.apply else "WOULD", _fmt_bytes(size), age, rel))
@@ -234,6 +280,7 @@ def main(argv=None) -> int:
                         continue
                 rule_del += 1
                 rule_bytes += size
+                total_del += 1
             report["rules"].append({"rule": rule.get("name") or rule["glob"],
                                     "root": root, "count": rule_del, "bytes": rule_bytes})
             report["deleted"] += rule_del
@@ -242,6 +289,8 @@ def main(argv=None) -> int:
                 print("[cleanup] %-22s %3d 个 %8s  %s"
                       % (rule.get("name") or rule["glob"], rule_del,
                          _fmt_bytes(rule_bytes), os.path.basename(root)))
+            if exhausted:
+                break
 
     if not a.no_manifest:
         try:
