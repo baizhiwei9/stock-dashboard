@@ -21,22 +21,16 @@
 **北京**：官方只发最新一日和当月累计，没有历史序列。所以这个任务的价值在**日积月累**
 ——跑满 7 天才第一次有周度数字。第一次部署时周度会是空的，这是数据源的限制，不是 bug。
 
-**上海**：`fangdi.com.cn` 挂瑞数（trp）动态防护，requests 一律 412，必须真浏览器。所以
-定时这条链走归档仓（作者每日本地采集后推 Markdown，我们只 pull 和解析），**归档只当
-历史基线**——它会滞后会断档（实测 2026-11-25 07:05 那次没提交，二手停在 11-23），而
-一手房「今日签约」是首页滚动值、隔天即丢。当日增量由我们自己的直采补：
+**上海**：`fangdi.com.cn` 挂瑞数（trp）动态防护，requests 一律 412，**纯程序过不去**。所以
+自动链路走归档仓：作者每日本地采集后推 Markdown，我们只 `git pull` + 解析。整条链纯 Python、
+**不需要浏览器、不需要人工**，TaskManager 直接调得动。
 
-```bash
-DUMATE_BROWSER_CLI=/path/to/dumate-browser-use/scripts/playwright-cli \
-  PYTHONPATH=/path/to/datahub-multi-tier \
-  bash /path/to/datahub-multi-tier/scripts/fetch_sh_via_browser.sh
-```
+代价是滞后：实测 2026-11-25 归档最新只到 11-23（作者当天没跑），二手滞后 2 天、一手 0 天。
+周度口径能容忍这个滞后，而且 `house.freshness()` 会把滞后天数与 `stale` 标记写进 `summary.md`，
+上游断档不会静默。
 
-直采实现在 `data_hub/house/sources/sh_direct.py`（地产已独立成 `data_hub.house` 模块，旧
-`data_hub.realestate` 仍兼容）：取 `old_house` 的 `#z_sell_num_p`（值在
-兄弟节点，标签节点只有文字）、首页 `#sign_num`、trade 页「预/出售各类商品房」。二手那个
-点位**时段性可用**（10:09 有值、18:15 空），脚本带重试与正则回退，取不到就不写；17:00 后
-trade 页常为「0 套」，已判为无效丢弃。建议 07:10 与 22:40 各跑一次。
+> 可选增强（**日常不用**）：`scripts/fetch_sh_via_browser.sh` 用浏览器过瑞数补当日增量，
+> 需要真浏览器环境，进不了纯 Python 定时链。只有在"当天就要数"时才手动跑一次。
 
 ## 部署依赖
 

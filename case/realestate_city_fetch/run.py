@@ -44,16 +44,31 @@ def _fmt(v, unit=""):
 
 def build_summary(res):
     """把库里的周度/月度拼成人读摘要。数据不足时明说不足，不四舍五入成整数糊过去。"""
+    fresh = res.get("freshness") or {}
     lines = ["# 京沪房产成交取数 %s" % (res.get("fetched_at") or "").split(" ")[0], ""]
+
+    staled = [(c, v) for c, v in fresh.items() if v.get("stale")]
+    if staled:
+        lines.append("> **数据滞后提醒**：" + "；".join(
+            "%s 最新 %s（滞后 %s 天）" % (CITY_CN.get(c, c), v["last"], v["lag_days"])
+            for c, v in staled) + "。这是上游没更新（归档作者没跑），不是本任务抓取失败。")
+        lines.append("")
 
     for city in ("BJ", "SH", "SH_NEW"):
         rows = realestate.daily(city)
+        f = fresh.get(city) or {}
         lines.append("## %s" % CITY_CN[city])
         if not rows:
             lines.append("- 库内无数据")
             lines.append("")
             continue
-        lines.append("- 库内 %d 天，%s ~ %s" % (len(rows), rows[0]["date"], rows[-1]["date"]))
+        lag = f.get("lag_days")
+        tag = ""
+        if lag is not None:
+            tag = "，最新滞后 %d 天%s" % (
+                lag, "（超阈值，上游可能断档）" if f.get("stale") else "")
+        lines.append("- 库内 %d 天，%s ~ %s%s"
+                     % (len(rows), rows[0]["date"], rows[-1]["date"], tag))
         for w in realestate.weekly(city, weeks=2):
             lines.append("- 周 %s：%s 套 / %s%s（%d 天%s）"
                          % (w["label"], _fmt(w["deals"]), _fmt(w["area"], " ㎡"), "",
@@ -78,7 +93,10 @@ def build_summary(res):
 
     lines.append("---")
     lines.append("口径：北京「住宅」不含商业办公，上海「二手房」含商业与车位，两地不可直接横比。")
-    lines.append("来源：北京 = 北京市住建委·房地产数据主题服务；上海 = ahbencat/shanghai_fangdi_data 归档。")
+    lines.append("来源：北京 = 北京市住建委·房地产数据主题服务（HTTP 直取）；"
+                 "上海 = ahbencat/shanghai_fangdi_data 归档（git pull 解析 Markdown）。")
+    lines.append("调度：每日 07:30 由 TaskManager 跑本脚本。全链纯程序："
+                 "不依赖浏览器、不需要人工介入；上游断档由上面的滞后提醒暴露。")
     return "\n".join(lines)
 
 
