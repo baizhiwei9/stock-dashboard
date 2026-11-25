@@ -331,7 +331,17 @@ python3 case/_lib/runner.py --task <key> --dry-run
 ```
 
 - 扫描顺序：先 `case/`，再 `CASE_EXTRA_DIRS`；同一个 key 重复时**先命中的生效**，后出现的记一条冲突（stderr）。
-- 私有任务的 `visibility` 应设 `internal`：照常定时跑、照常写指标仓，但不上牌面。
+- 私有任务 `task.json` 的 `visibility` 写 `private`（历史写法 `internal` 等价）：照常定时跑、照常写指标仓，
+  出页时只上私有页 `private.html`，公开页 `index.html` 不认识它们；没有 `section` 时按 `section_domain` 归板块。
+- 私有页单独构建一次即可（与公开页同一环境、同一 PYTHONPATH）：
+  `python3 build_private.py --out /srv/monitor/private.html`。
+- 私有页会把任务产出的**图**一起带上：扫 `<task>/out|charts|runs|output|figures|reports|assets` 里最近的图
+  （默认每个任务 6 张，`--max-images` 可调），原图拷到**页面同目录** `assets/private/<key>/`，
+  另生成最长边 900 的缩略图放 `assets/private/<key>/thumb/`；页面先给缩略网格，点开是灯箱原图
+  （滚轮缩放、拖动、1:1、Esc 关闭）。所以 web 根目录要能访问到 `assets/`，与 `private.html` 同级即可。
+  不想带图或只想出指标：`python3 build_private.py --no-images`；图片放到别处用 `--assets /path/to/assets`。
+- 私有任务要出数值，需要它在本机跑过并由 `publish` 回填（`out/latest.json` 或指标仓有点）；
+  还没跑过的先显示任务卡，属正常状态。
 
 ---
 

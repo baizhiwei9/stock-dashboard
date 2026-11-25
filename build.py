@@ -742,6 +742,10 @@ nav.jump a:hover{border-color:var(--blue);color:var(--blue)}
 .blk h4{margin:0 0 11px;font-size:13px;font-weight:600;color:var(--tx);
   display:flex;align-items:baseline;gap:8px}
 .blk h4 em{font-style:normal;font-size:10.5px;color:var(--tx3);font-weight:400}
+/* 暂无指标的私有任务：紧凑任务卡，不铺大块空白 */
+.blk.mini{padding:10px 18px}
+.blk.mini h4{margin:0 0 3px;font-size:12.5px}
+.blk.mini .note{margin:0}
 
 /* 键值对 */
 .kvs{display:grid;grid-template-columns:1fr 1fr;gap:5px 14px}
@@ -2497,14 +2501,27 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
     ch_html = "".join(
         '<div class="blk"><h4>%s</h4><div class="chart" id="%s"></div></div>' % (nm, cid)
         for cid, _k, nm, _c, _u, _d in charts)
-    kind = "case 任务" if w.get("source") == "case" else "注册 Worker"
-    meta = ('<span class="sm">%s %s · %s</span>'
-            % (kind, html.escape(str(w.get("app_id") or "")),
-               html.escape(_sched_txt(w.get("sched")))))
+    badge = ""
+    is_case = (w.get("source") == "case"
+               or str(w.get("app_id") or "").startswith("case:"))
+    if is_case:
+        meta_txt = "case 任务 %s" % html.escape(str(key))
+        if w.get("visibility") == "private":
+            # 私有页（build_private.py）才需要标记；公开页整页都是 public，不加徽标、保持原样
+            badge = '<span class="tag">私有</span> '
+    else:
+        meta_txt = "注册 Worker %s" % html.escape(str(w.get("app_id") or ""))
+    meta = ('%s<span class="sm">%s · %s</span>'
+            % (badge, meta_txt, html.escape(_sched_txt(w.get("sched")))))
+    note = html.escape(w.get("desc") or "")
+    if not rows:
+        # 暂无指标（多为私有任务首跑前）：出紧凑任务卡，不铺大块空白
+        return ('<div class="blk mini"><h4>%s %s</h4>'
+                '<p class="note">%s <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p>'
+                '</div>' % (html.escape(w.get("title") or key), meta, note)), []
     head = ('<div class="blk"><h4>%s %s</h4>'
             '<p class="note">%s</p><div class="kvs">%s</div></div>'
-            % (html.escape(w.get("title") or key), meta,
-               html.escape(w.get("desc") or ""), "".join(rows)))
+            % (html.escape(w.get("title") or key), meta, note, "".join(rows)))
     return head + ch_html, charts
 
 
@@ -2567,6 +2584,8 @@ def _case_modules() -> list:
         import case_registry
         mods = []
         for m in case_registry.as_modules(os.path.join(HERE, "case")):
+            if m.get("visibility") == "private":
+                continue                  # 私有任务在 private.html 里看，不混进公开页
             errs = m.get("_errors") or []
             if errs:
                 m = dict(m)

@@ -34,6 +34,8 @@ VISIBILITIES = ("public", "private")
 # 别名过渡期：老任务写的是 internal，语义等同 private。等 precious-task 里
 # 17 个 task.json 全部改成 private 之后再删掉这张表（见 case/_seed/visibility.md）。
 VISIBILITY_ALIASES = {"internal": "private"}
+# 私有任务的 section_domain 可能超出面板 Tab（如 credit 落在债券信用下），统一映射。
+SECTION_ALIAS = {"credit": "bond"}
 RUNNER = os.path.join(HERE, "runner.py")
 
 
@@ -54,7 +56,10 @@ def _safe_int(v, default: int) -> int:
 
 
 def visibility_of(t: Dict) -> str:
-    """任务的可见性：public 上牌面，private 只跑与落库。缺省按 public。
+    """任务的可见性：public / private。缺省按 public。
+
+    2026-11-25 起公私**同页展示**：public 卡片标「公开」，private 卡片标「私有」，
+    两者只差一个标记与代码所在仓库，不再维护两套面板。
 
     旧值 internal 归一成 private（别名过渡期），不产生错误、不悄悄当 public。
     未知值**原样返回**：这种任务由 validate_task 记一条错误、在调度里以
@@ -62,6 +67,19 @@ def visibility_of(t: Dict) -> str:
     """
     v = str(t.get("visibility") or "public").strip().lower()
     return VISIBILITY_ALIASES.get(v, v)
+
+
+def section_of(t: Dict) -> str:
+    """任务归属板块：section 优先，私有任务退到 section_domain，最后映射到已有 Tab。
+
+    私有任务的历史配置习惯把标签写在 section_domain 里（section 留空），
+    这里统一成一个口径，面板与模块管理都用它。
+    """
+    for k in ("section", "section_domain"):
+        v = str(t.get(k) or "").strip()
+        if v:
+            return SECTION_ALIAS.get(v, v)
+    return ""
 
 
 def task_dirs(base: Optional[str] = None) -> List[str]:
@@ -238,8 +256,9 @@ def as_modules(base: Optional[str] = None) -> List[Dict]:
             "key": t["key"],
             "title": t.get("title") or t["key"],
             "desc": t.get("desc") or "",
-            "domains": [t.get("section") or "modules"],
-            "section": t.get("section"),
+            "domains": [section_of(t) or "modules"],
+            "section": section_of(t) or None,
+            "visibility": visibility_of(t),
             "cwd": _resolve_cwd(t),
             "cmd": cmd,
             "legacy_cmd": t.get("cmd") if pipe else "",
@@ -261,38 +280,89 @@ def _q(s: str) -> str:
     return '"%s"' % str(s).replace('"', '\\"')
 
 
-def as_workers(base: Optional[str] = None) -> List[Dict]:
-    """转成 build.py 的 worker 结构，用于在对应 section 渲染 case 任务结果。
-
-    只出 visibility=public 且有 section 的任务：private 任务照跑照落库，但不上牌面。
-    """
+def _metrics_declared(t: Dict) -> List[Dict]:
+    """task.json 里声明的 metrics（允许写成字符串简写）。"""
     out: List[Dict] = []
-    for t in load_tasks(base, only_enabled=True):
+    for it in (t.get("metrics") or []):
+        if isinstance(it, str):
+            it = {"key": it}
+        if isinstance(it, dict) and it.get("key"):
+            out.append(it)
+    return out
+
+
+def _metrics_from_latest(t: Dict) -> List[Dict]:
+    """没声明 metrics 时，从 out/latest.json 的 points 反推声明。
+
+    私有任务（precious-task）历来只写 out/latest.json、不维护 metrics 清单；
+    有了这条兜底，它们不改 task.json 也能上同一块牌面。
+    """
+    d = _read_json(os.path.join(t["_dir"], "out", "latest.json"), None)
+    if not isinstance(d, dict):
+        return []
+    out: List[Dict] = []
+    seen = set()
+    for p in (d.get("points") or []):
+        if not isinstance(p, dict):
+            continue
+        k, s = p.get("key"), p.get("sec")
+        if not k or not s or (k, s) in seen:
+            continue
+        seen.add((k, s))
+        out.append({"key": k, "sec": s, "name": p.get("name") or k,
+                    "unit": p.get("unit") or "", "dec": p.get("dec", 2)})
+    return out
+
+
+def as_workers(base: Optional[str] = None, visibility: str = "public",
+               include_disabled: Optional[bool] = None) -> List[Dict]:
+    """转成 build.py 的 worker 结构：两个页面各取自己那一半，互不混排。
+
+    2026-11-25 的口径是**两套页面**：
+      · 公开页 `build.py → index.html` 只出 visibility=public（开源单日报）；
+      · 私有页 `build_private.py → private.html` 只出 private（含旧别名 internal）。
+    两页共用同一套样式、卡片渲染与 data_hub 取数，不复制框架、不另算数据。
+      · 板块取 section，私有任务没有 section 时退到 section_domain；
+      · 指标优先用 task.json 的 metrics 声明，没声明就从 out/latest.json 反推；
+      · 私有任务没有指标也先出任务卡（跑一次、publish 回填后自动出数值）；
+        公开任务仍等回填后才占位，避免空壳铺满板块。
+    """
+    if visibility not in ("public", "private", "all"):
+        raise ValueError("visibility 只能是 public/private/all")
+    if include_disabled is None:
+        # 公开页沿用旧行为（停用任务不上牌面）；私有页要看历史产物，停用也上
+        include_disabled = visibility != "public"
+    out: List[Dict] = []
+    for t in load_tasks(base, only_enabled=not include_disabled):
         if t.get("_errors"):
             continue                      # 配置错误的进模块管理页（标红），不上数据板块
-        if not t.get("metrics"):
-            continue                      # 首跑还没回填指标的任务不上面板
-        if t.get("section") == "modules":
+        vis = visibility_of(t)
+        if visibility != "all" and vis != visibility:
+            continue                      # 两套页面各取自己那一半，不混排
+        sec = section_of(t)
+        if not sec or sec == "modules" or sec not in SECTIONS:
             continue                      # 工具类任务只进模块管理页，不单独占一个数据板块
-        if visibility_of(t) != "public" or not t.get("section"):
-            continue                      # 私有任务：运行与落库照旧，只是不展示
         if t.get("build_workers") is False:
             continue                      # 已有专用 render_* 页面的任务，不再出通用 case 块
+        metrics = _metrics_declared(t) or _metrics_from_latest(t)
+        if not metrics and vis == "public":
+            continue                      # 公开任务回填指标前不占位
         out.append({
             "key": t["key"],
             "app_id": "case:%s" % t["key"],
+            "dir": t["_dir"],                 # 私有页据此扫 out/ charts/ runs/ 里的图
             "title": t.get("title") or t["key"],
             "desc": t.get("desc") or "",
-            # build.py 用 tab 决定归到哪个板块；sec 是 render_registered_model
-            # 里指标的默认 security_id，不能混用（case 任务每条 metric 都自带 sec）。
-            "tab": t.get("section"),
-            "sec": t.get("section"),
+            "sec": sec,
+            "tab": sec,
+            "visibility": vis,
             "source": "case",
             "sched": t.get("sched"),
             # not_before 是 scheduler 的「不许提前拉」闸门（见 _not_before_time）。
             # 不透传的话，pipeline 任务即使写了 not_before 也会被 pull_forward 提前起。
             "not_before": t.get("not_before"),
-            "metrics": t.get("metrics") or [],
+            # metrics 取声明或 out/latest.json 反推（私有任务不维护清单）
+            "metrics": metrics,
             "deliver": t.get("deliver") or {},
         })
     return out

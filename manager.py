@@ -155,8 +155,10 @@ def find_mod(cfg: Dict, key: str) -> Optional[Dict]:
 
 
 def case_toggle(key: str, on: bool) -> int:
-    """case 任务的启停写回 case/<key>/task.json。"""
-    fp = os.path.join(CASE_DIR, key, "task.json")
+    """case 任务的启停写回它自己所在的目录（开源仓 case/ 或 CASE_EXTRA_DIRS 私有仓）。"""
+    import case_registry
+    own = {t["key"]: t["_dir"] for t in case_registry.load_tasks(CASE_DIR)}
+    fp = os.path.join(own.get(key) or os.path.join(CASE_DIR, key), "task.json")
     try:
         with open(fp, encoding="utf-8") as f:
             t = json.load(f)
@@ -354,7 +356,10 @@ def cmd_list() -> int:
                         pass
                     parts.append("%s %s %s" % (x["domain"], x["latest"], age))
             d_txt = " | ".join(parts)
-        src = "case " if m.get("source") == "case" else ""
+        if m.get("source") == "case":
+            src = "case/（私有） " if m.get("visibility") == "private" else "case/（公开） "
+        else:
+            src = ""
         print("  %-11s %-22s %-18s %-8s %-8s %s%s"
               % (key, (m.get("title") or key)[:20], sched_text(m), st, inst, src, d_txt))
 

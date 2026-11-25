@@ -12,11 +12,13 @@
 
 ```
 框架（本仓库）        TaskManager、runner、registry、publish、schema、看板渲染
-   ├── 公开任务        visibility=public  → 定时跑 + 写指标仓 + 上牌面（按 section 分 Tab）
-   └── 私有任务        visibility=private → 定时跑 + 写指标仓 + 不上牌面
+   ├── 公开任务        visibility=public  → 定时跑 + 写指标仓 + 上**公开页** index.html
+   └── 私有任务        visibility=private → 定时跑 + 写指标仓 + 上**私有页** private.html
 ```
 
-- **框架是公开的**，任务可以是私有的。私有任务不是"不运行"，而是"运行、落库、不展示"。
+- **两套页面**：`build.py` 只渲染 public 任务，`build_private.py` 只渲染 private 任务，两页互不混排；
+  样式、卡片渲染、取数口径共用，不复制框架、不另算一份数据。
+- **框架是公开的**，任务可以是私有的。私有任务不是"不运行"，而是"照常运行、照常落库、上私有页"。
 - 公开/私有由 `task.json` 的 `visibility` 决定，**不是靠两个仓库的目录结构决定**。
 - 私有任务放在**独立私有仓库**，通过 `CASE_EXTRA_DIRS` 挂进来；私有任务的代码不进公开仓库。
 - 依赖是单向的：私有任务可以读公开任务的产物，公开任务不知道私有任务存在。
@@ -69,8 +71,8 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `visibility` | `public` | `public`：上牌面；`private`：只落库不展示（旧值 `internal` 是 `private` 的别名，过渡期内照常认，但新任务不要再写） |
-| `section` | 空 | `visibility=public` 时必填，取值见下；`private` 时必须为空或不写 |
+| `visibility` | `public` | `public`：上公开页 `index.html`；`private`：上私有页 `private.html`（旧值 `internal` 是别名，过渡期内照常认，新任务不要再写） |
+| `section` | 空 | 决定落在**哪一页的哪个板块**；私有任务留空时退到 `section_domain` |
 | `depends_on` | `[]` | 上游任务 key 列表；`fetch` 前检查上游产物是否够新，不满足则报警退出 |
 
 `section` 取值：`stock` / `futures` / `realestate` / `macro` / `liquidity` / `bond` / `option` / `risk` / `modules`。
@@ -211,13 +213,14 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 
 ## 七、可见性规则
 
-| visibility | 定时跑 | 写指标仓 | 上牌面 | 发报告/邮件 |
+| visibility | 定时跑 | 写指标仓 | 上哪一页 | 发报告/邮件 |
 |---|---|---|---|---|
-| `public` + 有 `section` | ✓ | ✓ | ✓（按 section 归 Tab） | 由 `dispatch` 决定 |
-| `private` | ✓ | ✓ | ✗ | 由 `dispatch` 决定 |
+| `public` + 有 `section` | ✓ | ✓ | 公开页 `index.html`（按 section 归板块） | 由 `dispatch` 决定 |
+| `private` | ✓ | ✓ | 私有页 `private.html`（同板块分组，卡片标「私有」） | 由 `dispatch` 决定 |
 
-- `private` 任务的指标仍可被其他任务通过 `depends_on` 使用，只是不渲染。
-- 面板只渲染 `visibility=public` 且 `section` 合法的任务；`private` 任务在模块管理页可见（带 private 标记），便于排障。
+- 两页互不混排：公开页只渲染 public、模块管理也只列 public；私有页只渲染 private。
+- 私有任务还没有指标时先出任务卡，`publish` 回填后自动出数值。
+- 指标只在 `task.json` 声明或 `out/latest.json` 里出现时才展示，不插值、不用旧值顶替。
 - **未知 visibility 不会被当成 public**：`validate_task` 记一条错误，调度器把该任务以「停用 + 配置错误」留在清单里、在调度台标出来，并在**首次发现时**发一封告警邮件（同一个错误只告一次，改好后自动清零）—— 任务可以跑失败，但不能从调度里悄悄消失。
 - `internal` 是 `private` 的**旧别名**（过渡期兼容），不产生错误；等 `precious-task` 的 17 个 `task.json` 全部改成 `private` 后删掉别名。
 - 想让私有任务的**部分数据**公开：把那个指标单独拆成一个小 `public` 任务，或在私有任务里再挂一个只 `emit` 该指标的 `public` 任务。不要整包公开。
