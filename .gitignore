@@ -46,3 +46,4 @@ modules.json.bak_*
 # 运行时状态
 case/_lib/.alert_quota.json
 .switches.local.json
+case/manning_flow/weekly_report_*.json

@@ -35,13 +35,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # ---- DataHub 统一取数（股票模块，三级体系）----------------------------------
 # 行业资金流明细与指数日线全部改由 data_hub 提供，本文件不再直连 tushare/同花顺/腾讯。
-HUB_ROOT = '/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-three-tier'
+# 2026-11-25 迁移：HUB_ROOT 改指 datahub-multi-tier 实体仓库。
+# 原先写的 .../datahub-three-tier 是指向 datahub-multi-tier 的软链别名，两者是同一份
+# 落盘文件；"改 three-tier" 与 "改 multi-tier" 认知不一致，害得 sector_flow 的接口
+# 被整表合并回退后无人察觉，下游本日报在 import 阶段连挂 11 天。故此处只认实体路径。
+HUB_ROOT = '/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-multi-tier'
 HUB_DEPS = '/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/py_deps'
 for _p in (HUB_DEPS, HUB_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
+# 数据缓存统一落在本 case 的 data/（.gitignore 已忽略 case/*/data/），
+# 避免脚本目录散落 CSV，也避免迁移后与会话目录各存一套面板、各算一份 ANB。
+CACHE_DIR = os.path.join(OUTPUT_DIR, 'data')
+os.makedirs(CACHE_DIR, exist_ok=True)
 from feishu_config import WEBHOOK_URL  # noqa: E402  凭据统一走 app_secrets，见 DEPLOY.md「敏感配置」
 # 沙箱依赖持久化: pip 安装到工作区内 .pydeps, 避免 /tmp 被清理后模块丢失
 LOCAL_DEPS = os.path.join(OUTPUT_DIR, '.pydeps')
@@ -118,7 +126,7 @@ INDEX_CONFIG = {
 
 
 STALE_LIMIT = 3  # 数据日期相对最近交易日允许的最大滞后天数(自然日), 超过则拒绝发送
-CACHE_PATH = os.path.join(OUTPUT_DIR, 'industry_moneyflow_real.csv')
+CACHE_PATH = os.path.join(CACHE_DIR, 'industry_moneyflow_real.csv')
 
 
 def get_recent_trade_dates(n=12, end=None):
@@ -197,7 +205,7 @@ def fetch_from_tushare(recent_dates):
     倒序拉取(最新日期优先), 每个失败日期最多3轮重试(间隔递增).
     返回 (df_ok, missing_dates)
     """
-    from data_hub.collectors.stocks.sector_flow import get_sector_flow  # 新 API（旧名 get_sector_flow_detail 已合并）
+    from data_hub.collectors.stocks.sector_flow import get_sector_flow_detail
     all_data = []
     missing = []
 
@@ -206,7 +214,7 @@ def fetch_from_tushare(recent_dates):
         ok = False
         for attempt in range(3):  # 每日期最多3次尝试
             try:
-                df = get_sector_flow(trade_date=dt)
+                df = get_sector_flow_detail(dt)
                 if df is not None and len(df) > 0:
                     # DataHub 各 tier 源返回的是「当日快照」，列名与本文件 ANB 面板不同，
                     # 且不带 trade_date。统一在这里归一（含补 trade_date），
@@ -683,9 +691,12 @@ def main():
     else:
         print("  无指数数据, 跳过")
     
-    # 4. 发飞书
-    print("\n[3] 发送飞书报告...")
-    send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, latest_date, index_views, mom5_row)
+    # 4. 发飞书（--no-send 供迁移/回归验证，避免同一天重复推送卡片）
+    if '--no-send' in sys.argv:
+        print("\n[3] --no-send 模式：跳过飞书推送（仅验证取数和计算）")
+    else:
+        print("\n[3] 发送飞书报告...")
+        send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, latest_date, index_views, mom5_row)
     
     # 5. 保存JSON
     result = {
