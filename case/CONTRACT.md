@@ -155,7 +155,10 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
     {"key": "tech.consensus", "sec": "000300.SH", "obs_date": "2026-11-24",
      "value_text": "平", "quality": "ok", "name": "沪深300 技术共识"},
     {"key": "re.discount_rate", "sec": "CN.REALESTATE", "obs_date": "2026-11-24",
-     "value": 3.42, "dec": 2, "quality": "ok"}
+     "value": 3.42, "dec": 2, "quality": "ok"},
+    {"key": "tda_spd.market_state", "sec": "CN.STRATEGY",
+     "value_text": "防御", "obs_date": "2026-11-24", "quality": "ok",
+     "risk_level": "risk", "risk_note": "脆弱性 78%，仓位降至 20%"}
   ]
 }
 ```
@@ -170,9 +173,11 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 | `value` / `value_text` | 二者其一 | 数值指标用 `value`，枚举/文本用 `value_text` |
 | `quality` | 建议 | `ok` / `missing` / `stale` / `estimated`；算不出来写 `missing`，**不补零、不填旧值** |
 | `name` / `unit` / `dec` | 可选 | 展示名、单位、小数位 |
+| `risk_level` / `risk_note` | 可选 | 任务侧判断的标签，**原样透传，publish 不重算阈值**。`risk_level` 只允许 `none` / `opportunity` / `risk` / `alert`，兼容 `warning`→`risk`、`严重`→`alert`、`机会`→`opportunity`；其余取值直接校验失败，避免标签被静默丢掉。任务没有判断就不传 |
 
 落库由 `case/_lib/publish.py` 完成：它把上面写法转成 DataHub 原生字段
-（`metric_key` / `security_id` / `value_num` / `value_text` / `meta_json`）并调
+（`metric_key` / `security_id` / `value_num` / `value_text` / `quality` /
+`meta_json` / `risk_level` / `risk_note`）并调
 `data_hub.tech.write_points(rows, producer="case/<key>")`。指标键未在 DataHub registry 登记时会
 告警但照写，便于先跑起来再补登记。
 

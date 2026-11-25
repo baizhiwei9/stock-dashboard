@@ -16,6 +16,10 @@
 quality 只允许 ok / missing / stale / estimated；不传时 DataHub 按值自动推断。
 算不出来写 missing，**不补零、不用旧值顶替**。
 
+risk_level / risk_note 原样透传给 DataHub（标签由任务自己判断，publish 不重算）：
+    risk_level 只允许 none / opportunity / risk / alert，兼容 warning→risk、严重→alert、
+    机会→opportunity 等旧写法；未知档位直接报错，避免标签被静默丢掉。
+
 任务侧 out/latest.json 允许简写（publish 负责转成上面的原生字段）：
 
     {"as_of": "2026-11-23",
@@ -45,6 +49,13 @@ CASE_DIR = os.path.dirname(HERE)
 ROOT = os.path.dirname(CASE_DIR)
 
 QUALITIES = ("ok", "missing", "stale", "estimated")
+# DataHub metric_points.risk_level 口径；标签由任务侧判断，这里只做档位翻译
+RISK_LEVELS = ("none", "opportunity", "risk", "alert")
+RISK_ALIASES = {
+    "warn": "risk", "warning": "risk", "预警": "risk", "风险": "risk",
+    "severe": "alert", "严重": "alert", "告警": "alert",
+    "机会": "opportunity", "中性": "none", "": "none",
+}
 # DataHub 里的写入口（顶层导出优先，其次是 store 模块）
 WRITER_NAMES = (
     "write_points", "upsert_points", "write_point", "put_points",
@@ -100,6 +111,15 @@ def normalize(points: List[Dict], default_obs: str = "") -> Tuple[List[Dict], Li
             continue
         if vnum is None and vtext is None and not q:
             q = "missing"
+        raw_lv = it.get("risk_level")
+        lv = ""
+        if raw_lv is not None:
+            lv = str(raw_lv).strip().lower()
+            lv = RISK_ALIASES.get(lv, lv)
+            if lv not in RISK_LEVELS:
+                errs.append("points[%d] risk_level=%r 不在 %s"
+                            % (i, raw_lv, "/".join(RISK_LEVELS)))
+                continue
         row: Dict = {"metric_key": mk, "security_id": sid, "obs_date": obs}
         if vnum is not None:
             row["value_num"] = float(vnum)
@@ -107,6 +127,11 @@ def normalize(points: List[Dict], default_obs: str = "") -> Tuple[List[Dict], Li
             row["value_text"] = str(vtext)
         if q:
             row["quality"] = q
+        if lv:
+            row["risk_level"] = lv
+        note = it.get("risk_note")
+        if note not in (None, ""):
+            row["risk_note"] = str(note)
         if isinstance(it.get("meta_json"), dict):
             row["meta_json"] = it["meta_json"]
         rows.append(row)
