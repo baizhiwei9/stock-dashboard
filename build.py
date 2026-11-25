@@ -863,6 +863,12 @@ nav.jump .sub::before{content:"· "}
 .mod-tab td:first-child code{color:var(--mid);font-size:12px}
 .mod-tab td code{font-size:11.5px;color:var(--tx2)}
 .note{font-size:11.5px;color:var(--tx3);line-height:1.65;margin:10px 0 0}
+details.hl-fold summary{cursor:pointer;font-size:13px;font-weight:600;
+color:var(--tx);list-style:none;padding:2px 0}
+details.hl-fold summary::-webkit-details-marker{display:none}
+details.hl-fold summary::before{content:"▸ ";color:var(--tx3)}
+details.hl-fold[open] summary::before{content:"▾ "}
+details.hl-fold .mod-tab{margin-top:10px}
 
 /* 侧栏 */
 .side-card{background:var(--card);border:1px solid var(--line);border-radius:12px;
@@ -2595,6 +2601,96 @@ def _all_modules(cfg: Dict) -> list:
     return mods
 
 
+def render_health_section() -> str:
+    """任务健康块 —— 读 task_health 表，连败排前、正常折叠。
+
+    只读不判断：不在这层算任何阈值（fails >= THRESHOLD 是 health.py 发邮件的口径），
+    这里只展示计数。task_health 空 → 整块不渲染（没数据不显示）。
+    """
+    # 分色阈值跟着 health.py 走，不硬编码：health 的 THRESHOLD 改成几，
+    # 看板这边就同步变成几，避免「邮件已发、看板还是橙」的两边不一致。
+    # 注意：import data_hub.tech.health 首次会拖进 collectors.misc →
+    # option_metrics_history（顶层 _migrate_legacy_cache_once 扫 FUSE），
+    # 冷启动实测 19~34s、二次命中 0s。build.py 顶层 from data_hub.tech 已付
+    # 这笔，这里命中 sys.modules；若在长驻进程用 health，先预热一次，别在 tick 里首次 import。
+    try:
+        from data_hub.tech.health import THRESHOLD
+    except Exception:                                         # noqa: BLE001
+        THRESHOLD = 5
+    try:
+        from data_hub.tech import store as _store
+        conn = _store.connect()
+    except Exception:                                         # noqa: BLE001
+        return ""
+    try:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT task_key, fails, first_fail_at, last_fail_at, last_ok_at, "
+            "last_error, last_alert_at FROM task_health "
+            "ORDER BY fails DESC, last_fail_at DESC").fetchall()]
+    except Exception:                                         # noqa: BLE001
+        rows = []
+    finally:
+        try:
+            conn.close()
+        except Exception:                                     # noqa: BLE001
+            pass
+
+    if not rows:
+        return ""
+
+    failing = [r for r in rows if int(r.get("fails") or 0) > 0]
+    healthy = [r for r in rows if int(r.get("fails") or 0) <= 0]
+
+    def _row(r):
+        key = str(r.get("task_key") or "—")
+        fails = int(r.get("fails") or 0)
+        cls = "up" if fails >= THRESHOLD else ("mid" if fails > 0 else "down")
+        err = str(r.get("last_error") or "")
+        err_cell = ('<span class="sm" title="%s">%s</span>'
+                    % (html.escape(err),
+                       html.escape(err[:60] + ("…" if len(err) > 60 else "")))) \
+            if err else '<span class="sm">—</span>'
+        return ('<tr><td class="nw"><code>%s</code></td>'
+                '<td class="nw"><b class="bd %s">%d</b></td>'
+                '<td class="nw sm">%s</td>'
+                '<td class="nw sm">%s</td>'
+                '<td>%s</td></tr>'
+                % (html.escape(key), cls, fails,
+                   html.escape(str(r.get("last_fail_at") or "—")),
+                   html.escape(str(r.get("last_ok_at") or "—")), err_cell))
+
+    thead = ('<tr><th class="nw">任务</th><th class="nw">连败</th>'
+             '<th class="nw">最后失败</th><th class="nw">最后成功</th>'
+             '<th>最近错误</th></tr>')
+
+    fail_html = ""
+    if failing:
+        fail_html = ('<div class="blk"><h4>连败中 '
+                     '<em>fails &gt; 0 · 连续 %d 次才发邮件</em></h4>'
+                     '<table class="mod-tab"><thead>%s</thead>'
+                     '<tbody>%s</tbody></table></div>'
+                     % (THRESHOLD, thead, "".join(_row(r) for r in failing)))
+
+    ok_html = ""
+    if healthy:
+        ok_html = ('<details class="blk hl-fold"><summary>正常任务 '
+                   '<span class="sm">%d 个 · 已清零 · 点击展开</span></summary>'
+                   '<table class="mod-tab"><thead>%s</thead>'
+                   '<tbody>%s</tbody></table></details>'
+                   % (len(healthy), thead, "".join(_row(r) for r in healthy)))
+
+    return ('<section class="idx-card sec" id="health">'
+            '<header><h3>任务健康 <em>连续失败计数 · 成功清零</em></h3>'
+            '<div class="obs">%d 条 · %d 连败中</div></header>'
+            '<div class="idx-body">%s%s'
+            '<div class="blk" style="grid-column:1/-1"><p class="note">计数由任务侧 '
+            '<code>data_hub.tech.health</code> 在每次跑任务时顺带记录，'
+            '看板只读展示、不重算阈值：连续 %d 次失败发一封邮件，'
+            '成功一次立刻清零。这里不建任何巡检 crontab。</p></div>'
+            '</div></section>'
+            % (THRESHOLD, len(rows), len(failing), fail_html, ok_html))
+
+
 def render_modules_panel(cfg_path: str, st: Optional[Dict]) -> str:
     """模块管理 —— 大类 Tab / 子类 model / 每个 model 一条 task。"""
     import json as _json
@@ -2838,6 +2934,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         liq_charts = list(liq_charts or []) + list(rate_charts or [])
     bond_sec, bond_charts = render_bond_section(latest, series, obs)
     mod_sec = render_modules_panel(os.path.join(HERE, "modules.json"), st)
+    health_sec = render_health_section()
 
     # ── 外部注册的 model：按所属大类分组 ──
     KNOWN_TABS = ("stock", "futures", "realestate", "macro", "liquidity",
@@ -2931,7 +3028,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
             ("liquidity", "流动性"), ("liquidity_rate", "利率"),
             ("bond", "债券 · 理财"),
             ("option", "期权 · 波动率"), ("risk", "风险 · 结构"),
-            ("modules", "模块管理")]
+            ("health", "任务健康"), ("modules", "模块管理")]
     _has = {
         "stock": bool((erp_html or "").strip() or cards or reg_in.get("stock")),
         "futures": bool((futures_sec or "").strip() or reg_in.get("futures")),
@@ -2942,6 +3039,7 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         "bond": bool((bond_sec or "").strip() or reg_in.get("bond")),
         "option": bool((opt_sec or "").strip() or reg_in.get("option")),
         "risk": bool((risk_sec or "").strip() or reg_in.get("risk")),
+        "health": bool((health_sec or "").strip()),
         "modules": True,
     }
     jump = "".join('<a href="#%s">%s</a>' % (k, t) for k, t in _NAV
@@ -3014,6 +3112,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
     {wrap("option", opt_sec, reg_in['option'], opt_obs)}
 
     {wrap("risk", risk_sec, reg_in['risk'], risk_obs)}
+
+    {wrap("health", health_sec, "", None)}
 
     {extra_secs}
 
