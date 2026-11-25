@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "note": [
+    "case 产物的保留期规则（issue #80）。按文件 mtime 判年龄，超过 keep_days 才进候选。",
+    "安全兜底写在 cleanup.py 里：git 跟踪的文件一律不删、latest.json/check.json/status.json/task.json 永不删、",
+    "后缀必须在 ALLOWED_EXT 内、只能删根目录内的路径、--max-delete 防止一次删太多。",
+    "新增任务若把产物写到别的目录，在这里加一条规则（glob 相对仓库根）。"
+  ],
+  "rules": [
+    {
+      "name": "取数缓存",
+      "glob": "case/*/data/**/*",
+      "keep_days": 30,
+      "ext": [".csv", ".json", ".pkl", ".parquet"],
+      "why": "删了会重取；chains/<date>.json 这类单日全市场快照最占盘"
+    },
+    {
+      "name": "报告产物",
+      "glob": "case/*/out/**/*",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg", ".html", ".md", ".csv", ".json"],
+      "why": "out/ 是框架契约目录；latest.json 等文件名被 PROTECTED_NAMES 挡住"
+    },
+    {
+      "name": "告警 Markdown",
+      "glob": "case/*/out/alerts/*.md",
+      "keep_days": 30,
+      "ext": [".md"],
+      "why": "alert.py 每条告警写一个 md，只截 alerts.json 不删文件"
+    },
+    {
+      "name": "任务 output 目录",
+      "glob": "case/*/output/**/*",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg", ".html", ".md", ".csv", ".json", ".txt"],
+      "why": "部分任务（ot_unified / option_risk_cn_us 等）把报告写这里"
+    },
+    {
+      "name": "任务 reports 目录",
+      "glob": "case/*/reports/**/*",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg", ".html", ".md", ".csv", ".json"],
+      "why": "bond_three_factor / xi_d_rrg 等把周报写这里"
+    },
+    {
+      "name": "图表目录",
+      "glob": "case/*/charts/**/*",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg", ".webp"]
+    },
+    {
+      "name": "多品种图表目录",
+      "glob": "case/*/charts_multi/**/*",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg", ".webp"]
+    },
+    {
+      "name": "任务根图片",
+      "glob": "case/*/*.png",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg"],
+      "why": "margin 合并图、tda_spd 行业旋转图、sector_rotation sankey 都按日期落在任务根"
+    },
+    {
+      "name": "任务根 HTML",
+      "glob": "case/*/*.html",
+      "keep_days": 90,
+      "ext": [".html"]
+    },
+    {
+      "name": "私有页图片镜像",
+      "glob": "assets/private/**/*",
+      "keep_days": 90,
+      "ext": [".png", ".jpg", ".jpeg", ".webp"],
+      "respect_html": "private.html",
+      "why": "被当前 private.html 引用的图不删（引用感知），其余按 90 天清"
+    },
+    {
+      "name": "轮转日志",
+      "glob": "logs/*.log.*",
+      "keep_days": 30,
+      "ext": [".log", ".txt"],
+      "why": "scheduler 按 20MB 轮转出的历史日志"
+    },
+    {
+      "name": "清理清单",
+      "glob": "logs/cleanup-*.txt",
+      "keep_days": 90,
+      "ext": [".txt"]
+    }
+  ]
+}
