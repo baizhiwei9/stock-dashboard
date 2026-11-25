@@ -605,6 +605,13 @@ def send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, report_dat
         resp = requests.post(webhook, json=msg, timeout=15)
         result = resp.json()
         print(f"飞书发送: {resp.status_code} - {result.get('StatusMessage', resp.text[:80])}")
+        # 飞书对无效/已轮换 webhook 返回的是 HTTP 200 + {"code":19001,...}，
+        # 不是异常。只看 requests 抛不抛异常会把这种失败判成成功。
+        # code/StatusCode 非 0、或 HTTP 非 200，都算失败（issue #53 验收第 2 条）。
+        rcode = result.get("StatusCode", result.get("code", 0))
+        if resp.status_code != 200 or rcode != 0:
+            print(f"飞书返回失败: HTTP {resp.status_code}, code={rcode}")
+            return False
         return True
     except Exception as e:
         print(f"飞书发送失败: {e}")
@@ -703,7 +710,13 @@ def main():
         print("\n[3] --no-send 模式：跳过飞书推送（仅验证取数和计算）")
     else:
         print("\n[3] 发送飞书报告...")
-        send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, latest_date, index_views, mom5_row)
+        send_ok = send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, latest_date, index_views, mom5_row)
+        if not send_ok:
+            # 发送失败必须反映到退出码：runner 的 fetch 靠 rc 判断成败，
+            # 调度器再靠 health 连败感知。只打日志、进程退出 0，等于把
+            # 「没发出去的日报」当正常结束（issue #53）。
+            print("\n[!] 飞书发送失败，进程以非零退出（供调度器 / runner 感知）")
+            raise SystemExit(2)
     
     # 5. 保存JSON
     result = {
