@@ -37,7 +37,7 @@ EMAIL_FROM = app_secrets.get("email.sender", "")
 EMAIL_TO = app_secrets.get("email.recipients", "")
 DWS_CLI = os.path.expanduser("~/.local/bin/dws")
 EMAIL_HOST = app_secrets.get("email.smtp_host", "smtp.163.com")
-EMAIL_PORT = app_secrets.get_int("email.smtp_port", 25)
+EMAIL_PORT = app_secrets.get_int("email.smtp_port", 465)
 EMAIL_USER = app_secrets.get("email.username", "")
 
 PHASE_COLOR = {"主动补库存": "#1F7A4D", "被动补库存": "#A5561F", "主动去库存": "#B2472F", "被动去库存": "#2C6CA0"}

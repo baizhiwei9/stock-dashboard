@@ -27,7 +27,7 @@ EMAIL_FROM = app_secrets.get("email.sender", "")
 EMAIL_TO = app_secrets.get("email.recipients", "")
 
 EMAIL_HOST = app_secrets.get("email.smtp_host", "smtp.163.com")
-EMAIL_PORT = app_secrets.get_int("email.smtp_port", 25)
+EMAIL_PORT = app_secrets.get_int("email.smtp_port", 465)
 EMAIL_USER = app_secrets.get("email.username", "")
 
 

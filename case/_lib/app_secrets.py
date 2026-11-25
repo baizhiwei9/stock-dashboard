@@ -130,6 +130,13 @@ _CANONICAL = {
 }
 
 # 这些 key 不导出到任务子进程环境（只给调度器自己用）
+# 非敏感默认值：这些是通道参数，不是凭据。配置文件里没写就用这个 ——
+# 免得落到明文 SMTP 的 25 端口（163 只认 465 SSL / 587 STARTTLS）。
+_BUILTIN_DEFAULTS = {
+    "email.smtp_host": "smtp.163.com",
+    "email.smtp_port": "465",
+}
+
 _SERVER_ONLY = ("api.password", "api.registry_key",
                 "scheduler.password", "scheduler.registry_key")
 
@@ -240,19 +247,19 @@ def example_path():
     return os.path.join(_LIB_DIR, "secrets.example.json")
 
 
-def _blank_structure(data):
-    """只保留结构：所有字符串值置空。
+def _blank_structure(data, _path=""):
+    """只保留结构：字符串值置空，但非敏感默认值（SMTP 主机/端口）保留。
 
     example 里的字段说明（"换成强密码…" / "同上 client_secret"）是给人看的，
     不能被当成配置值继承下来 —— 否则别名兜底会被一句中文说明挡住。
     """
     if isinstance(data, dict):
-        return {k: _blank_structure(v) for k, v in data.items()
-                if not k.startswith("_")}
+        return {k: _blank_structure(v, (_path + "." + k).lstrip("."))
+                for k, v in data.items() if not k.startswith("_")}
     if isinstance(data, list):
         return []
     if isinstance(data, str):
-        return ""
+        return _BUILTIN_DEFAULTS.get(_path, "")
     return data
 
 
@@ -318,7 +325,7 @@ def _resolve(dotted):
         val = _raw_get(alt)
         if val is not _MISSING:
             return val
-    return _MISSING
+    return _BUILTIN_DEFAULTS.get(dotted, _MISSING)
 
 
 def get(name, key=None, default=_MISSING):
