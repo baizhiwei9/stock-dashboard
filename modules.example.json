@@ -313,11 +313,11 @@
     {
       "key": "build",
       "title": "看板构建与发布",
-      "desc": "读指标仓 → 生成 index.html → 发布 Pages",
+      "desc": "读指标仓 → 生成 index.html → 发布 Pages（23:40：等 23:10 的 nowcast 日更把美东 10:00 版落库）",
       "domains": [],
       "sched": {
         "mode": "daily",
-        "at": "22:40",
+        "at": "23:40",
         "weekdays": [
           1,
           2,
