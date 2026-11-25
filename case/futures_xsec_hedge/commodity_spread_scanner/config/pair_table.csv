@@ -1,0 +1,16 @@
+pair_id,leg_a,leg_b,board,relation_type,calc_method,multiplier_a,multiplier_b,history_window,entry_z,exit_z
+OIL_01,Y0,P0,农产品,跨品种替代,spread,10,10,756,2.0,0.5
+OIL_02,OI0,P0,农产品,跨品种替代,spread,10,10,756,2.0,0.5
+OIL_03,OI0,Y0,农产品,跨品种替代,spread,10,10,756,2.0,0.5
+OIL_04,Y0,OI0,农产品,植物油替代,spread,10,10,756,2.0,0.5
+MEAL_01,M0,RM0,农产品,跨品种替代,spread,10,10,756,2.0,0.5
+MEAL_02,RM0,C0,农产品,蛋白能量比,ratio,10,10,756,2.0,0.5
+CASH_01,SR0,CF0,农产品,经济作物争地,spread,10,5,756,2.0,0.5
+GRAIN_01,C0,SR0,农产品,能量替代,spread,10,10,756,2.0,0.5
+PREC_01,AG0,AU0,贵金属,贵金属比价,ratio,15,1000,756,2.0,0.5
+CHEM_01,PP0,L0,化工,聚烯烃替代,spread,5,5,756,2.0,0.5
+CHEM_02,EB0,BR0,化工,芳烃链,spread,1,5,756,2.0,0.5
+CHEM_03,BU0,L0,化工,原油链残留物,spread,10,5,756,2.0,0.5
+CHEM_04,RU0,PP0,化工,工业品联动,spread,10,5,756,2.0,0.5
+CHEM_05,MA0,TA0,化工,醇酸链,spread,10,5,756,2.0,0.5
+CHEM_06,EG0,L0,化工,烯烃替代,spread,5,5,756,2.0,0.5
