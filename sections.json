@@ -64,9 +64,15 @@
       "key": "liquidity",
       "num": "05",
       "title": "流动性",
-      "sub": "资金价格 · 国债利差 · 两融杠杆",
+      "sub": "资金价格 · 国债利差 · 两融杠杆 · 利率与政策预期",
       "enabled": true,
-      "subs": []
+      "subs": [
+        {
+          "key": "liquidity_rate",
+          "title": "利率",
+          "enabled": true
+        }
+      ]
     },
     {
       "key": "bond",
