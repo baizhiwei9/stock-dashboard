@@ -2,13 +2,28 @@
 """文字说明生成（每只宽基：各方法观点 + 汇总买/卖/平建议）"""
 from config import ETF_POOL
 
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import shared_dir as _shared
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import shared_dir as _shared
+
+
 
 # [baseline-stats] 基线组合统计栏（fail-safe，任何异常返回空值）
 def _bs(key, kind='text'):
     try:
         import sys as _b
-        _d = '/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/shared'
-        if _d not in _b.path:
+        _d = _shared()
+        if _d and _d not in _b.path:
             _b.path.insert(0, _d)
         import report_stats as _r
         return _r.segment(key, kind)

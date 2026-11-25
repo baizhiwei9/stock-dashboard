@@ -19,16 +19,31 @@ import time
 import ssl
 import urllib.request
 
-# 读取用户权限目录 py_deps 下的 akshare/tushare
-_PD = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5ea8aaca93ffeHyamlhKpZfCuW2/py_deps"
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import datahub_root, py_deps
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import datahub_root, py_deps
+
+
+# 第三方依赖目录（akshare/tushare 等）：走统一口径，不再写死旧会话路径
+_PD = py_deps()
 if _PD not in sys.path and os.path.isdir(_PD):
     sys.path.insert(0, _PD)
 
 import pandas as pd
 
 # ---- dataHub 统一取数（首选）；不可用时逐级回退原通道 ----------------------
-_HUB = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-three-tier"
-_HUB_DEPS = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/py_deps"
+_HUB = datahub_root()
+_HUB_DEPS = py_deps()
 for _p in (_HUB, _HUB_DEPS):
     if _p not in sys.path and os.path.isdir(_p):
         sys.path.insert(0, _p)

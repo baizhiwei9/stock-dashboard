@@ -21,7 +21,9 @@ from email.utils import formataddr
 import pandas as pd
 import requests
 
-BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7d65e97affeGRaKRrqXn281SL"
+# 原指向 ses_gffe5e7d65...（空目录，无任何数据）。改为本 case 目录，
+# data/ 下的 csv/json 才是实际在用的那一份。
+BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = BASE + "/data"
 H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 

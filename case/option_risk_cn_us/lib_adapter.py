@@ -29,8 +29,29 @@ import pandas as pd
 # 旧写法会把 _LIB_PATHS 全部落空，导致 `import calc` / `import data_hub` 直接
 # ModuleNotFoundError（2026-11-25 option_risk_cn_us fetch 阶段整块失败即此因）。
 # 改为多路径探测：先试原机路径，再试云盘 data_hub 仓库。
+# 统一口径在最前：paths.workspace_root() / paths.datahub_root() 是当前机器
+# 真实可用的位置；下面那些是原机路径，只作兜底，别让它们抢在前面。
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import workspace_root as _p_ws_fn, datahub_root as _p_hub_fn
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import workspace_root as _p_ws_fn, datahub_root as _p_hub_fn
+
+_P_WS = _p_ws_fn()
+_P_HUB = _p_hub_fn()
+
 _BASE_CANDS = [
     os.environ.get("DUMATE_WORKSPACE") or "",
+    _P_WS or "",
+    _P_HUB or "",
     "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace",
     "/opt/coze/.fuse_drive/dataHub_三级体系",
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(

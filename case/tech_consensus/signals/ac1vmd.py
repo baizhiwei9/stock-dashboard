@@ -11,9 +11,25 @@ import sys
 import numpy as np
 import pandas as pd
 
-_LIBS = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/pylibs"
-if _LIBS not in sys.path:
-    sys.path.insert(0, _LIBS)
+# ---- 路径统一口径：case/_lib/paths.py（换机器只改一处）----------------------
+try:
+    from paths import py_deps, pylibs
+except ImportError:                       # 手动单跑：向上找 case/_lib 再导
+    import os as _o, sys as _s
+    _d = _o.path.dirname(_o.path.abspath(__file__))
+    while not _o.path.isfile(_o.path.join(_d, "_lib", "paths.py")):
+        _n = _o.path.dirname(_d)
+        if _n == _d:
+            break
+        _d = _n
+    _s.path.insert(0, _o.path.join(_d, "_lib"))
+    from paths import py_deps, pylibs
+
+
+# pylibs 里的 vmdpy：本机 site-packages / py_deps 大多已装，这里只是补一条兜底
+for _LIBS in (pylibs(), py_deps()):
+    if _LIBS and _LIBS not in sys.path:
+        sys.path.insert(0, _LIBS)
 from vmdpy import VMD  # noqa: E402
 
 from config import (AC1_WINDOW, AC1_GOOD_MIN, VMD_WINDOW, VMD_K, VMD_ALPHA,  # noqa: E402

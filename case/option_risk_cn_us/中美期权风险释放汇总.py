@@ -67,10 +67,12 @@ import os
 import subprocess
 import sys
 
-BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace"
-SES = os.path.join(BASE, "ses_gffe5ea0b23728ffegpx6GMQLqwA5ek")
-PYLIBS = os.path.join(BASE, "pylibs")
-TSCFG = os.path.join(BASE, "ses_gffe5fde225ad5ffePQAojl8RuNMiuQ")
+# 原指向旧沙箱 workspace + ses_.../skills 目录（均已空/不存在）。
+# ts_pin.py / ts_config.py / data/ 都在本 case 目录下。
+BASE = os.path.dirname(os.path.abspath(__file__))
+SES = BASE
+PYLIBS = ""   # pylibs 已并入 py_deps / site-packages，见 case/_lib/paths.py
+TSCFG = BASE   # ts_config.py 在本 case 目录
 
 os.chdir(SES)
 for _p in (SES, TSCFG, PYLIBS):

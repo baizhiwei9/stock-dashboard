@@ -15,7 +15,10 @@
 """
 import os, sys, json
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-FSH_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5f28eb4508ffeXvGpuDQNknTjQn/tech_consensus_daily"
+# feishu_push.py 在 case/tech_consensus（原指向的 ses_.../tech_consensus_daily 已不存在）。
+# 用相对本文件的方式定位，换机/换盘都不用改。
+FSH_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "tech_consensus")
 sys.path.insert(0, FSH_DIR)
 import feishu_push as fp
 
