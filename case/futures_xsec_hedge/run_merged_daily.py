@@ -32,24 +32,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-# 跨品种套利单元依赖外部仓库 commodity_spread_scanner。
-# 原写死的 ses_gffe5f1ccd.../commodity_spread_scanner 在现环境下不存在，
-# 之前是静默 sys.path 加一个空路径 → import 时才炸，报错信息还指不到根因。
-# 改成：候选位置逐个探测，都没有就明确告警并跳过套利单元（横截面对冲不受影响）。
+# 跨品种套利单元依赖 commodity_spread_scanner 包。
+# 该包原先只存在于另一个 agent 的私有 workspace（/root/.coze/agents/<id>/workspace/），
+# 既不在任何 GitHub 仓库里，也可能被那个 agent 随时清掉 —— 等于悬空依赖。
+# 现已随本 case 一起入库，位于 case/futures_xsec_hedge/commodity_spread_scanner/。
+# 保留 ARB_ROOT 环境变量作为覆盖入口，方便单独调试其它副本。
 _ARB_CANDS = [
     os.environ.get("ARB_ROOT", ""),
-    str(Path(__file__).resolve().parent / "commodity_spread_scanner"),
-    str(Path(__file__).resolve().parent.parent.parent / "commodity_spread_scanner"),
+    str(ROOT),
 ]
-ARB_ROOT = next((Path(p) for p in _ARB_CANDS
-                 if p and (Path(p) / "commodity_spread_scanner").is_dir()
-                 or p and Path(p).is_dir() and (Path(p) / "__init__.py").exists()
-                 or p and Path(p).is_dir() and any(Path(p).glob("*.py"))), None)
+ARB_ROOT = next(
+    (Path(p) for p in _ARB_CANDS
+     if p and (Path(p) / "commodity_spread_scanner" / "__init__.py").is_file()),
+    None,
+)
 if ARB_ROOT is not None:
-    sys.path.insert(0, str(ARB_ROOT))
+    if str(ARB_ROOT) not in sys.path:
+        sys.path.insert(0, str(ARB_ROOT))
 else:
-    print("[warn] 未找到 commodity_spread_scanner，跨品种套利单元将跳过"
-          "（横截面对冲不受影响）。需要时用 ARB_ROOT 环境变量指定。")
+    print("[warn] 未找到 commodity_spread_scanner 包，跨品种套利单元将跳过"
+          "（横截面对冲不受影响）。用 ARB_ROOT 环境变量可指定其它位置。")
 
 
 # --------------------------------------------------------------------------
@@ -379,6 +381,34 @@ def build_merged_card(cross: dict, arb: dict) -> dict:
 # --------------------------------------------------------------------------
 # main
 # --------------------------------------------------------------------------
+def _arb_unit_available() -> bool:
+    """套利单元（价差套利 20 万）依赖的两个模块是否齐备。
+
+    ``arb_sim_daily.py`` 与 ``scanner/`` 包（data_update / load_data / pair_table）
+    在仓库历史里从未出现过，全盘也搜不到 —— 也就是说「合并两个单元」这件事当年
+    只写了一半：横截面对冲完整可用，价差套利那侧代码没落地。
+
+    本函数只做探测，不做 import 副作用；缺依赖时 main() 会明确降级并转发到
+    run_sim_daily（横截面对冲单单元），而不是抛 ModuleNotFoundError 让整条链挂掉。
+    """
+    here = Path(__file__).resolve().parent
+    need = [
+        here / "arb_sim_daily.py",
+        here / "scanner" / "data_update.py",
+        here / "scanner" / "load_data.py",
+        here / "scanner" / "pair_table.py",
+    ]
+    missing = [x for x in need if not x.is_file()]
+    if missing:
+        print("[arb] 套利单元依赖缺失，跳过价差套利部分：")
+        for m in missing:
+            print("      缺 %s" % m.relative_to(here))
+        print("[arb] 注：这些文件在本仓库历史中从未提交过，属未落地的功能，"
+              "不是路径配置问题。横截面对冲单元不受影响。")
+        return False
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-fetch", action="store_true", help="跳过横截面对冲行情抓取")
@@ -389,6 +419,20 @@ def main():
     ap.add_argument("--send", action="store_true", help="推送飞书")
     args = ap.parse_args()
     push = args.send and not args.no_push
+
+    # 套利单元不可用时：降级为横截面对冲单单元（等价于 task.json 实际调度的
+    # run_sim_daily.py），把用户传的 --no-fetch/--no-push 一并透传过去。
+    if not _arb_unit_available():
+        print("[arb] 降级运行：改用 run_sim_daily.py（横截面对冲单单元）")
+        import subprocess as _sp
+        cmd = [sys.executable, "-u", str(Path(__file__).resolve().parent / "run_sim_daily.py")]
+        if args.no_fetch:
+            cmd.append("--no-fetch")
+        if push:
+            cmd.append("--send")
+        else:
+            cmd.append("--no-push")
+        raise SystemExit(_sp.call(cmd))
 
     # 横截面对冲单元
     cross = run_cross_section(args.no_fetch, args.reset)
