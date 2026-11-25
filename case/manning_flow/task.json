@@ -27,11 +27,14 @@
   "requires": [
     "pylibs"
   ],
-  "root": "{WS}/ses_gffe5ffb350a15ffeoIqfEMXyfUcuT9",
+  "root": "{WS}/projects/stock-dashboard/case/manning_flow",
   "entry": "weekly_report.py",
   "needs_llm": false,
   "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
-  "import_note": "含动态 import，按入口目录模块集兜底；外部依赖：pylibs",
+  "import_note": "含动态 import，按入口目录模块集兜底；外部依赖：pylibs（PYLIBS_DIR）",
+  "migrated_from": "{WS}/ses_gffe5ffb350a15ffeoIqfEMXyfUcuT9",
+  "migrated_at": "2026-11-25",
+  "migrate_note": "本 case 为唯一运行实体：缓存已统一到 case/manning_flow/data/，dumate 侧定时任务 job_a7aaec47 停用后由 dashboard 调度接管 19:25。验证命令：python3 weekly_report.py --no-send",
   "pipeline": {
     "on_fail": "continue",
     "freshness_days": 5,
