@@ -92,7 +92,51 @@ python3 setup.py --init            # 落盘 + 完整校验，不交互
 `--init` 只补**文件里还没有**的项，已有值不覆盖，所以重复跑是幂等的。
 `check_secrets.py --init` 也保留（交互式补齐，有终端时更省事），但它只判
 `REQUIRED_KEYS`（api.password / api.registry_key），**不能当安装门禁用**——
-飞书在选填组里，装过了但推送必失败。安装门禁一律用 `setup.py --check`。
+飞书在选填组里，装过了但推送必失败。安装门禁一律用 `setup.py --check --file-only`。
+
+### 门禁校验的是磁盘，不是环境变量
+
+`--file-only` 只认凭据文件：校验时把 `COZE_SEC_` 前缀和 `ENV_ALIASES` 里的值注入变量
+临时从 `os.environ` 摘掉，校验完恢复。`COZE_SECRETS` / `APP_SECRETS_FILE` 这类
+**指定文件位置**的变量会保留 —— 它们不是值，摘掉就读不到文件了。
+
+不带 `--file-only` 时校验的是「环境变量 ∪ 文件」。装机脚本里刚 `export` 的 `COZE_SEC_*`
+还在环境里，于是文件压根没写成功也会全绿 —— 装完磁盘空空如也，等第一次启动才
+fail-closed。这种假通过比直接失败贵得多。
+
+`--init` 自带的校验也是走 `--file-only` 口径，所以落盘后立刻就能发现「写进去的是弱口令」。
+
+### 维护须知：新增「能提供凭据值」的环境变量入口
+
+值注入来源目前只有两处，合起来是全部：
+
+| 来源 | 定义位置 |
+| --- | --- |
+| `COZE_SEC_` 前缀 | `app_secrets._env_names()` 自动派生 |
+| `ENV_ALIASES` 里的裸名（`FEISHU_APP_ID` / `SCHEDULER_PASSWORD` …） | `app_secrets.ENV_ALIASES` |
+
+`setup.py` 的 `_VALUE_ENV_NAMES` 直接从 `ENV_ALIASES` 派生，所以往 `ENV_ALIASES` 里
+加别名会自动被 `--file-only` 摘掉，不用改两处。
+
+**但引入新前缀时（不是 `COZE_SEC_`）必须同时改 `setup.py:_state()`**：
+
+```python
+if k.startswith("COZE_SEC_") or k in _VALUE_ENV_NAMES:
+```
+
+不改这行，新变量不会被摘掉，`--file-only` 会重新变成假通过。
+
+自检（加完新变量跑一遍，空盘上应该 `exit 1`）：
+
+```bash
+TMP=$(mktemp -d)
+env -i HOME=$TMP PATH=/usr/bin:/bin \
+  COZE_SEC_API_PASSWORD='StrongPass2026ab' \
+  COZE_SEC_API_REGISTRY_KEY='0123456789abcdef0123456789abcdef' \
+  <你的新变量>='xxx' \
+  python3 setup.py --check --file-only; echo "exit=$?"
+# exit 0 = 新变量没被摘掉，门禁假通过
+```
 
 ## 只认环境变量的老脚本
 
