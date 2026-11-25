@@ -1,7 +1,7 @@
 {
   "key": "rate_board",
   "title": "中美利率与政策预期",
-  "desc": "CME FedWatch 加息/降息概率 + 中国降准降息预期利差 + 土狗框架 + AI 公司 5Y CDS",
+  "desc": "CME FedWatch 加息/降息概率 + 中国降准降息预期利差 + 土狗框架",
   "section": "liquidity",
   "metrics": [
     {
@@ -123,76 +123,6 @@
       "key": "rate.cn.tugou_state",
       "sec": "RATE.BOARD",
       "name": "土狗状态机"
-    },
-    {
-      "key": "rate.cds.asof",
-      "sec": "RATE.BOARD",
-      "name": "CDS报价周（as_of）"
-    },
-    {
-      "key": "rate.cds.quoted",
-      "sec": "RATE.BOARD",
-      "name": "CDS本周有效报价家数"
-    },
-    {
-      "key": "rate.cds.alert",
-      "sec": "RATE.BOARD",
-      "name": "CDS周环比超阈值家数"
-    },
-    {
-      "key": "rate.cds.orcl",
-      "sec": "RATE.BOARD",
-      "name": "Oracle 5Y CDS"
-    },
-    {
-      "key": "rate.cds.meta",
-      "sec": "RATE.BOARD",
-      "name": "Meta Platforms 5Y CDS"
-    },
-    {
-      "key": "rate.cds.nvda",
-      "sec": "RATE.BOARD",
-      "name": "Nvidia 5Y CDS"
-    },
-    {
-      "key": "rate.cds.msft",
-      "sec": "RATE.BOARD",
-      "name": "Microsoft 5Y CDS"
-    },
-    {
-      "key": "rate.cds.googl",
-      "sec": "RATE.BOARD",
-      "name": "Alphabet 5Y CDS"
-    },
-    {
-      "key": "rate.cds.amzn",
-      "sec": "RATE.BOARD",
-      "name": "Amazon 5Y CDS"
-    },
-    {
-      "key": "rate.cn.regime_level",
-      "sec": "RATE.BOARD",
-      "name": "降准降息预期档位·等级"
-    },
-    {
-      "key": "rate.cn.regime_label",
-      "sec": "RATE.BOARD",
-      "name": "降准降息预期档位"
-    },
-    {
-      "key": "rate.cn.regime_chg5",
-      "sec": "RATE.BOARD",
-      "name": "国开1Y-3M近5日变动"
-    },
-    {
-      "key": "rate.cn.ncd_regime_level",
-      "sec": "RATE.BOARD",
-      "name": "存单印证档位"
-    },
-    {
-      "key": "rate.cn.cdb3m_regime_level",
-      "sec": "RATE.BOARD",
-      "name": "短端溢价档位"
     }
   ],
   "sched": {
@@ -247,5 +177,6 @@
         "builtin": "emit"
       }
     ]
-  }
+  },
+  "build_workers": false
 }
