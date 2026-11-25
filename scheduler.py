@@ -784,15 +784,18 @@ def _finish(key, rc, status, st):
 
 
 def _datahub_dir():
-    """DataHub 根目录 —— 两个环境变量名都认。
+    """DataHub 根目录 —— 统一走 datahub_path.datahub_root()，不再自己解析。
 
-    scheduler 原来只读 DATAHUB_DIR，build.py 读的是 DATA_HUB_PATH；默认值
-    相同所以平时不出问题，但用户只设其中一个时两边会指向不同目录，health
-    记账和看板读数就分叉了。先 DATAHUB_DIR 再 DATA_HUB_PATH，都没有才用默认。
+    原来这里单独认 DATAHUB_DIR / DATA_HUB_PATH 再兜底 /opt/coze/...，与
+    datahub_path 的两套口径在两条合法部署路径上分叉：
+      · DEPLOY.md 推荐的「同级 checkout、不设环境变量」→ datahub_root() 能解析到
+        ../datahub-multi-tier，这里却只认环境变量，落到兜底目录 → 同级部署下
+        import data_hub.tech.health 必然 ModuleNotFoundError，连败计数静默丢失；
+      · 用 EDB_REPO 指定 DataHub 时这里根本不认这个变量。
+    scheduler.py 顶层已经 from datahub_path import datahub_root（all_modules() 就在用），
+    直接复用同一结果，两边永远指向同一个目录。
     """
-    return (os.environ.get("DATAHUB_DIR")
-            or os.environ.get("DATA_HUB_PATH")
-            or "/opt/coze/.fuse_drive/dataHub_三级体系")
+    return datahub_root()
 
 
 def _health_preload():
@@ -804,15 +807,17 @@ def _health_preload():
     放在启动阶段预热，第一次记账就不用干等；预热自己也丢后台，不拖慢启动。
     """
     def _warm():
+        dh = _datahub_dir()
         try:
-            dh = _datahub_dir()
             if dh not in sys.path:
                 sys.path.insert(0, dh)
             t0 = time.time()
             from data_hub.tech import health             # noqa: F401
-            log("健康度模块预热完成（%.1fs）" % (time.time() - t0))
+            log("健康度模块预热完成（DataHub 根 %s，%.1fs）" % (dh, time.time() - t0))
         except Exception as e:                           # noqa: BLE001
-            log("健康度模块预热失败: %s: %s" % (type(e).__name__, e))
+            # 预热失败要能看出「是哪个根没找到 data_hub」，否则下次只是记账继续静默失败
+            log("健康度模块预热失败（DataHub 根 %s）：%s: %s"
+                % (dh, type(e).__name__, e))
     threading.Thread(target=_warm, daemon=True).start()
 
 
@@ -843,14 +848,15 @@ def _health_record(key, rc, m, err=None, force=False):
          fails 双倍计数，连败 5 天的阈值等于被砍半。用子串判断够用：
          约定 health_run 只作为命令里的包装器出现，没有别的模块名带它。
       ② 主动停用（status=stopped）由 _finish 侧跳过，不进这里。
-      ③ 记不了健康度绝不能影响调度本身，异常只打日志。
+      ③ 记不了健康度绝不能影响调度本身：异常只打日志并返回原因（不静默吞掉），
+         调用方/排障时能看出「是 DataHub 根没解析对，还是记账本身失败」。
     """
     # force=True 用在 spawn 失败：那时 health_run 包装器根本没启动，不可能
     # 自己记过账，跳过就等于这类模块永远静默。
     if not force and "health_run" in (m.get("cmd") or ""):
         return
+    dh = _datahub_dir()
     try:
-        dh = _datahub_dir()
         if dh not in sys.path:
             sys.path.insert(0, dh)
         from data_hub.tech.health import record
@@ -862,8 +868,14 @@ def _health_record(key, rc, m, err=None, force=False):
             log("健康度 %s 失败，连败 %s/%s%s" % (
                 key, r.get("fails"), r.get("threshold"),
                 "，已发提醒邮件" if r.get("alerted") else "，未到提醒阈值"))
+        return r
     except Exception as e:
-        log("健康度记录失败 %s: %s: %s" % (key, type(e).__name__, e))
+        # 返回原因而不是 None：早些时候这里只 log 一行就 return None，日志里也看不出
+        # 是根目录解析错（ModuleNotFoundError）还是库侧真出错，连败计数丢了没人发现。
+        reason = "%s: %s" % (type(e).__name__, e)
+        log("健康度记录失败 %s（DataHub 根 %s）：%s"
+            % (key, dh or "<空>", reason))
+        return {"ok": False, "recorded": False, "reason": reason, "datahub_root": dh}
 
 
 def spawn(key, m, slot, st, pulled=False):
