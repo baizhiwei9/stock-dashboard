@@ -1302,12 +1302,21 @@ def _http_alive(timeout=2.0) -> bool:
 
     cron 拉起的调度器跑在宿主命名空间，沙箱里 /proc/<pid> 看不见，单靠
     /proc 判断会误报「未运行」，进而重复起实例。端口是通的，用它兜底。
+
+    4xx/5xx 也算活着：`urlopen` 对非 2xx **抛 HTTPError**，不会进 with 分支。
+    老写法只认 `r.status`，于是 `/` 返回 404 时被当成「端口不通」——
+    而 404 恰恰是「服务活着、只是没这个路径」。首装（modules 为空）和
+    模板渲染异常时都会走到这条，届时 read_pid() 会误判「未运行」，
+    看门狗转头去 start，起重复实例。
     """
+    import urllib.error
     import urllib.request
     port = api_conf().get("port") or DEFAULT_PORT
     try:
         with urllib.request.urlopen("http://127.0.0.1:%d/" % int(port), timeout=timeout) as r:
             return 200 <= r.status < 500
+    except urllib.error.HTTPError as e:
+        return 400 <= e.code < 600
     except Exception:
         return False
 
@@ -1370,14 +1379,65 @@ def cmd_start():
     return 1
 
 
+def _shutdown_via_api(timeout=10.0):
+    """走 HTTP 让调度循环自然退出。返回 (ok, msg)。
+
+    容器里调度器是 cron 在宿主命名空间拉起的，沙箱内 /proc/<pid> 看不见、
+    os.kill 也发不到 —— 但它的 HTTP 控制台还通着。/api/shutdown 会置 _STOP，
+    loop 里的 _STOP.wait(TICK_SEC) 立刻返回，进程自然退出。
+
+    没有这条路，看门狗遇到「进程僵死」就只能干瞪眼：cmd_stop 拒绝、restart
+    又不检查返回值，于是 start 看到端口有响应就报「已在运行」返回 0，整套
+    「僵死 → 重启」在容器里是空转的。
+
+    认证跟管理页同一套（X-SD-PW，fail-closed：没配密码一律拒绝），所以沙箱
+    读到的凭据必须和进程内存里的一致 —— 不一致会拿到 401，这时如实报错，
+    别猜密码。
+    """
+    import urllib.error
+    import urllib.request
+    conf = api_conf()
+    port = int(conf.get("port") or DEFAULT_PORT)
+    pw = str(conf.get("password") or "")
+    if not pw:
+        return False, "管理密码未配置（HTTP 控制台 fail-closed），无法远程停止"
+    req = urllib.request.Request(
+        "http://127.0.0.1:%d/api/shutdown" % port, data=b"{}", method="POST",
+        headers={"X-SD-PW": pw, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            r.read()
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return False, ("认证被拒（HTTP %d）：当前环境读到的管理密码与进程内存里的"
+                           "不一致，检查凭据文件是否就是它启动时用的那份" % e.code)
+        return False, "停止请求被拒：HTTP %d" % e.code
+    except Exception as e:                                   # noqa: BLE001
+        return False, "停止请求失败：%s: %s" % (type(e).__name__, e)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not _http_alive(timeout=1.0):
+            return True, "已通过 /api/shutdown 停止"
+        time.sleep(0.3)
+    return False, "已发出停止请求，但 %ss 内端口仍在响应" % int(timeout)
+
+
 def cmd_stop():
     pid = read_pid()
     if not pid:
         print("没在跑")
         return 0
     if pid < 0:
-        print("无法从当前环境停止：调度器进程在宿主命名空间，/proc 不可见。")
-        print("  可在管理页点「停止」，或重启容器让它自然退出。")
+        print("调度器在宿主命名空间（/proc 不可见、kill 发不到），改走 HTTP 优雅停…")
+        ok, msg = _shutdown_via_api()
+        print(("  ✓ " if ok else "  ✗ ") + msg)
+        if ok:
+            try:
+                os.unlink(PID_PATH)
+            except OSError:
+                pass
+            return 0
+        print("  兜底：可在管理页点「停止」，或重启容器让它自然退出。")
         return 1
     try:
         os.kill(pid, signal.SIGTERM)
@@ -1552,7 +1612,12 @@ def main(argv):
     if cmd == "stop":
         return cmd_stop()
     if cmd == "restart":
-        cmd_stop()
+        rc = cmd_stop()
+        if rc != 0:
+            # 停不掉就别再 start：start 看到端口有响应会报「已在运行」返回 0，
+            # 整个 restart 于是静默成功、实际什么都没发生（旧进程还僵着）。
+            print("重启中止：停止失败（原因见上），未启动新实例。")
+            return rc
         time.sleep(0.6)
         return cmd_start()
     if cmd == "status":
