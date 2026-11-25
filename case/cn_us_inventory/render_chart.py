@@ -49,7 +49,6 @@ def _load_switches(path):
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = BASE + "/data"
 OUT_PNG = BASE + "/中美库存周期图表.png"
-FONT = font_path()        # workspace/.fonts → 系统 Noto CJK
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 _LIB = os.path.join(_ROOT, "case", "_lib")
@@ -69,6 +68,8 @@ except ImportError:                       # 手动单跑：向上找 case/_lib �
         _d = _n
     _s.path.insert(0, _o.path.join(_d, "_lib"))
     from paths import font_path
+
+FONT = font_path()        # workspace/.fonts → 系统 Noto CJK（须在 import 之后）
 
 
 import app_secrets  # noqa: E402

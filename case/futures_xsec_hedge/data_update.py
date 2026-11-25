@@ -9,6 +9,7 @@
           本文件保留 settle 列但其值恒为空（下游未使用该列）。
 """
 import json
+import os
 import re
 import ssl
 import sys
