@@ -229,6 +229,34 @@ crontab -l | grep sd_watchdog    # 确认写入
 拉起/重启后会再查一次；连续 `SD_ALERT_AT`（默认 3）次失败才发 `SD_ALERT_WEBHOOK`，
 告警后清零计数，避免每分钟刷屏。
 
+告警通道按这个顺序找，前一个为空才看后一个：
+
+1. 环境变量 `SD_ALERT_WEBHOOK`（写在 cron 行里最省事）
+2. 凭据文件的 `alert.webhook`（`~/.config/stock-dashboard/secrets.json`）
+3. 都没有 → 只写 `logs/watchdog.log`，不外发（日志里会留一行「未配置…」）
+
+飞书和钉钉的自定义机器人都能用：URL 含 `feishu` / `larksuite` / `/open-apis/bot`
+按飞书格式（`msg_type`）发，其余按钉钉格式（`msgtype`）发。
+
+```cron
+# 直接带 webhook；SD_ALERT_AT 默认 3，可以调
+* * * * * SD_ALERT_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/xxx /srv/monitor/stock-dashboard/sd_watchdog.sh >/dev/null 2>&1
+```
+
+手动验判定链路（不用等真坏）：
+
+```bash
+python3 scheduler.py health     # 0 健康 / 1 未运行 / 2 僵死
+```
+
+想确认 `2` 这条路真的会走，把 `logs/scheduler.hb` 的时间戳往前改 10 分钟，
+`health` 应立刻返回 2；改回来即可（下一轮 tick 会自己覆盖）。
+
+看门狗还会做一次**环境自举**：cron 的 env 极简，`PYTHONPATH` 一般空着，而 scheduler
+进程内的 `task_health` 上报要 `import data_hub.tech.health`。脚本会按部署约定
+（datahub 与 stock-dashboard 同级 checkout）自己补上；已经用 systemd / 第 4 节配过
+环境变量的话完全不覆盖。
+
 看门狗自己的落盘都在 `logs/`：
 
 | 文件 | 含义 |
