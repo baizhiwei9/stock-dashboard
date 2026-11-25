@@ -26,6 +26,8 @@ ROOT = os.path.dirname(CASE_DIR)
 
 SECTIONS = ("stock", "futures", "realestate", "macro", "liquidity", "bond",
             "option", "risk", "modules")
+# 没写 section / section_domain 的私有任务不丢，归到「未分板块」（私有页专用）。
+UNSORTED = "unsorted"
 KEY_RE = re.compile(r"^[a-z0-9_]{2,40}$")
 AT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 # 框架生命周期：有 pipeline 的任务由 case/_lib/runner.py 按这几个阶段驱动
@@ -35,7 +37,8 @@ VISIBILITIES = ("public", "private")
 # 17 个 task.json 全部改成 private 之后再删掉这张表（见 case/_seed/visibility.md）。
 VISIBILITY_ALIASES = {"internal": "private"}
 # 私有任务的 section_domain 可能超出面板 Tab（如 credit 落在债券信用下），统一映射。
-SECTION_ALIAS = {"credit": "bond"}
+# 与 build_private.py 的板块顺序保持一个源：新增别名只改这里，不要在两处平行维护。
+SECTION_ALIAS = {"credit": "bond", "credit_spread": "bond", "macro_watch": "macro"}
 RUNNER = os.path.join(HERE, "runner.py")
 
 
@@ -203,29 +206,43 @@ def load_tasks(base: Optional[str] = None, only_enabled: bool = False) -> List[D
         for name in names:
             if name.startswith("_") or name.startswith("."):
                 continue
-            d = os.path.join(root_dir, name)
-            tj = os.path.join(d, "task.json")
-            if not os.path.isfile(tj):
-                continue
-            t = _read_json(tj, None)
-            if not isinstance(t, dict):
-                continue
-            errs = validate_task(t, name)
-            t = dict(t)
-            t["_dir"] = d
-            t["source"] = "case" if root_dir == CASE_DIR else "case-external"
-            if name in seen:
-                msg = "key 重复：%s 已由 %s 提供，本次忽略 %s" % (name, seen[name], d)
-                print("[case_registry] " + msg, file=sys.stderr)
-                errs.append(msg)
+            # 任务目录可能是 case/<key>/ 或 case/<群>/<key>/ 两层：私有仓把几个
+            # 宏观周报收在 macro_watch/<key>/ 这类容器目录下，只扫一层会漏。
+            # 容器本身没有 task.json 自然跳过，不误当成任务。
+            group_dir = os.path.join(root_dir, name)
+            candidates = [(name, group_dir)]
+            if os.path.isdir(group_dir):
+                try:
+                    subs = sorted(os.listdir(group_dir))
+                except OSError:
+                    subs = []
+                for sub in subs:
+                    if sub.startswith("_") or sub.startswith("."):
+                        continue
+                    candidates.append((sub, os.path.join(group_dir, sub)))
+            for dir_key, d in candidates:
+                tj = os.path.join(d, "task.json")
+                if not os.path.isfile(tj):
+                    continue
+                t = _read_json(tj, None)
+                if not isinstance(t, dict):
+                    continue
+                errs = validate_task(t, dir_key)
+                t = dict(t)
+                t["_dir"] = d
+                t["source"] = "case" if root_dir == CASE_DIR else "case-external"
+                if dir_key in seen:
+                    msg = "key 重复：%s 已由 %s 提供，本次忽略 %s" % (dir_key, seen[dir_key], d)
+                    print("[case_registry] " + msg, file=sys.stderr)
+                    errs.append(msg)
+                    t["_errors"] = errs
+                    continue
+                seen[dir_key] = d
                 t["_errors"] = errs
-                continue
-            seen[name] = d
-            t["_errors"] = errs
-            t.setdefault("cwd", d)
-            if only_enabled and (errs or not bool(t.get("enabled", True))):
-                continue
-            out.append(t)
+                t.setdefault("cwd", d)
+                if only_enabled and (errs or not bool(t.get("enabled", True))):
+                    continue
+                out.append(t)
     return out
 
 
@@ -315,7 +332,8 @@ def _metrics_from_latest(t: Dict) -> List[Dict]:
 
 
 def as_workers(base: Optional[str] = None, visibility: str = "public",
-               include_disabled: Optional[bool] = None) -> List[Dict]:
+               include_disabled: Optional[bool] = None,
+               include_unsorted: bool = False) -> List[Dict]:
     """转成 build.py 的 worker 结构：两个页面各取自己那一半，互不混排。
 
     2026-11-25 的口径是**两套页面**：
@@ -326,6 +344,9 @@ def as_workers(base: Optional[str] = None, visibility: str = "public",
       · 指标优先用 task.json 的 metrics 声明，没声明就从 out/latest.json 反推；
       · 私有任务没有指标也先出任务卡（跑一次、publish 回填后自动出数值）；
         公开任务仍等回填后才占位，避免空壳铺满板块。
+
+    私有页（build_private）传 ``include_unsorted=True``：没写 section/section_domain
+    的任务归「未分板块」而不是被丢；「modules」也保留，单独占一个板块。
     """
     if visibility not in ("public", "private", "all"):
         raise ValueError("visibility 只能是 public/private/all")
@@ -337,13 +358,25 @@ def as_workers(base: Optional[str] = None, visibility: str = "public",
         if t.get("_errors"):
             continue                      # 配置错误的进模块管理页（标红），不上数据板块
         vis = visibility_of(t)
+        # 私有仓（CASE_EXTRA_DIRS）里没写 visibility 的老任务按私有处理，
+        # 既不泄漏到公开页，也不在私有页被误丢。
+        if t.get("source") == "case-external" and not t.get("visibility"):
+            vis = "private"
         if visibility != "all" and vis != visibility:
             continue                      # 两套页面各取自己那一半，不混排
         sec = section_of(t)
-        if not sec or sec == "modules" or sec not in SECTIONS:
-            continue                      # 工具类任务只进模块管理页，不单独占一个数据板块
-        if t.get("build_workers") is False:
-            continue                      # 已有专用 render_* 页面的任务，不再出通用 case 块
+        if not sec and include_unsorted:
+            sec = UNSORTED                # 没写板块的任务不丢，归「未分板块」
+        if not sec:
+            continue
+        if sec == "modules":
+            if not include_unsorted:
+                continue                  # 工具类任务只进模块管理页，不单独占一个数据板块
+        elif sec != UNSORTED and sec not in SECTIONS:
+            continue                      # 未知板块不上牌面
+        if t.get("build_workers") is False and not include_unsorted:
+            continue                      # 已有专用 render_* 页面的任务，不再出通用 case 块；
+                                          # 私有页没有专用渲染，照常列出（与 #73 口径一致）
         metrics = _metrics_declared(t) or _metrics_from_latest(t)
         if not metrics and vis == "public":
             continue                      # 公开任务回填指标前不占位
