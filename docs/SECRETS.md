@@ -25,7 +25,7 @@
 | `tushare.token` | 否 | Tushare Pro token。 |
 | `tushare.official_token` | 否 | Tushare 官方站 token（备用通道）。 |
 | `email.smtp_host` | 否 | SMTP 主机，默认 `smtp.163.com`。 |
-| `email.smtp_port` | 否 | SMTP 端口，默认 `25`。 |
+| `email.smtp_port` | 否 | SMTP 端口，默认 `465`（SSL）。`25` 是明文端口，多数云主机已封。 |
 | `email.username` | 否 | SMTP 账号。 |
 | `email.password` | 否 | SMTP 授权码（**不是**登录密码）。 |
 | `email.sender` | 否 | 发件人地址。 |
@@ -34,6 +34,32 @@
 | `treasury.client_id` | 否 | 美财政部回购结果 API 的 client_id（缺省跳过回购明细）。 |
 | `treasury.client_secret` | 否 | 同上，client_secret。 |
 | `alert.webhook` | 否 | 任务失败/告警 webhook。 |
+
+## 配置文件查找顺序（含兼容位）
+
+`case/_lib/app_secrets.py:file_candidates()` 按下面顺序找，**第一个存在的生效**：
+
+| 优先级 | 路径 | 定位 |
+|---|---|---|
+| 1 | `$COZE_SECRETS` / `$APP_SECRETS_FILE` | 显式指定，命中即止，不静默回退 |
+| 2 | `~/.config/stock-dashboard/secrets.json` | **主位，新部署只用这个** |
+| 3 | `<仓库>/config/secrets.json` | 兼容位（旧文档时代的部署） |
+| 4 | `<仓库>/case/_lib/secrets.json` | 兼容位（更旧） |
+| 5 | `~/.config/stock-dashboard/feishu_secret.json` | 旧版单文件（只有飞书 4 项） |
+| 6 | `<仓库>/case/_lib/feishu_secret.json` | 旧版单文件 |
+
+**新部署请只用第 2 位。** 3–6 留着是为了让按旧文档装好的机器不用改就能继续跑，
+不代表推荐做法——如果你在仓库里建回 `config/secrets.json` 放凭据，它照样会被读到，
+但那样既容易误提交，也让「凭据在仓外」这条规则形同虚设。
+
+排查「为什么我改了文件没生效」时，先跑：
+
+```bash
+python3 case/_tools/check_secrets.py --paths
+```
+
+它会列出全部候选**文件**路径、哪些存在、当前生效的是哪个（`✓` 生效 / `·` 不存在）。
+环境变量那一路不在此列，用 `echo $COZE_SECRETS` 自查。
 
 ## 环境变量覆盖
 
