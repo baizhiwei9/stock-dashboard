@@ -1838,12 +1838,18 @@ def render_macro_section(latest: Dict, series: Dict, obs: Optional[str]) -> str:
     if not has_cn_gl and not nc_blk:
         return "", []        # 整块无数据 → 不渲染
 
-    cn_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
-                         num(v(latest, k, MACRO_SEC), d, u))
-                     for n, k, d, u, note in cn)
-    gl_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
-                         num(v(latest, k, GLOBAL_SEC), d, u))
-                     for n, k, d, u, note in gl)
+    # 两块各自判断有没有数：只有 Nowcast 数据时，不能摆一排 NA 的「货币与信用」
+    # 和「美元与人民币」（render_macro_section({}, {}, None) 的边界早先就漏了）。
+    cn_html = ""
+    if any_val(latest, [(k, MACRO_SEC) for _n, k, _d, _u, _x in cn]):
+        cn_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
+                              num(v(latest, k, MACRO_SEC), d, u))
+                          for n, k, d, u, note in cn)
+    gl_html = ""
+    if any_val(latest, [(k, GLOBAL_SEC) for _n, k, _d, _u, _x in gl]):
+        gl_html = "".join(kvh("%s <span class=\"sm\">%s</span>" % (n, note),
+                              num(v(latest, k, GLOBAL_SEC), d, u))
+                          for n, k, d, u, note in gl)
 
     charts = [
         ("mc_m2", ("macro.m2_yoy", MACRO_SEC), "M2同比", "#4a9eff", "%", 1),
