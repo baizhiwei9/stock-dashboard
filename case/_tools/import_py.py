@@ -99,7 +99,7 @@ def rekey(old: Dict, key: str, task: Dict, entry: str, nfiles: int,
     base = task.get("cmd") or (("python3 -u %s" % entry) if entry else "python3 -u main.py")
     if requires and "PYTHONPATH" not in base:
         # 公共库走环境变量；没设就明确报错，不去猜相对路径（cwd 是 case/<key>）
-        base = ('PYTHONPATH="${PYLIBS_DIR:?请先设置 PYLIBS_DIR 指向 pylibs 目录}:." ' + base)
+        base = ('PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." ' + base)
     cmd = base
     cwd = "."
     if old.get("cmd_manual"):

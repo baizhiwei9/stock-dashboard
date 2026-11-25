@@ -55,7 +55,7 @@ def dispatch(ctx): ctx.sh("python3 -u run_daily.py")                # 发送
 `ctx` 提供：`ctx.dir / data_dir / out_dir`、`ctx.sh(cmd, timeout, check)`、`ctx.emit(points)`、
 `ctx.save_json(name, obj)`、`ctx.log()`、`ctx.warn(title, lines, level)`、`ctx.dry`。
 
-需要精细控制的任务（`tech_consensus` / `tda_spd` / `realestate_daily`）直接复用原模块的函数，
+需要精细控制的任务（`tech_consensus` / `tda_spd`）直接复用原模块的函数，
 把"取数结果 → 报告 → 指标 → 发送"拆开，指标按业务语义命名（如 `tech.consensus`、
 `tda_spd.position_pct`、`re.cycle_stage`）。其余任务先用 `_lib/extract.py` 的
 `auto_extract` 从 `out/*.json` 自动抽取标量字段，先有指标上面板，再逐步精细化。
@@ -95,7 +95,7 @@ case/
   也是 .py，必须带全——`check_imports.py` 会按入口闭包检查漏没漏。
 - **字体不入库**：`assets.ensure_cjk_font()` 在 `fetch` 阶段从系统字体（或 `CASE_CJK_FONT`）
   落到任务目录，找不到就明确报错，不画豆腐块。
-- **输入数据靠注入**：任务不编造数据。需要上游周/月数据的（如 `realestate_daily`），用
+- **输入数据靠注入**：任务不编造数据。需要上游周/月数据的任务（如私有仓库里的 `realestate_daily`），用
   `CASE_DATA_SRC` 指向含数据文件的目录，`fetch` 阶段复制进来；没有就报警并失败。
 
 ---
@@ -104,7 +104,7 @@ case/
 
 | 变量 | 必需 | 说明 |
 |---|---|---|
-| `PYLIBS_DIR` | 是（任务 `requires` 含 `pylibs` 时） | 第三方包目录；命令里用 `${PYLIBS_DIR:?}`，**没设直接报错**，不猜路径 |
+| `PYLIBS_DIR` | 否（**可留空**） | 第三方包目录，**可写多个、冒号分隔**。**依赖不需要装在一起**：每个任务用自己的方式找到依赖（自带 `_shared/`、已装进系统 `site-packages`、或各自的目录），本变量只用来补「还没装进环境」的那部分。命令里用 `${PYLIBS_DIR:+...}`，空着也照跑，不会因为没设就 exit 127 |
 | `PYTHONPATH` | 是（依赖 DataHub 的任务） | 指到含 `data_hub/` 的仓库根，`publish.py` 与取数都要用 |
 | `EDB_REPO` | 部分任务 | 指到含 `data_hub` 的 EDB 仓库目录（`margin_flow` / `margin_detail` 等） |
 | `CASE_DATA_SRC` | 部分任务 | 上游输入数据目录（周/月度任务） |
@@ -122,8 +122,17 @@ case/
 ## 四、跑起来
 
 ```bash
-export PYLIBS_DIR=/path/to/pylibs
+# 最小启动：PYLIBS_DIR 可以完全不给（依赖已装进 /usr/bin/python3 的 site-packages 时）
 export PYTHONPATH=/path/to/datahub-repo:$PWD
+
+# 只有「依赖散在几个目录、又不想 pip install」时才需要它，冒号分隔，靠前的优先：
+# export PYLIBS_DIR=/opt/coze/.fuse_drive/dataHub_三级体系/options:/path/to/another/libs
+# runner 与 check_imports 都按冒号拆开、逐个加进 sys.path；不存在的目录自动跳过。
+
+# 三种放依赖的方式，任选其一（不必统一到一个 pylibs）：
+#   1) 系统已装：/usr/bin/python3 -m pip install -r requirements.txt
+#   2) 任务自带：python3 case/_tools/import_py.py --task <key> --with-shared  （依赖落到 case/<key>/_shared/）
+#   3) 外挂目录：export PYLIBS_DIR=dirA:dirB:dirC
 
 python3 case/_lib/runner.py --task tech_consensus              # 完整五阶段
 python3 case/_lib/runner.py --task tech_consensus --dry-run     # 只打印阶段，不执行
@@ -157,7 +166,7 @@ python3 case/_tools/import_py.py --only tda_spd
 python3 case/_tools/check_imports.py               # 入口闭包 import 检查
 python3 case/_tools/fix_imports.py                 # 补回漏掉的本地 .py（先 --dry-run）
 python3 case/_tools/make_pipeline.py               # 生成 pipeline.py + pipeline 声明
-python3 case/_tools/make_pipeline.py --only rmt_daily --force
+python3 case/_tools/make_pipeline.py --only tech_consensus --force
 ```
 
 `import_py.py` 会保留已手工改过入口的 `cmd`（标 `cmd_manual`），`make_pipeline.py` 默认
@@ -189,10 +198,40 @@ python3 case/_tools/make_pipeline.py --only rmt_daily --force
 - `cds_weekly` / `repo_collateral` / `macro_four_dim`：必须由大模型完成的环节（检索 CDS 报价、
   判定报告期、联网补财政数据），纯定时会卡住，按用户要求未上传。
 
-## 八、已知待办（目标机首次运行需确认）
+## 八、部署：依赖怎么放（**不要求装在一起**）
 
-- 依赖 DataHub 的任务（`margin_flow`、`margin_detail`、`rmt_*`、`xi_d_rrg`、`hodge_laplacian` 等）
-  需要 `PYTHONPATH` 指到 DataHub 仓库、`EDB_REPO` 指到 EDB 仓库，本机无此环境，未做真跑验证。
+`PYLIBS_DIR` **可以是空的**，任务照样能跑。三种放依赖的方式任选，也可以混着用：
+
+| 方式 | 怎么做 | 适用 |
+|---|---|---|
+| A. 装进系统 | `/usr/bin/python3 -m pip install -r requirements.txt` | 依赖本来就是标准 PyPI 包 |
+| B. 任务自带 | 依赖放进 `case/<key>/_shared/`（`import_py.py --with-shared` 会拷一份） | 只有这一个任务用，或版本跟别处冲突 |
+| C. 外挂目录 | `export PYLIBS_DIR=dirA:dirB:dirC` | 依赖已在机器上某个目录，不想再拷 |
+
+runner 会把这三种来源都加进 `sys.path` 和子进程的 `PYTHONPATH`；`PYLIBS_DIR` 里写的目录
+不存在就跳过，不会报错。**不需要把所有依赖收敛到一个 pylibs 目录。**
+
+### 首次部署清单
+
+```bash
+# 1) 必需：DataHub 仓库根（含 data_hub/），取数与落库都要
+export PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系
+# 2) 部分任务：EDB 仓库（与上一条通常同一个目录）
+export EDB_REPO=/opt/coze/.fuse_drive/dataHub_三级体系
+# 3) 可选：只有依赖散在几个目录时才设，可留空
+# export PYLIBS_DIR=/path/a:/path/b
+
+python3 case/_lib/case_registry.py          # 先看 29 个任务是否 0 错误
+python3 case/_tools/check_imports.py        # 再看 import 闭包缺什么
+python3 case/_lib/runner.py --task <key> --dry-run
+```
+
+### 已知待办（目标机首次运行需确认）
+
+- 部分任务代码里硬编码了旧机器的绝对路径（`/home/work/dumate/.../workspace`），
+  需要在目标机上按实际目录替换，或由部署脚本注入 `CASE_WS_ROOT`（待做）。
+- 外部模块 `report_stats` / `feishu_config` / `ts_config` / `broad5_risk` 不在本仓库，
+  要么从旧机器带过来放进 `PYLIBS_DIR` 的某个目录，要么按任务改成读环境变量。
 - `twosigma_rotation` 等少数任务依赖静态输入数据（如 `data/sw_l3_full.csv`），需用
   `CASE_DATA_SRC` 注入或用上游任务产出补到 `data/`。
 - 自动抽取的指标键名（`<task>.<文件>.<字段>`）只是过渡命名，真正上海报前建议按业务语义
@@ -210,11 +249,14 @@ python3 case/_tools/make_pipeline.py --only rmt_daily --force
 | visibility | 定时跑 | 写指标仓 | 上牌面 | 用途 |
 |---|---|---|---|---|
 | `public`（默认） | ✓ | ✓ | ✓（按 `section` 归 Tab） | 基础数据、结构图这类可以给人看的 |
-| `internal` | ✓ | ✓ | ✗ | 选行业/选股/中间算法这类只自己用的 |
+| `private` | ✓ | ✓ | ✗ | 选行业/选股/中间算法这类只自己用的 |
 
-`internal` 任务必须把 `section` 留空（原标签挪到 `section_domain` 备查）。
+`private` 任务必须把 `section` 留空（原标签挪到 `section_domain` 备查）。枚举只有 `public`/`private`，
+旧的 `internal` 保留为 `private` 的别名（过渡期，`precious-task` 改完后删），写了不报错。
+真正非法的值不会被当成 `public`：任务以「配置错误 + 停用」留在调度台，首次发现时发一封告警邮件，
+不会静默消失。
 看板通过 `case_registry.as_workers()` 拿数据，它只返回 `public` 且 `section` 非空的；
-索引与调度走 `as_modules()`，两种可见性都在，只是 `internal` 在模块管理页带标记。
+索引与调度走 `as_modules()`，两种可见性都在，只是 `private` 在模块管理页带标记。
 
 ### 私有仓库怎么接
 
@@ -246,5 +288,6 @@ python3 case/_lib/runner.py --task my_task --dry-run
 
 分类清单维护在 **`case/_seed/visibility.md`**，改可见性只改 `task.json`，清单同步更新即可。
 
-12 个 `internal` 任务已迁到独立私有仓库 **precious-task**（`case/<key>/`，commit 62e074c），
-本仓库只保留 17 个 `public` 任务。挂载命令见该仓库 README，或用 `CASE_EXTRA_DIRS` 指过去。
+17 个 `private` 任务（原 12 个 + 2026-11-25 从 public 挪下来的 5 个：`realestate_daily` /
+`volume_wavelet` / `rmt_daily` / `rmt_cgap` / `structural_factor`）都在独立私有仓库
+**precious-task**（`case/<key>/`），本仓库只保留 12 个 `public` 任务。挂载命令见该仓库 README，或用 `CASE_EXTRA_DIRS` 指过去。

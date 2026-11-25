@@ -72,6 +72,12 @@ STAGE_CN = {"fetch": "取数", "check": "检查", "render": "出报告",
 
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+
+# 共享代码库（report_stats / broad5_risk / portfolio_stats 这类多任务复用的模块）：
+# 由框架统一注入 sys.path，任务不用各自拼绝对路径；私有仓库用 CASE_SHARED_DIR 指过来。
+SHARED_DIR = os.environ.get("CASE_SHARED_DIR") or os.path.join(CASE_DIR, "_shared")
+if os.path.isdir(SHARED_DIR) and SHARED_DIR not in sys.path:
+    sys.path.insert(0, SHARED_DIR)
 import alert as alert_mod                                          # noqa: E402
 import checks as check_mod                                          # noqa: E402
 
@@ -459,8 +465,12 @@ def main(argv: List[str]) -> int:
         stages = stages[stages.index(a.from_stage):]
 
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # data/ out/ logs/ 都不入库，新机器上首次跑时目录不存在。
+    # 任务里常见 os.listdir("data/md") 这种写法，目录缺了直接 FileNotFoundError，
+    # 所以进阶段之前统一建好，别让每个任务自己记得 makedirs。
+    for _sub in ("data", "out", "logs"):
+        os.makedirs(os.path.join(task["_dir"], _sub), exist_ok=True)
     run_dir = os.path.join(task["_dir"], "logs")
-    os.makedirs(run_dir, exist_ok=True)
     logp = os.path.join(run_dir, "run-%s.log" % run_id)
     logf = open(logp, "a", encoding="utf-8")
     started = time.time()
@@ -468,11 +478,28 @@ def main(argv: List[str]) -> int:
     ctx = Ctx(task, run_dir, logf, started, do_publish=not a.no_publish, dry=a.dry_run)
     ctx.log("任务 %s（%s）开始，阶段：%s" % (task["key"], task.get("section"), " → ".join(stages)))
     for req in task.get("requires") or []:
-        if req == "pylibs" and os.environ.get("PYLIBS_DIR"):
-            d = os.environ["PYLIBS_DIR"]
-            if d not in sys.path:
-                sys.path.insert(0, d)
-            ctx.log("依赖 pylibs → %s" % d)
+        if req == "pylibs":
+            # 依赖不要求装在一起，三种来源都收（顺序：PYLIBS_DIR 靠前优先）：
+            #   1) PYLIBS_DIR：冒号分隔的多个外挂目录（可留空）
+            #   2) case/<key>/_shared：任务自带的依赖（import_py.py --with-shared）
+            #   3) case/_shared/pylibs：跨任务共享的一份
+            dirs = [d.strip() for d in (os.environ.get("PYLIBS_DIR") or "").split(":") if d.strip()]
+            for d in reversed(dirs):
+                if os.path.isdir(d) and d not in sys.path:
+                    sys.path.insert(0, d)
+            shared = [os.path.join(task["_dir"], "_shared"), SHARED_DIR,
+                      os.path.join(CASE_DIR, "_shared", "pylibs")]
+            usable = [d for d in dirs + shared if os.path.isdir(d)]
+            for d in reversed(usable):
+                if d not in sys.path:
+                    sys.path.insert(0, d)
+            # 阶段命令都是子进程（ctx.sh → bash -c），sys.path 传不过去，
+            # 必须同时写进 PYTHONPATH 环境变量，子进程才看得到。
+            if usable:
+                old_pp = os.environ.get("PYTHONPATH") or ""
+                parts = usable + ([old_pp] if old_pp else [])
+                os.environ["PYTHONPATH"] = ":".join(parts)
+            ctx.log("依赖 pylibs → %s" % (":".join(usable) or "(未设 PYLIBS_DIR，任务目录内也无可用的 _shared)"))
 
     # 依赖检查：上游产物不满足就不进入 fetch，也不发报告
     results: List[Dict] = []

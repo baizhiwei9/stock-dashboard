@@ -43,8 +43,8 @@
    "entry": "rmt_cgap_daily.py",
    "needs_llm": false,
    "note": "",
-   "skip": false,
-   "skip_reason": ""
+   "skip": true,
+   "skip_reason": "已迁至私有仓库 precious-task（visibility=private，2026-11-25）"
   },
   {
    "name": "MAD 均线指选股（每周日早晨）",
@@ -310,8 +310,8 @@
    "entry": "daily_canghai_fupeng.py",
    "needs_llm": false,
    "note": "",
-   "skip": false,
-   "skip_reason": ""
+   "skip": true,
+   "skip_reason": "已迁至私有仓库 precious-task（visibility=private，2026-11-25）"
   },
   {
    "name": "期货横截面多空对冲·模拟盘",
@@ -458,8 +458,8 @@
    "entry": "daily_wavelet_monitor.py",
    "needs_llm": false,
    "note": "",
-   "skip": false,
-   "skip_reason": ""
+   "skip": true,
+   "skip_reason": "已迁至私有仓库 precious-task（visibility=private，2026-11-25）"
   },
   {
    "name": "美债监控周报",
@@ -613,8 +613,8 @@
    "entry": "rmt_daily_monitor.py",
    "needs_llm": false,
    "note": "",
-   "skip": false,
-   "skip_reason": ""
+   "skip": true,
+   "skip_reason": "已迁至私有仓库 precious-task（visibility=private，2026-11-25）"
   },
   {
    "name": "TDA-SPD 黎曼流形策略日报(22因子v5-TDA状态+SPD漂移选行业)",
@@ -657,8 +657,8 @@
    "entry": "daily_structural_report.py",
    "needs_llm": false,
    "note": "",
-   "skip": false,
-   "skip_reason": ""
+   "skip": true,
+   "skip_reason": "已迁至私有仓库 precious-task（visibility=private，2026-11-25）"
   },
   {
    "name": "曼宁资金流日报",

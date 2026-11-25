@@ -143,6 +143,7 @@ def fetch_days(days, api, keep, sub, validate=None, fetch=None):
         raise ValueError(f"{api}：未指定 DataHub 取数函数")
     empty = jload(os.path.join(D, "empty_days.json"), {}) or {}
     ddir = os.path.join(D, sub)
+    os.makedirs(ddir, exist_ok=True)   # data/ 不入库，首跑时子目录可能不存在
     have = set(os.path.splitext(x)[0] for x in os.listdir(ddir))
     # 剔除历史遗留的「不完整缓存」（如仅含上交所的一天），避免后续永远跳过重取
     if validate:
@@ -468,6 +469,8 @@ def main():
         hist = [d for d in open_days if int(START) <= d <= base]
         fetch_days(hist, "margin_detail", MD_KEEP, "md", validate=_md_ok, fetch=dh.margin_detail_day)
         fetch_days(hist, "daily_basic", DB_KEEP, "db", fetch=dh.daily_basic_day)
+    os.makedirs(os.path.join(D, "md"), exist_ok=True)
+    os.makedirs(os.path.join(D, "db"), exist_ok=True)
     have_md = set(os.path.splitext(x)[0] for x in os.listdir(os.path.join(D, "md")))
     have_db = set(os.path.splitext(x)[0] for x in os.listdir(os.path.join(D, "db")))
     days = [d for d in open_days if int(START) <= d <= base

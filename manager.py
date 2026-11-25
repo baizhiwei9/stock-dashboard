@@ -77,12 +77,24 @@ def _sec_load() -> Dict:
 
 
 def case_mods() -> List[Dict]:
-    """case/*/task.json 里的任务（dumate 分支）；坏配置跳过。"""
+    """case/*/task.json 里的任务（dumate 分支）。
+
+    坏配置**不丢弃**：enabled=False + 配置错误说明，留在清单里让人看见
+    —— 任务失败可以静默，但任务从清单里消失不行。
+    """
     try:
         if CASE_LIB not in sys.path:
             sys.path.insert(0, CASE_LIB)
         import case_registry
-        return [m for m in case_registry.as_modules(CASE_DIR) if not m.get("_errors")]
+        mods = []
+        for m in case_registry.as_modules(CASE_DIR):
+            errs = m.get("_errors") or []
+            if errs:
+                m = dict(m)
+                m["enabled"] = False
+                m["_config_error"] = "；".join(errs)
+            mods.append(m)
+        return mods
     except Exception:                                         # noqa: BLE001
         return []
 
@@ -272,6 +284,8 @@ def cmd_list() -> int:
         key = m["key"]
         on = m.get("enabled", True)
         st = (GRN + "启用" + RST) if on else (RED + "停用" + RST)
+        if m.get("_config_error"):
+            st = RED + "配置错误" + RST
         inst = (GRN + "✓" + RST) if key in live else (NA + "✗" + RST)
         if not on:
             inst = NA + "—" + RST

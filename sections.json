@@ -81,7 +81,7 @@
       "key": "option",
       "num": "07",
       "title": "期权 · 波动率",
-      "sub": "IV / 偏度 / PCR / 波动率曲面 / 杨康平顶底",
+      "sub": "IV / 偏度 / PCR / 波动率曲面",
       "enabled": true,
       "subs": []
     },
