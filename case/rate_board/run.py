@@ -158,6 +158,22 @@ def cn_block():
 
     # 统一强弱判定：口径唯一定义在 DataHub 的 edb/fetchers/spread_regime.py，
     # 主口径国开 1Y-3M，存单作印证、3M 国开-逆回购看短端。这里只搬结论，不另立刻度。
+    # 判定不可用时也要显式落 missing（带原因），不能静默少几条指标。
+    _REGIME = (
+        ("rate.cn.regime_level", "降准降息预期档位·等级"),
+        ("rate.cn.regime_label", "降准降息预期档位"),
+        ("rate.cn.regime_chg5", "国开1Y-3M近5日变动"),
+        ("rate.cn.ncd_regime_level", "存单印证档位"),
+        ("rate.cn.cdb3m_regime_level", "短端溢价档位"),
+    )
+
+    def _regime_missing(reason):
+        """把尚未落地的 regime 指标补成 missing，避免静默少点。"""
+        have = {p.get("key") for p in POINTS}
+        for key, name in _REGIME:
+            if key not in have:
+                add(key, name, quality="missing", note=reason)
+
     try:
         from data_hub.edb.fetchers import spread_regime as SR
         primary = SR.judge(SR.PRIMARY)
@@ -172,15 +188,24 @@ def cn_block():
                 add("rate.cn.regime_chg5", "国开1Y-3M近5日变动",
                     value=primary["chg5"], unit="bp", dec=1, obs=primary["date"],
                     note="负=压平=预期转强")
+            else:
+                add("rate.cn.regime_chg5", "国开1Y-3M近5日变动", quality="missing",
+                    note="主口径样本不足 5 个交易日，无法计算近5日变动")
+        else:
+            reason = "主口径国开 1Y-3M 无数据（DataHub 取数失败或样本为空）"
+            for key, name in _REGIME[:3]:
+                add(key, name, quality="missing", note=reason)
         for sid, key, nm in ((SR.CONFIRM, "rate.cn.ncd_regime_level", "存单印证档位"),
                              (SR.SHORT_END, "rate.cn.cdb3m_regime_level", "短端溢价档位")):
             j = SR.judge(sid)
             if j:
                 add(key, nm, value=j["level"], unit="级", dec=0, obs=j["date"],
                     note="%s｜%s" % (j["adjusted"], j["label"]))
+            else:
+                add(key, nm, quality="missing",
+                    note="%s 无数据（DataHub 取数失败或样本为空）" % sid)
     except Exception as exc:                                   # noqa: BLE001
-        add("rate.cn.regime_level", "降准降息预期档位·等级", quality="missing",
-            note="统一判定不可用：%s" % str(exc)[:80])
+        _regime_missing("统一判定不可用：%s" % str(exc)[:80])
 
 
 def write_report(matrix, asof):
