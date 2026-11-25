@@ -17,7 +17,7 @@
 
 | 项 | 要求 | 说明 |
 |---|---|---|
-| Python | 3.9+ | `scheduler.py`、`build.py`、`case/_lib/*` **纯标准库**，不装包也能起调度与看板 |
+| Python | 3.9+（实测 3.12） | `scheduler.py`、`case/_lib/*` **纯标准库**；`build.py` 只额外依赖 `data_hub` 仓库（不是 pip 包） |
 | 第三方包 | 见 `requirements.txt` | 只有任务脚本要用（pandas / matplotlib / akshare / lightgbm / POT 等） |
 | DataHub 仓库 | `datahub-multi-tier` | 需与本站同级 checkout；`PYTHONPATH` 指到含 `data_hub/` 的仓库根 |
 | 时区 | `Asia/Shanghai` | 调度按本地时间算，机器时区错了所有任务都会错点 |
