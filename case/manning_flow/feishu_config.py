@@ -14,7 +14,8 @@ if _LIB not in sys.path:
 
 import app_secrets  # noqa: E402
 
-WEBHOOK_URL = app_secrets.get("feishu.webhook")
+# import 期不因缺配置崩溃：runner 的前置校验会先把缺凭据的飞书任务跳过。
+WEBHOOK_URL = app_secrets.get("feishu.webhook", "")
 
 
 def app_credentials():

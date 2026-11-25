@@ -29,7 +29,8 @@ if _LIB not in sys.path:
 
 import app_secrets  # noqa: E402
 
-TS_TOKEN = app_secrets.get("tushare.token")
+# import 期不因缺配置崩溃；真正取数时 init_tushare() 会因空 token 明确失败。
+TS_TOKEN = app_secrets.get("tushare.token", "")
 TS_HTTP_URL = "https://ttx.dailyfetch.top/"
 
 

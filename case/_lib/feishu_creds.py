@@ -57,8 +57,13 @@ def require(*fields):
 
     只发文本（webhook 模式）不需要 APP_ID/APP_SECRET；上传图片或走应用身份
     发消息才需要。调用方按自己真实需要校验，不要一律全查。
+
+    返回 {字段短名: 值}。底层 ``app_secrets.require`` 只认点号 key（#35 起），
+    这里统一加 ``feishu.`` 前缀，别再传分段名。
     """
+    want = fields or _FIELDS
     try:
-        return _secrets.require("feishu", *(fields or _FIELDS))
+        found = _secrets.require(*(("feishu." + f) for f in want))
     except _secrets.SecretMissing as e:
         raise FeishuCredentialMissing(str(e)) from e
+    return {f: found["feishu." + f] for f in want}
