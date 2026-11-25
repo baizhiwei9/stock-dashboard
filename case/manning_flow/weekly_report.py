@@ -50,7 +50,13 @@ OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 # 避免脚本目录散落 CSV，也避免迁移后与会话目录各存一套面板、各算一份 ANB。
 CACHE_DIR = os.path.join(OUTPUT_DIR, 'data')
 os.makedirs(CACHE_DIR, exist_ok=True)
-from feishu_config import WEBHOOK_URL  # noqa: E402  凭据统一走 app_secrets，见 DEPLOY.md「敏感配置」
+# 凭据统一走 app_secrets（见 DEPLOY.md「敏感配置」）。
+# ⚠️ 这里必须**惰性导入**：本机没配 feishu.webhook 时，顶层 import 会让整个脚本在
+# 读取 app_secrets 阶段就抛 SecretMissing，连 --no-send 的取数与校验都跑不了，
+# 迁移/回归验证因此失去意义。改为只在真正发送时取 webhook，缺配置就只在推送阶段报错。
+def _get_webhook() -> str:
+    from feishu_config import WEBHOOK_URL  # noqa: E402
+    return WEBHOOK_URL
 # 沙箱依赖持久化: pip 安装到工作区内 .pydeps, 避免 /tmp 被清理后模块丢失
 LOCAL_DEPS = os.path.join(OUTPUT_DIR, '.pydeps')
 if os.path.isdir(LOCAL_DEPS):
@@ -595,7 +601,8 @@ def send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, report_dat
     }
     
     try:
-        resp = requests.post(WEBHOOK_URL, json=msg, timeout=15)
+        webhook = _get_webhook()
+        resp = requests.post(webhook, json=msg, timeout=15)
         result = resp.json()
         print(f"飞书发送: {resp.status_code} - {result.get('StatusMessage', resp.text[:80])}")
         return True
