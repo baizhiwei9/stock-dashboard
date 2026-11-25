@@ -1,5 +1,8 @@
 # 运行时产物
 index.html
+webview/index.html
+# webview 把任务产出的图拷到这里（数据，不是代码）
+webview/assets/
 pub/
 logs/
 __pycache__/
