@@ -1421,13 +1421,75 @@ def render_futures_section() -> str:
             % (html.escape(obs), "".join(blocks), note))
 
 
-def render_realestate_section() -> str:
-    """地产栏 —— 本机没有地产任务落库。
+RE_CITY_SUBS = (("北京", "re_bj"), ("上海", "re_sh"))
 
-    整块无数据 → 整块不渲染（不再留一排 NA + 「本机无数据」说明）。
-    等有任务往指标仓塞 realestate.* 契约数据，这里改成读 latest 渲染。
+
+def _re_report_sections() -> Dict[str, List[str]]:
+    """把 realestate_daily 的 report.md 按「## 【城市】」切出各城市条目。"""
+    path = os.path.join(HERE, "case", "realestate_daily", "out", "report.md")
+    try:
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return {}
+    out: Dict[str, List[str]] = {}
+    cur = None
+    known = dict(RE_CITY_SUBS)
+    for raw in lines:
+        s = raw.strip()
+        if s.startswith("## "):
+            name = s[3:].strip()
+            cur = None
+            if name.startswith("【") and name.endswith("】"):
+                name = name[1:-1]
+                if name in known:
+                    cur = name
+                    out.setdefault(cur, [])
+            continue
+        if cur and s.startswith("- ") and len(s) > 2:
+            out[cur].append(s[2:].strip())
+    return {k: v for k, v in out.items() if v}
+
+
+def _re_md_bold(s: str) -> str:
+    """行内 **粗体** → <b>，其余按 HTML 转义。"""
+    return "".join('<b>%s</b>' % p if i % 2 else p
+                   for i, p in enumerate(html.escape(s).split("**")))
+
+
+def render_realestate_section() -> str:
+    """地产栏 —— 按城市分两张子卡片：北京 / 上海。
+
+    内容取自 ``case/realestate_daily/out/report.md`` 的「## 【北京】」「## 【上海】」
+    两节（每行自带数据截止日期，不另做加工）。子页在 sections.json 的
+    ``realestate.subs`` 里登记，``enabled`` 决定默认显隐。
+    整块无数据 → 整块不渲染，与其它板块口径一致。
     """
-    return ""
+    cities = _re_report_sections()
+    if not cities:
+        return ""
+    subs: Dict[str, Dict] = {}
+    for s in (load_sections(os.path.join(HERE, "sections.json")).get("sections") or []):
+        if s.get("key") == "realestate":
+            subs = {x.get("key"): x for x in (s.get("subs") or [])}
+            break
+
+    cards = []
+    for city, key in RE_CITY_SUBS:
+        items = cities.get(city) or []
+        if not items:
+            continue
+        d = 1 if (subs.get(key) or {}).get("enabled", True) else 0
+        lis = "".join('<li style="margin:0 0 10px 0">%s</li>' % _re_md_bold(x)
+                      for x in items)
+        cards.append(
+            '<section class="idx-card sec" id="%s" data-sec="%s" data-def="%d">'
+            '<header><h3>%s <em>地产 · 城市基础数据</em></h3></header>'
+            '<div class="idx-body"><div class="blk">'
+            '<ul style="margin:0;padding-left:18px;line-height:1.75">%s</ul>'
+            '</div></div></section>'
+            % (key, key, d, html.escape(city), lis))
+    return "".join(cards)
 
 
 def load_sections(path: str) -> Dict:

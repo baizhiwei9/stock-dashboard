@@ -49,9 +49,20 @@
       "key": "realestate",
       "num": "03",
       "title": "地产",
-      "sub": "销售 / 投资 / 房价 / 地产债 —— 本机暂无任务落库",
+      "sub": "北京 / 上海 双城：网签、挂牌、70城房价、租金（土狗状态机与付鹏框架在子卡片内）",
       "enabled": true,
-      "subs": []
+      "subs": [
+        {
+          "key": "re_bj",
+          "title": "北京",
+          "enabled": true
+        },
+        {
+          "key": "re_sh",
+          "title": "上海",
+          "enabled": true
+        }
+      ]
     },
     {
       "key": "macro",
