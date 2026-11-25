@@ -30,10 +30,27 @@ def _src_dir() -> str:
 
 
 def fetch(ctx):
-    """数据准备：本地有就用，没有就从 CASE_DATA_SRC 拷进来；两处都没有就报警。"""
+    """数据准备：自动取数 → CASE_DATA_SRC 兜底 → 两处都不成就报警。
+
+    自动取数以 weekly_input.seed.json 为基线，只更新有可靠来源的字段
+    （见 fetch_input.py）；抓不到的字段保留原值与 as_of，不伪造日期。
+    设 REALESTATE_AUTOFETCH=0 可关闭，退回「只认本地文件 + CASE_DATA_SRC」的老口径。
+    """
     os.makedirs(ctx.data_dir, exist_ok=True)
     local = os.path.join(HERE, DATA_FILE)
     src = _src_dir()
+
+    if (os.environ.get("REALESTATE_AUTOFETCH") or "1").strip() != "0":
+        try:
+            import fetch_input
+            st = fetch_input.build(local)
+            srcs = {k: ("ok" if v.get("ok") else v.get("error"))
+                    for k, v in (st.get("sources") or {}).items()}
+            ctx.log("自动取数：更新 %d 项、新增 %d 项｜来源 %s"
+                    % (st.get("updated", 0), st.get("added", 0), srcs))
+        except Exception as exc:
+            ctx.warn("自动取数失败，尝试沿用已有数据",
+                     ["%s: %s" % (type(exc).__name__, exc)], "warn")
 
     if not os.path.isfile(local) and src:
         for name in (DATA_FILE, SLOW_FILE):
@@ -66,10 +83,15 @@ def fetch(ctx):
     with open(os.path.join(ctx.data_dir, "asof.json"), "w", encoding="utf-8") as f:
         json.dump({"sections": asof}, f, ensure_ascii=False, indent=2)
 
-    # 指标 obs_date 只认日频截止日期（YYYY-MM-DD）；"2026Q2" 这类季度标记不进指标
+    # 指标 obs_date 只能由日频日期决定：直接扫全部字段取 max，不能先按板块取字符串
+    # max 再筛。因为 "2026Q2" 的字典序大于 "2026-11-23"，会把该板块的"最新"顶成
+    # 季度标记，再被日频正则筛掉，真正最新的日频数据（如 EFFR 11-23）反而漏掉。
     import re
-    daily = [v for v in asof.values() if re.match(r"^\d{4}-\d{2}-\d{2}$", str(v))]
-    ctx.asof = max(daily) if daily else ""
+    day = [str(v["as_of"]) for items in data.values() if isinstance(items, dict)
+           for v in items.values()
+           if isinstance(v, dict)
+           and re.match(r"^\d{4}-\d{2}-\d{2}$", str(v.get("as_of") or ""))]
+    ctx.asof = max(day) if day else ""
     ctx.log("输入板块 %d 个，截止日期：%s（日频最新 %s）"
             % (len(data), asof, ctx.asof or "无"))
 
