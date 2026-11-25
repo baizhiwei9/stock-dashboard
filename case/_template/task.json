@@ -1,0 +1,68 @@
+{
+  "key": "demo_task",
+  "title": "模板任务（复制改名后使用）",
+  "desc": "最小可跑的任务模板：五个阶段各一个脚本，跑通后替换成自己的逻辑",
+  "section": "modules",
+  "visibility": "public",
+  "sched": {
+    "mode": "daily",
+    "at": "09:00",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "metrics": [],
+  "depends_on": [],
+  "enabled": true,
+  "timeout": 600,
+  "deliver": {
+    "report": false,
+    "email": false
+  },
+  "pipeline": {
+    "on_fail": "stop",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.5,
+    "require_data": true,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "data": [
+        "data/*.json"
+      ],
+      "report": [
+        "out/report.md"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "cmd": "python3 -u fetch.py",
+        "timeout": 300
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "render",
+        "cmd": "python3 -u render.py",
+        "timeout": 300
+      },
+      {
+        "name": "emit",
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "cmd": "python3 -u dispatch.py",
+        "optional": true
+      }
+    ]
+  },
+  "note": "这个目录以 _ 开头，不会进调度；复制成 ../<your_key>/ 后改名再用"
+}
