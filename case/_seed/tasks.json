@@ -1,0 +1,732 @@
+{
+ "workspace": "{WS}",
+ "tasks": [
+  {
+   "name": "中美库存周期月度预测与切换提醒",
+   "cron": "0 9 28 * *",
+   "section": "macro",
+   "cwd": [],
+   "py": [
+    "inventory_monthly.py"
+   ],
+   "key": "cn_us_inventory",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5e7d65e97affeGRaKRrqXn281SL",
+   "entry": "inventory_monthly.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "市场临界监测 C(t) & Gap 日报（含全A）",
+   "cron": "40 16 * * 1-5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5fcc907173ffeEGsG0e1KvWP05b"
+   ],
+   "py": [
+    "rmt_cgap_daily.py",
+    "build_cgap_html.py",
+    "build_cgap_png.py",
+    "send_cgap_feishu.py"
+   ],
+   "key": "rmt_cgap",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5fcc907173ffeEGsG0e1KvWP05b",
+   "entry": "rmt_cgap_daily.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "MAD 均线指选股（每周日早晨）",
+   "cron": "0 8 * * 0",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5e6ceeb364ffeNZ3DY2SCHDLO20"
+   ],
+   "py": [
+    "weekly_run.py"
+   ],
+   "key": "mad_weekly",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5e6ceeb364ffeNZ3DY2SCHDLO20",
+   "entry": "weekly_run.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "CDS 周度监控（每周四 20:00）",
+   "cron": "0 20 * * 4",
+   "section": "bond",
+   "cwd": [],
+   "py": [
+    "cds_weekly_monitor.py"
+   ],
+   "key": "cds_weekly",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5e68d79352ffetXPewcLEJH7PZs/cds_monitor",
+   "entry": "cds_weekly_monitor.py",
+   "needs_llm": true,
+   "note": "CDS 报价靠大模型检索公开新闻，脚本只做判定/出图/发信",
+   "skip": true,
+   "skip_reason": "大模型依赖：取 CDS 报价依赖大模型检索公开新闻"
+  },
+  {
+   "name": "将军成长股拓扑选股",
+   "cron": "0 17 * * 0",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5e722c9a84ffeEPBhVrM9DzQb6b/将军基本面拓扑选股"
+   ],
+   "py": [
+    "run_report.py"
+   ],
+   "key": "general_growth",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5e722c9a84ffeEPBhVrM9DzQb6b/将军基本面拓扑选股",
+   "entry": "run_report.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "A股市场融资风险扫描日报·资金流与宽度",
+   "cron": "40 7 * * 1,2,3,4,5",
+   "section": "liquidity",
+   "cwd": [
+    "{WS}/ses_gffe5e96af2348ffeINbqNZziJY3UDr/margin_monitor"
+   ],
+   "py": [
+    "run_daily.py"
+   ],
+   "key": "margin_flow",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5e96af2348ffeINbqNZziJY3UDr/margin_monitor",
+   "entry": "run_daily.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "A股市场融资风险扫描日报·两融专项",
+   "cron": "30 7 * * 1,2,3,4,5",
+   "section": "liquidity",
+   "cwd": [
+    "{WS}/ses_gffe5e96af2348ffeINbqNZziJY3UDr/margin_monitor"
+   ],
+   "py": [
+    "run_daily.py"
+   ],
+   "key": "margin_detail",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5e96af2348ffeINbqNZziJY3UDr/margin_monitor",
+   "entry": "run_daily.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "中美期权风险释放汇总",
+   "cron": "30 14 * * 1-5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5ea0b23728ffegpx6GMQLqwA5ek"
+   ],
+   "py": [
+    "中美期权风险释放汇总.py"
+   ],
+   "key": "option_risk_cn_us",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5ea0b23728ffegpx6GMQLqwA5ek",
+   "entry": "中美期权风险释放汇总.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "美元回购抵押品管廊巡检·每周日推送",
+   "cron": "0 16 * * 0",
+   "section": "liquidity",
+   "cwd": [],
+   "py": [
+    "repo_rates_chart.py",
+    "push_card_feishu.py",
+    "tech_consensus_daily/feishu_push.py",
+    "repo_alert_email.py",
+    "ses_gffe5ea0b23728ffegpx6GMQLqwA5ek/email_alert.py",
+    "{WS}/skills/user/momentum-risk-control/feishu_config.py"
+   ],
+   "key": "repo_collateral",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5ea15f83eaffeAR7hcztFuhPeX4",
+   "entry": "repo_rates_chart.py",
+   "needs_llm": true,
+   "note": "命令带 <报告期> 占位，报告期由 Agent 判定",
+   "skip": true,
+   "skip_reason": "大模型依赖：命令带 <报告期> 占位，需 Agent 判定"
+  },
+  {
+   "name": "利率三因子周度预测和 Slope交易",
+   "cron": "0 9 * * 6",
+   "section": "bond",
+   "cwd": [
+    "{WS}/projects/commodities_strategies"
+   ],
+   "py": [],
+   "key": "bond_three_factor",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/projects/commodities_strategies",
+   "entry": "",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": "",
+   "cmd": "BOND_FEISHU_ROUTER_DIR=\"${FEISHU_ROUTER_DIR:-../feishu_router}\" BOND_EMAIL_PUSH_DIR=\"${BOND_EMAIL_PUSH_DIR:-.}\" PYTHONPATH=. python3 -u -m commodities_strategies.bond_strategies.run --push",
+   "cmd_manual": true
+  },
+  {
+   "name": "因子旋转周报",
+   "cron": "0 14 * * 0",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5ed3f1d6b1ffeo164XKTVu7vvVA"
+   ],
+   "py": [
+    "raw/fetch_all.py",
+    "raw/factor_engine.py",
+    "raw/rrg_plot.py",
+    "raw/sankey_plot.py",
+    "raw/top_factor_picks.py",
+    "raw/chan_weekly.py",
+    "push_weekly.py"
+   ],
+   "key": "factor_rotation",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5ed3f1d6b1ffeo164XKTVu7vvVA",
+   "entry": "raw/fetch_all.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "M1+PMI月度监测",
+   "cron": "0 11 15 * *",
+   "section": "macro",
+   "cwd": [],
+   "py": [
+    "{WS}/macro_monthly_report/run_monitor_monthly.py"
+   ],
+   "key": "m1_pmi_monthly",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/macro_monthly_report",
+   "entry": "run_monitor_monthly.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "pmi 出口 月度展望报告推送",
+   "cron": "0 21 28 * *",
+   "section": "macro",
+   "cwd": [],
+   "py": [
+    "{WS}/macro_monthly_report/run_monthly.py"
+   ],
+   "key": "pmi_export",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/macro_monthly_report",
+   "entry": "run_monthly.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "土狗付鹏地产日报",
+   "cron": "0 18 * * 6",
+   "section": "realestate",
+   "cwd": [
+    "{WS}/ses_gffe5f6009a25effeIVcE0g6hYL3p22"
+   ],
+   "py": [
+    "daily_canghai_fupeng.py"
+   ],
+   "key": "realestate_daily",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f6009a25effeIVcE0g6hYL3p22",
+   "entry": "daily_canghai_fupeng.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "期货横截面多空对冲·模拟盘",
+   "cron": "0 8 * * 1,2,3,4,5",
+   "section": "futures",
+   "cwd": [],
+   "py": [
+    "run_sim_daily.py"
+   ],
+   "key": "futures_xsec_hedge",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f076770c9ffekXUDiMfraoGX1A",
+   "entry": "run_sim_daily.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "Two Sigma 行业动量",
+   "cron": "0 15 * * 0",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5f07bdfa70ffeH0wXhupgiLxSxY/rot_engine"
+   ],
+   "py": [
+    "run_weekly.py"
+   ],
+   "key": "twosigma_rotation",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f07bdfa70ffeH0wXhupgiLxSxY/rot_engine",
+   "entry": "run_weekly.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "国债收益率四维预测+曲线监控日报",
+   "cron": "0 9 * * 1-5",
+   "section": "bond",
+   "cwd": [],
+   "py": [
+    "bond_yield_daily/run_daily.py"
+   ],
+   "key": "bond_yield_daily",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f0d3c0a33ffewjneus1voziQ3C",
+   "entry": "bond_yield_daily/run_daily.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "行业轮动机会风险日报",
+   "cron": "0 19 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}"
+   ],
+   "py": [
+    "report_run/run_daily_sector_rotation.py"
+   ],
+   "key": "sector_rotation",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/report_run",
+   "entry": "run_daily_sector_rotation.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "技术分析宽基汇总",
+   "cron": "30 8 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5f28eb4508ffeXvGpuDQNknTjQn/tech_consensus_daily"
+   ],
+   "py": [
+    "run_daily.py"
+   ],
+   "key": "tech_consensus",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f28eb4508ffeXvGpuDQNknTjQn/tech_consensus_daily",
+   "entry": "run_daily.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "中国原油周度变化量雷达周报",
+   "cron": "30 9 * * 6",
+   "section": "futures",
+   "cwd": [],
+   "py": [
+    "ses_gffe5fb973b4beffe8IdHR8Rmy21klf/feishu_config.py",
+    "ses_gffe5f50163f98ffeeayozB6ttxw1ep/gen_crude_weekly_report.py",
+    "push_crude_weekly_feishu.py"
+   ],
+   "key": "crude_weekly",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "",
+   "entry": "",
+   "needs_llm": false,
+   "note": "任务本身无固定脚本：定时消息只有自然语言要求，脚本仅作“参考结构”，无法无人值守复跑",
+   "skip": true,
+   "skip_reason": "任务本身无固定脚本：定时消息只有自然语言要求，脚本仅作“参考结构”，无法无人值守复跑"
+  },
+  {
+   "name": "成交量小波信号监控",
+   "cron": "0 11 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [],
+   "py": [
+    "{WS}/ses_gffe5f530aa190ffeRxnRiUPRdvAPh0/daily_wavelet_monitor.py"
+   ],
+   "key": "volume_wavelet",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f530aa190ffeRxnRiUPRdvAPh0",
+   "entry": "daily_wavelet_monitor.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "美债监控周报",
+   "cron": "0 9 * * 0",
+   "section": "bond",
+   "cwd": [
+    "{WS}/ses_gffe5f66cc0dfeffeuC7LNdFIrESlJd"
+   ],
+   "py": [
+    "run_treasury_weekly.py"
+   ],
+   "key": "us_treasury_weekly",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f66cc0dfeffeuC7LNdFIrESlJd",
+   "entry": "run_treasury_weekly.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "宏观经济四维度监测周报",
+   "cron": "0 10 * * 6",
+   "section": "macro",
+   "cwd": [],
+   "py": [
+    "{WS}/ses_gffe5f74849edcffetQgClhILIkVEnY/waixu_tracker/send_waixu_tracker.py",
+    "{WS}/feishu_router/push_card.py",
+    "{WS}/ses_gffe5f8830d0a2ffeGcR4IHiYeV6mwH/send_fiscal_oecd_report.py",
+    "send_fiscal_oecd_report.py"
+   ],
+   "key": "macro_four_dim",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f74849edcffetQgClhILIkVEnY/waixu_tracker",
+   "entry": "send_waixu_tracker.py",
+   "needs_llm": true,
+   "note": "财政/OECD 段需联网补充数据，脚本只覆盖外需与推送",
+   "skip": true,
+   "skip_reason": "大模型依赖：财政/OECD 段依赖联网补数"
+  },
+  {
+   "name": "最优传输OT统一日报（靠岸+多空+资金）",
+   "cron": "30 18 * * 1-5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/skills/user/optimal-transport-ot"
+   ],
+   "py": [
+    "ot_unified_daily.py",
+    "ot_render.py",
+    "ot_alert.py"
+   ],
+   "key": "ot_unified",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/skills/user/optimal-transport-ot",
+   "entry": "ot_unified_daily.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "五系统扩展概念轮动日报",
+   "cron": "35 20 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5f96134a09ffe1paMAFrct6rV4w"
+   ],
+   "py": [
+    "daily_concept_report.py"
+   ],
+   "key": "five_system_concept",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5f96134a09ffe1paMAFrct6rV4w",
+   "entry": "daily_concept_report.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "DoMate每日总结-飞书推送",
+   "cron": "30 20 * * 1-5",
+   "section": "modules",
+   "cwd": [],
+   "py": [
+    "{WS}/ses_gffe5fa2c1f5f0ffeiyA67rdy4kYveK/send_daily_summary.py"
+   ],
+   "key": "dumate_daily_summary",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5fa2c1f5f0ffeiyA67rdy4kYveK",
+   "entry": "send_daily_summary.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "ξ+D结构风控×扩散+RRG每日报告（行业轮动+宽基分析）",
+   "cron": "35 18 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5fd6b2558bffeYG74Ts057P2dLR/strategy_repro"
+   ],
+   "py": [
+    "daily_tda_rrg_report.py"
+   ],
+   "key": "xi_d_rrg",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5fd6b2558bffeYG74Ts057P2dLR/strategy_repro",
+   "entry": "daily_tda_rrg_report.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "RMT每日市场监测报告",
+   "cron": "47 16 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5fcc907173ffeEGsG0e1KvWP05b"
+   ],
+   "py": [
+    "rmt_daily_monitor.py"
+   ],
+   "key": "rmt_daily",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5fcc907173ffeEGsG0e1KvWP05b",
+   "entry": "rmt_daily_monitor.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "TDA-SPD 黎曼流形策略日报(22因子v5-TDA状态+SPD漂移选行业)",
+   "cron": "0 19 * * 1-5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5febb5eaeeffe0mTIpBeu5w0Nq0"
+   ],
+   "py": [
+    "run_daily_22f.py"
+   ],
+   "key": "tda_spd",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5febb5eaeeffe0mTIpBeu5w0Nq0",
+   "entry": "run_daily_22f.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "结构因子每日报告",
+   "cron": "45 18 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_gffe5ffa4f3c81ffeC0bm2DCboP3Oex"
+   ],
+   "py": [
+    "daily_structural_report.py"
+   ],
+   "key": "structural_factor",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5ffa4f3c81ffeC0bm2DCboP3Oex",
+   "entry": "daily_structural_report.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "曼宁资金流日报",
+   "cron": "25 19 * * 1,2,3,4,5",
+   "section": "liquidity",
+   "cwd": [
+    "{WS}/ses_gffe5ffb350a15ffeoIqfEMXyfUcuT9"
+   ],
+   "py": [
+    "weekly_report.py"
+   ],
+   "key": "manning_flow",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_gffe5ffb350a15ffeoIqfEMXyfUcuT9",
+   "entry": "weekly_report.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "Hodge Laplacian 2",
+   "cron": "25 19 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_00495a421ffeZp6sKsQZoGR6e9"
+   ],
+   "py": [
+    "hlm_daily_monitor.py"
+   ],
+   "key": "hodge_laplacian",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_00495a421ffeZp6sKsQZoGR6e9",
+   "entry": "hlm_daily_monitor.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  },
+  {
+   "name": "分析力学量化日报",
+   "cron": "10 18 * * 1,2,3,4,5",
+   "section": "stock",
+   "cwd": [
+    "{WS}/ses_00be4a7d3fferyCWjQeV0xmIKY"
+   ],
+   "py": [
+    "check_trading_day.py",
+    "daily_report.py"
+   ],
+   "key": "analytical_mechanics",
+   "deliver": {
+    "report": true,
+    "email": false
+   },
+   "root": "{WS}/ses_00be4a7d3fferyCWjQeV0xmIKY",
+   "entry": "daily_report.py",
+   "needs_llm": false,
+   "note": "",
+   "skip": false,
+   "skip_reason": ""
+  }
+ ],
+ "workspace_note": "使用时由 case/_tools/import_task.py 解析为仓库同级的 workspace 根目录"
+}
