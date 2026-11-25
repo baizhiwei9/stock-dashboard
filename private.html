@@ -271,6 +271,37 @@ table.mod-tab.fut td:nth-child(2){font-variant-numeric:tabular-nums}
 .erp-card .idx-body{padding:0}
 .erp-card .kvs{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 
+
+/* ── 图片区：缩略网格 + 灯箱 ── */
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:12px;margin:14px 0 2px}
+.shot{margin:0}
+.shot a{display:block;overflow:hidden;border:1px solid var(--line);border-radius:10px;
+  background:#0b0e14}
+.shot img{display:block;width:100%;height:190px;object-fit:contain;object-position:center;
+  background:#0b0e14;cursor:zoom-in;transition:transform .18s ease}
+.shot a:hover img{transform:scale(1.03)}
+.shot figcaption{display:flex;gap:8px;justify-content:space-between;align-items:baseline;
+  margin-top:6px;font-size:11.5px;color:var(--tx3)}
+.shot figcaption b{font-weight:500;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+
+.lb{position:fixed;inset:0;z-index:99;background:rgba(4,7,11,.95);
+  display:flex;flex-direction:column}
+.lb[hidden]{display:none}
+.lb-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;
+  border-bottom:1px solid var(--line);font-size:12px;color:var(--tx3);flex-wrap:wrap}
+.lb-bar b{color:var(--tx);font-weight:600;font-size:12.5px}
+.lb-bar .sp{margin-left:auto}
+.lb-bar button,.lb-bar a{padding:4px 11px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--tx2);font-size:12px;cursor:pointer;text-decoration:none}
+.lb-bar button:hover,.lb-bar a:hover{border-color:var(--blue);color:var(--blue)}
+.lb-body{flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none}
+.lb-body.drag{cursor:grabbing}
+.lb-body img{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;
+  -webkit-user-drag:none;max-width:none}
+.lb-tip{position:absolute;left:14px;bottom:12px;font-size:11.5px;color:var(--tx3);
+  background:rgba(10,14,20,.7);padding:5px 10px;border-radius:8px;pointer-events:none}
 </style>
 </head>
 <body>
@@ -282,21 +313,101 @@ table.mod-tab.fut td:nth-child(2){font-variant-numeric:tabular-nums}
     <div><b>2026-11-19</b><span>最新数据日</span></div>
     <div><b>18</b><span>私有任务</span></div>
     <div><b>1</b><span>带指标</span></div>
+    <div><b>2</b><span>产出图</span></div>
     <div><b><a href="index.html">公开看板 →</a></b><span>另一套页面</span></div>
   </div>
 </header>
 
 <nav class="jump"><a href="#p_stock">股票 · 宽基指数</a><a href="#p_realestate">地产</a><a href="#p_bond">债券 · 理财</a><a href="#p_modules">模块管理</a></nav>
 
-<div class="sec-wrap" data-sec="p_stock" id="p_stock"><div class="sec-head"><span class="sec-num">01</span><div><h2>股票 · 宽基指数</h2><p>5 大宽基按指数分栏：缠论 → RMT → DFA → 趋势</p></div><span class="sec-obs">15 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>分析力学量化日报 <span class="tag">私有</span> <span class="sm">任务 analytical_mechanics · 工作日 18:10</span></h4><p class="note">分析力学日报（中间算法，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>因子旋转周报 <span class="tag">私有</span> <span class="sm">任务 factor_rotation · 周日 14:00</span></h4><p class="note">因子旋转周报（内部研究） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>五系统扩展概念轮动日报 <span class="tag">私有</span> <span class="sm">任务 five_system_concept · 工作日 20:35</span></h4><p class="note">五系统概念轮动（选概念，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>将军成长股拓扑选股 <span class="tag">私有</span> <span class="sm">任务 general_growth · 周日 17:00</span></h4><p class="note">将军成长股拓扑选股（选股，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>Hodge Laplacian 2 <span class="tag">私有</span> <span class="sm">任务 hodge_laplacian · 工作日 19:25</span></h4><p class="note">Hodge/曲率结构（中间算法，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>MAD 均线指选股（每周日早晨） <span class="tag">私有</span> <span class="sm">任务 mad_weekly · 周日 08:00</span></h4><p class="note">MAD 均线选股（选股，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>最优传输OT统一日报（靠岸+多空+资金） <span class="tag">私有</span> <span class="sm">任务 ot_unified · 工作日 18:30</span></h4><p class="note">最优传输 OT 统一日报（靠岸/多空，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>市场临界监测 C(t) &amp; Gap 日报（含全A） <span class="tag">私有</span> <span class="sm">任务 rmt_cgap · 工作日 16:40</span></h4><p class="note">市场临界 C(t) 与 Gap <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>RMT每日市场监测报告 <span class="tag">私有</span> <span class="sm">任务 rmt_daily · 工作日 16:47</span></h4><p class="note">RMT 市场结构（噪音/共振） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>行业轮动机会风险日报 <span class="tag">私有</span> <span class="sm">任务 sector_rotation · 工作日 19:00</span></h4><p class="note">行业轮动机会风险（选行业，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>结构因子每日报告 <span class="tag">私有</span> <span class="sm">任务 structural_factor · 工作日 18:45</span></h4><p class="note">结构因子（MFDFA 等） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>TDA-SPD 黎曼流形策略日报(22因子v5-TDA状态+SPD漂移选行业) <span class="tag">私有</span> <span class="sm">任务 tda_spd · 工作日 19:00</span></h4><p class="note">TDA-SPD 黎曼流形策略（选行业，内部信号） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>Two Sigma 行业动量 <span class="tag">私有</span> <span class="sm">任务 twosigma_rotation · 周日 15:00</span></h4><p class="note">Two Sigma 行业动量（选行业，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>成交量小波信号监控 <span class="tag">私有</span> <span class="sm">任务 volume_wavelet · 工作日 11:00</span></h4><p class="note">成交量小波信号 <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>ξ+D结构风控×扩散+RRG每日报告（行业轮动+宽基分析） <span class="tag">私有</span> <span class="sm">任务 xi_d_rrg · 工作日 18:35</span></h4><p class="note">ξ+D 结构风控 × 扩散 + RRG（行业轮动，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div><div class="sec-wrap" data-sec="p_realestate" id="p_realestate"><div class="sec-head"><span class="sec-num">03</span><div><h2>地产</h2><p>北京 / 上海 双城：网签、挂牌、70城房价、租金（土狗状态机与付鹏框架在子卡片内）</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>土狗付鹏地产日报 <span class="tag">私有</span> <span class="sm">任务 realestate_daily · 周六 18:00</span></h4><p class="note">地产基础数据：北京/上海成交、土狗状态机、付鹏周期；京沪房价技术分析（公有数据）并入同一封邮件 <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div><div class="sec-wrap" data-sec="p_bond" id="p_bond"><div class="sec-head"><span class="sec-num">06</span><div><h2>债券 · 理财</h2><p>国债曲线 / 期限结构 / 信用利差 / 类理财收益（货币基金口径）</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk"><h4>AI 公司 5 年期 CDS 周度监控 <span class="tag">私有</span> <span class="sm">任务 cds_weekly · 周四 20:00</span></h4><p class="note">8 家 AI 相关公司 5Y 美元 CDS：周环比 &gt;10% 告警（内部任务，监控告警口径，不上公开面板）</p><div class="kvs"><div class="kv"><span class="k">CDS 报告期</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">有效报价家数</span><span class="v"><b>6.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">缺失家数</span><span class="v"><b>2.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">周环比超阈值家数</span><span class="v"><b>3.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">CoreWeave 5Y CDS</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Oracle 5Y CDS</span><span class="v"><b>309.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Meta Platforms 5Y CDS</span><span class="v"><b>112.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Nvidia 5Y CDS</span><span class="v"><b>121.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Microsoft 5Y CDS</span><span class="v"><b>48.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Alphabet 5Y CDS</span><span class="v"><b>85.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Amazon 5Y CDS</span><span class="v"><b>92.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Broadcom 5Y CDS</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div></div></div></div></div><div class="sec-wrap" data-sec="p_modules" id="p_modules"><div class="sec-head"><span class="sec-num">09</span><div><h2>模块管理</h2><p>每个模块 = 一个脚本 + 一条自己的定时任务</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>DoMate每日总结-飞书推送 <span class="tag">私有</span> <span class="sm">任务 dumate_daily_summary · 工作日 20:30</span></h4><p class="note">DoMate 每日总结（推送汇总，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div>
+<div class="sec-wrap" data-sec="p_stock" id="p_stock"><div class="sec-head"><span class="sec-num">01</span><div><h2>股票 · 宽基指数</h2><p>5 大宽基按指数分栏：缠论 → RMT → DFA → 趋势</p></div><span class="sec-obs">15 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>分析力学量化日报 <span class="tag">私有</span> <span class="sm">任务 analytical_mechanics · 工作日 18:10</span></h4><p class="note">分析力学日报（中间算法，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>因子旋转周报 <span class="tag">私有</span> <span class="sm">任务 factor_rotation · 周日 14:00</span></h4><p class="note">因子旋转周报（内部研究） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>五系统扩展概念轮动日报 <span class="tag">私有</span> <span class="sm">任务 five_system_concept · 工作日 20:35</span></h4><p class="note">五系统概念轮动（选概念，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>将军成长股拓扑选股 <span class="tag">私有</span> <span class="sm">任务 general_growth · 周日 17:00</span></h4><p class="note">将军成长股拓扑选股（选股，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>Hodge Laplacian 2 <span class="tag">私有</span> <span class="sm">任务 hodge_laplacian · 工作日 19:25</span></h4><p class="note">Hodge/曲率结构（中间算法，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>MAD 均线指选股（每周日早晨） <span class="tag">私有</span> <span class="sm">任务 mad_weekly · 周日 08:00</span></h4><p class="note">MAD 均线选股（选股，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>最优传输OT统一日报（靠岸+多空+资金） <span class="tag">私有</span> <span class="sm">任务 ot_unified · 工作日 18:30</span></h4><p class="note">最优传输 OT 统一日报（靠岸/多空，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>市场临界监测 C(t) &amp; Gap 日报（含全A） <span class="tag">私有</span> <span class="sm">任务 rmt_cgap · 工作日 16:40</span></h4><p class="note">市场临界 C(t) 与 Gap <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>RMT每日市场监测报告 <span class="tag">私有</span> <span class="sm">任务 rmt_daily · 工作日 16:47</span></h4><p class="note">RMT 市场结构（噪音/共振） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>行业轮动机会风险日报 <span class="tag">私有</span> <span class="sm">任务 sector_rotation · 工作日 19:00</span></h4><p class="note">行业轮动机会风险（选行业，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>结构因子每日报告 <span class="tag">私有</span> <span class="sm">任务 structural_factor · 工作日 18:45</span></h4><p class="note">结构因子（MFDFA 等） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>TDA-SPD 黎曼流形策略日报(22因子v5-TDA状态+SPD漂移选行业) <span class="tag">私有</span> <span class="sm">任务 tda_spd · 工作日 19:00</span></h4><p class="note">TDA-SPD 黎曼流形策略（选行业，内部信号） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>Two Sigma 行业动量 <span class="tag">私有</span> <span class="sm">任务 twosigma_rotation · 周日 15:00</span></h4><p class="note">Two Sigma 行业动量（选行业，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>成交量小波信号监控 <span class="tag">私有</span> <span class="sm">任务 volume_wavelet · 工作日 11:00</span></h4><p class="note">成交量小波信号 <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="blk mini"><h4>ξ+D结构风控×扩散+RRG每日报告（行业轮动+宽基分析） <span class="tag">私有</span> <span class="sm">任务 xi_d_rrg · 工作日 18:35</span></h4><p class="note">ξ+D 结构风控 × 扩散 + RRG（行业轮动，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div><div class="sec-wrap" data-sec="p_realestate" id="p_realestate"><div class="sec-head"><span class="sec-num">03</span><div><h2>地产</h2><p>北京 / 上海 双城：网签、挂牌、70城房价、租金（土狗状态机与付鹏框架在子卡片内）</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>土狗付鹏地产日报 <span class="tag">私有</span> <span class="sm">任务 realestate_daily · 周六 18:00</span></h4><p class="note">地产基础数据：北京/上海成交、土狗状态机、付鹏周期；京沪房价技术分析（公有数据）并入同一封邮件 <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div><div class="shots"><figure class="shot"><a href="assets/private/realestate_daily/price_tech.png" data-lb="assets/private/realestate_daily/price_tech.png" data-name="price_tech.png" title="点开看原图"><img loading="lazy" src="assets/private/realestate_daily/thumb/price_tech.jpg" alt="price_tech.png"></a><figcaption><b>price_tech.png</b><span>1950×870 · 266 KB</span></figcaption></figure></div></div></div><div class="sec-wrap" data-sec="p_bond" id="p_bond"><div class="sec-head"><span class="sec-num">06</span><div><h2>债券 · 理财</h2><p>国债曲线 / 期限结构 / 信用利差 / 类理财收益（货币基金口径）</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk"><h4>AI 公司 5 年期 CDS 周度监控 <span class="tag">私有</span> <span class="sm">任务 cds_weekly · 周四 20:00</span></h4><p class="note">8 家 AI 相关公司 5Y 美元 CDS：周环比 &gt;10% 告警（内部任务，监控告警口径，不上公开面板）</p><div class="kvs"><div class="kv"><span class="k">CDS 报告期</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">有效报价家数</span><span class="v"><b>6.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">缺失家数</span><span class="v"><b>2.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">周环比超阈值家数</span><span class="v"><b>3.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">CoreWeave 5Y CDS</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Oracle 5Y CDS</span><span class="v"><b>309.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Meta Platforms 5Y CDS</span><span class="v"><b>112.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Nvidia 5Y CDS</span><span class="v"><b>121.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Microsoft 5Y CDS</span><span class="v"><b>48.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Alphabet 5Y CDS</span><span class="v"><b>85.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Amazon 5Y CDS</span><span class="v"><b>92.00</b> <span class="sm">2026-11-19</span></span></div><div class="kv"><span class="k">Broadcom 5Y CDS</span><span class="v"><b>—</b> <span class="sm">2026-11-19</span></span></div></div></div><div class="shots"><figure class="shot"><a href="assets/private/cds_weekly/2026-11-19_cds_panel.png" data-lb="assets/private/cds_weekly/2026-11-19_cds_panel.png" data-name="2026-11-19_cds_panel.png" title="点开看原图"><img loading="lazy" src="assets/private/cds_weekly/thumb/2026-11-19_cds_panel.jpg" alt="2026-11-19_cds_panel.png"></a><figcaption><b>2026-11-19_cds_panel.png</b><span>2312×2295 · 327 KB</span></figcaption></figure></div></div></div><div class="sec-wrap" data-sec="p_modules" id="p_modules"><div class="sec-head"><span class="sec-num">09</span><div><h2>模块管理</h2><p>每个模块 = 一个脚本 + 一条自己的定时任务</p></div><span class="sec-obs">1 个私有任务</span></div><div class="sec-grid"><div class="blk mini"><h4>DoMate每日总结-飞书推送 <span class="tag">私有</span> <span class="sm">任务 dumate_daily_summary · 工作日 20:30</span></h4><p class="note">DoMate 每日总结（推送汇总，内部） <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p></div></div></div>
 
 <footer>
-  <p>只列 <code>visibility=private</code> 的任务（含旧别名 <code>internal</code>）。
-  公有任务在另一套页面 <a href="index.html">index.html</a>，两页互不混排。</p>
-  <p>指标来自 <code>data_hub.tech</code>，与公开页同一口径；库里没有的指标不显示，
-  不补零、不拿旧值顶替。构建时间 2026-11-25 22:30。</p>
+  <p>只列 <code>visibility=private</code> 的任务（含旧别名 <code>internal</code>）。公有任务在另一套页面 <a href="index.html">index.html</a>，两页互不混排。</p>
+  <p>指标来自 <code>data_hub.tech</code>，库里没有的不显示；图是任务自己的产出，原图拷到 <code>assets/private/&lt;任务&gt;/</code>，点缩略图可放大看原图。构建时间 2026-11-25 22:44。</p>
 </footer>
 
 </div>
+
+<div id="lb" class="lb" hidden>
+  <div class="lb-bar">
+    <b id="lbName">—</b>
+    <span id="lbZoom">100%</span>
+    <span class="sp"></span>
+    <button id="lbOut" title="缩小">−</button>
+    <button id="lbIn" title="放大">＋</button>
+    <button id="lbOne" title="原始像素 1:1">1:1</button>
+    <button id="lbFit" title="适应窗口">适应</button>
+    <a id="lbOpen" href="#" target="_blank" rel="noopener">新标签打开原图</a>
+    <button id="lbClose" title="关闭（Esc）">✕</button>
+  </div>
+  <div class="lb-body"><img id="lbImg" alt=""></div>
+  <div class="lb-tip">滚轮缩放 · 按住拖动 · 双击切换 1:1 · Esc 关闭</div>
+</div>
+
+<script>
+(function(){
+  var lb=document.getElementById('lb'), body=lb.querySelector('.lb-body'),
+      img=document.getElementById('lbImg'), nm=document.getElementById('lbName'),
+      openA=document.getElementById('lbOpen'), zoomTxt=document.getElementById('lbZoom');
+  var st={scale:1,x:0,y:0,w:0,h:0,fit:1,drag:false,px:0,py:0};
+  function apply(){
+    img.style.transform='translate('+st.x+'px,'+st.y+'px) scale('+st.scale+')';
+    if(zoomTxt){ zoomTxt.textContent=Math.round(st.scale*100)+'%'; }
+  }
+  function fit(){
+    var bw=body.clientWidth, bh=body.clientHeight;
+    st.w=img.naturalWidth||bw; st.h=img.naturalHeight||bh;
+    if(!bw||!bh){ return; }
+    st.fit=Math.min(bw/st.w, bh/st.h);
+    st.scale=st.fit;
+    st.x=(bw-st.w*st.scale)/2; st.y=(bh-st.h*st.scale)/2;
+    apply();
+  }
+  function zoom(f, cx, cy){
+    var r=body.getBoundingClientRect();
+    if(cx==null){ cx=r.width/2; cy=r.height/2; }
+    var ns=Math.min(8, Math.max(st.fit*0.4, st.scale*f));
+    var k=ns/st.scale;
+    st.x=cx-(cx-st.x)*k; st.y=cy-(cy-st.y)*k; st.scale=ns; apply();
+  }
+  function open(src, t){
+    img.src=src; nm.textContent=t||src.split('/').pop(); openA.href=src;
+    lb.hidden=false; document.body.style.overflow='hidden';
+    if(img.complete){ fit(); } else { img.onload=fit; }
+  }
+  function close(){ lb.hidden=true; img.removeAttribute('src'); document.body.style.overflow=''; }
+  document.addEventListener('click', function(e){
+    var a=e.target.closest? e.target.closest('[data-lb]') : null;
+    if(a){ e.preventDefault(); open(a.getAttribute('data-lb'), a.getAttribute('data-name')); }
+  });
+  document.getElementById('lbClose').onclick=close;
+  document.getElementById('lbFit').onclick=fit;
+  document.getElementById('lbOne').onclick=function(){ zoom(1/st.scale); };
+  document.getElementById('lbIn').onclick=function(){ zoom(1.25); };
+  document.getElementById('lbOut').onclick=function(){ zoom(1/1.25); };
+  lb.addEventListener('click', function(e){ if(e.target===lb||e.target===body) close(); });
+  document.addEventListener('keydown', function(e){ if(!lb.hidden && e.key==='Escape'){ close(); } });
+  body.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var r=body.getBoundingClientRect();
+    zoom(e.deltaY<0?1.15:1/1.15, e.clientX-r.left, e.clientY-r.top);
+  }, {passive:false});
+  body.addEventListener('mousedown', function(e){
+    st.drag=true; st.px=e.clientX; st.py=e.clientY; body.classList.add('drag');
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!st.drag){ return; }
+    st.x+=e.clientX-st.px; st.y+=e.clientY-st.py; st.px=e.clientX; st.py=e.clientY; apply();
+  });
+  window.addEventListener('mouseup', function(){ st.drag=false; body.classList.remove('drag'); });
+  img.addEventListener('dblclick', function(){
+    if(st.scale>st.fit*1.01){ st.scale=st.fit; st.x=(body.clientWidth-st.w*st.scale)/2;
+      st.y=(body.clientHeight-st.h*st.scale)/2; apply(); }
+    else { zoom(1/st.scale); }
+  });
+  window.addEventListener('resize', function(){ if(!lb.hidden){ fit(); } });
+})();
+</script>
 </body>
 </html>

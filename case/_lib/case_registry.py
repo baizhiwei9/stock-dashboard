@@ -337,6 +337,7 @@ def as_workers(base: Optional[str] = None, visibility: str = "public",
         out.append({
             "key": t["key"],
             "app_id": "case:%s" % t["key"],
+            "dir": t["_dir"],                 # 私有页据此扫 out/ charts/ runs/ 里的图
             "title": t.get("title") or t["key"],
             "desc": t.get("desc") or "",
             "sec": sec,
