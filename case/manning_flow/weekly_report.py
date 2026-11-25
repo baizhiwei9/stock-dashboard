@@ -605,6 +605,13 @@ def send_feishu(top1_ind, top3_list, anb_row, net_row, net_ratio_row, report_dat
         resp = requests.post(webhook, json=msg, timeout=15)
         result = resp.json()
         print(f"飞书发送: {resp.status_code} - {result.get('StatusMessage', resp.text[:80])}")
+        # 飞书对无效/已轮换 webhook 返回的是 HTTP 200 + {"code":19001,...}，
+        # 不是异常。只看 requests 抛不抛异常会把这种失败判成成功。
+        # code/StatusCode 非 0、或 HTTP 非 200，都算失败（issue #53 验收第 2 条）。
+        rcode = result.get("StatusCode", result.get("code", 0))
+        if resp.status_code != 200 or rcode != 0:
+            print(f"飞书返回失败: HTTP {resp.status_code}, code={rcode}")
+            return False
         return True
     except Exception as e:
         print(f"飞书发送失败: {e}")
