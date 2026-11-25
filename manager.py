@@ -36,6 +36,8 @@ import sys
 from datetime import date, datetime
 from typing import Dict, List, Optional
 
+from datahub_path import datahub_root, expand_module
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = os.path.join(HERE, "modules.json")
 SEC_CFG = os.path.join(HERE, "sections.json")
@@ -52,7 +54,7 @@ def _secrets():
         return app_secrets
     except Exception:                                      # noqa: BLE001
         return None
-DH_ROOT = "/opt/coze/.fuse_drive/dataHub_三级体系"
+DH_ROOT = datahub_root()
 LOG_DIR = os.path.join(HERE, "logs")
 CASE_DIR = os.path.join(HERE, "case")
 CASE_LIB = os.path.join(CASE_DIR, "_lib")
@@ -117,12 +119,21 @@ def case_mods() -> List[Dict]:
 
 
 def all_mods(cfg: Dict) -> List[Dict]:
-    """内置 modules.json 模块 + case 任务，key 唯一，内置优先。"""
-    mods = [dict(m, source="builtin") for m in (cfg.get("modules") or [])]
+    """内置 modules.json 模块 + case 任务，key 唯一，内置优先。
+
+    cwd/cmd 里的 {{DATAHUB_ROOT}} 在这里展开，`manager.py run` 才不会拿着
+    占位符当命令跑；写回配置用的 get_mod 仍返回原始值。
+    """
+    root = datahub_root()
+    mods = []
+    for m in (cfg.get("modules") or []):
+        m = expand_module(m, root)
+        m["source"] = "builtin"
+        mods.append(m)
     seen = {m["key"] for m in mods}
     for m in case_mods():
         if m["key"] not in seen:
-            mods.append(m)
+            mods.append(expand_module(m, root))
             seen.add(m["key"])
     return mods
 

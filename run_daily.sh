@@ -9,7 +9,6 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export LANG=C.UTF-8
 export TZ=Asia/Shanghai
 
-DH=/opt/coze/.fuse_drive/dataHub_三级体系
 HERE="$(cd "$(dirname "$0")" && pwd)"
 LOG="$HERE/daily.log"
 
@@ -20,6 +19,9 @@ run() { "$@" 2>&1 | grep -vE '^\[20[0-9]{2}-' | tail -12; }
   echo "════════════════════════════════════════════"
   echo "$(ts) 开始"
 
+  # DataHub 根与 build.py / scheduler.py / 看门狗共用同一套解析：env 优先 → 同级 → /opt 兜底
+  DH="$(python3 "$HERE/datahub_path.py")" || { echo "$(ts) 解析 DataHub 根失败"; exit 1; }
+  echo "--- DataHub: $DH"
   cd "$DH" || exit 1
   echo "--- 缠论 ---";  run python3 -u -m data_hub.tech.producers.chanlun_daily
   echo "--- DFA ---";   run python3 -u -m data_hub.tech.producers.dfa_daily

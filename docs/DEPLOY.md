@@ -85,6 +85,7 @@ python3 -m pip install -r requirements.txt
 
 ```bash
 export TZ=Asia/Shanghai
+export DATA_HUB_PATH=/srv/monitor/datahub-multi-tier     # 可选：显式指定 DataHub 根（所有入口共用）
 export PYTHONPATH=/srv/monitor/datahub-multi-tier:$PWD   # 含 data_hub/ 的仓库根
 export PYLIBS_DIR=/srv/monitor/pylibs                    # 任务脚本的第三方包目录（可选）
 export CASE_EXTRA_DIRS=/srv/private-tasks/case           # 私有任务根目录（可选，冒号分隔）

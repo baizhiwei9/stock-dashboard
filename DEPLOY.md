@@ -34,11 +34,21 @@ git clone https://github.com/baizhiwei9/datahub-multi-tier
 #   <父目录>/datahub-multi-tier/
 ```
 
-`data_hub` 的定位支持多路径探测，同级 checkout 是最省事的方式。若放在别处，用环境变量指定：
+`data_hub` 的定位顺序所有入口共用（见 `datahub_path.py`）：
+
+1. `DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO`，取第一个存在且含 `data_hub/` 的；
+2. 同级 checkout `<父目录>/datahub-multi-tier`；
+3. `/opt/coze/.fuse_drive/dataHub_三级体系` 兜底。
+
+同级 checkout 最省事；放在别处就用环境变量指定（绝对路径）：
 
 ```bash
-export EDB_REPO=/path/to/datahub-multi-tier
+export DATA_HUB_PATH=/path/to/datahub-multi-tier   # 或 EDB_REPO=/path/to/datahub-multi-tier
 ```
+
+`modules.json` 的 `cwd` / `cmd` 请用 `{{DATAHUB_ROOT}}` 占位（见 `modules.example.json`），
+scheduler 启动任务时会换成实际解析结果；写死本机路径会让任务子进程的 `PYTHONPATH`
+跟看门狗探测结果脱节。
 
 ---
 

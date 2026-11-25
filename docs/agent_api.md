@@ -66,4 +66,4 @@ python3 snapshot.py --futures                # 额外带期货实时快照（联
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `DATA_HUB_PATH` | `/opt/coze/.fuse_drive/dataHub_三级体系` | `data_hub` 包所在仓库根 |
+| `DATA_HUB_PATH` | 优先 `DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO`，再同级 `../datahub-multi-tier`，最后 `/opt/coze/.fuse_drive/dataHub_三级体系` | `data_hub` 包所在仓库根 |
