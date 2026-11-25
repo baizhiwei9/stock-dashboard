@@ -46,6 +46,8 @@ date
 │   ├── scheduler.py          # 调度器 + HTTP 控制台（唯一常驻进程）
 │   ├── sd_watchdog.sh        # 看门狗（由 cron 每分钟调用，见第 7 节）
 │   ├── build.py              # 渲染 index.html
+│   ├── install.sh            # 安装门禁：补齐并校验敏感配置
+│   ├── config/               # 敏感配置（secrets.json 不入库，example 入库）
 │   ├── case/                 # 任务目录（public 任务）
 │   ├── docs/DEPLOY.md        # 本文
 │   ├── logs/                 # 运行时生成，不入库
@@ -71,6 +73,8 @@ python3 -m pip install -r requirements.txt
 `requirements.txt` 是全量快照（75 个包），只为「干净机器一次装齐」；实际每个任务只用到子集。
 如果目标机已有 Python 依赖目录而**不想装**，把 `PYLIBS_DIR` 指向它即可，但任务命令里写的是
 `${PYLIBS_DIR:?}`，**没设会直接报错**，不会去猜路径。
+
+装完依赖先别启动，第 5 节会把敏感配置补齐；**没补齐不允许安装/启动**。
 
 ---
 
@@ -102,6 +106,8 @@ export SD_ALERT_WEBHOOK=                                 # 可选：调度器拉
 | `SD_PYTHON` | 可选 | 看门狗用哪个解释器（默认 `python3`，venv 里要指过去） |
 | `SD_ALERT_WEBHOOK` | 可选 | 调度器连续拉不起来时的告警地址 |
 | `SD_ALERT_AT` | 可选 | 连续失败几次才告警（默认 3） |
+| `COZE_SECRETS` | 可选 | 显式指定敏感配置文件路径（默认 `<仓库>/config/secrets.json`） |
+| `COZE_SEC_<KEY>` | 可选 | 单项覆盖配置，如 `COZE_SEC_TUSHARE_TOKEN`；优先级高于配置文件 |
 
 ---
 
@@ -110,17 +116,32 @@ export SD_ALERT_WEBHOOK=                                 # 可选：调度器拉
 > 本节已随敏感配置收口改写。旧的「手改 modules.json 里的 password」做法作废——
 > 现在密码不在任何仓库文件里。
 
+**所有敏感数据只放一个文件**：默认 `~/.config/stock-dashboard/secrets.json`
+（权限 0600，仓外，不随仓库外泄；想放别处就 `export COZE_SECRETS=/path/to/secrets.json`）。
+仓库里只有占位模板 `case/_lib/secrets.example.json`。字段清单见
+[docs/SECRETS.md](SECRETS.md)。
+
 ```bash
-# ① 复制模板成本机配置（modules.json 已改为本地安装配置，不入库）
+# ① 复制本机模块清单（modules.json 是本机安装数据，不入库）
 cp modules.example.json modules.json
-#    然后把里面的 {{DATAHUB_ROOT}} / {{WORKSPACE_A}} / {{WORKSPACE_B}} 等占位符
-#    换成这台机器的真实路径（文件末尾 _placeholders 有对照表）
+#    然后把里面的 {{DATAHUB_ROOT}} / {{WORKSPACE_A}} / {{WORKSPACE_B}} /
+#    {{FEISHU_CLI_DIR}} / {{FEISHU_CHAT_ID}} / {{ALERT_EMAIL}} 换成这台机器的真实值
+#    （文件末尾 _placeholders 有对照表）
 
 # ② 录入敏感配置（飞书凭据 + 管理密码 + 注册密钥，缺失或弱口令会中断安装）
 python3 setup.py
+#   等价入口：./install.sh   —— 先 --init 补齐，再校验，不合格非 0 退出
+#     api.password      ≥10 位，禁止 123456（HTTP 控制台 / X-SD-PW）
+#     api.registry_key  ≥16 位，且不要与管理密码相同（Worker 注册 / X-SD-KEY）
 
-# ③ 校验三段是否齐备（退出码 0 才算过）
+#    非交互部署（CI / 自动化装机）：用环境变量喂值，--init 会落盘
+export COZE_SEC_API_PASSWORD='<至少10位>'
+export COZE_SEC_API_REGISTRY_KEY='<至少16位>'
+python3 setup.py
+
+# ③ 校验必填项与文件权限（退出码 0 才算过，不打印任何值）
 python3 setup.py --check
+#   等价：python3 case/_tools/check_secrets.py
 
 # ④ 确认端口没被占用（默认 8767）
 ss -lntp | grep 8767 || echo "8767 空闲"
@@ -128,6 +149,13 @@ ss -lntp | grep 8767 || echo "8767 空闲"
 # ⑤ 任务清单核对：能列出所有 key 就说明 modules.json + case/*/task.json 都读到了
 python3 scheduler.py status
 ```
+
+- 飞书 / Tushare / 邮件 / FRED 等通道按需填写；不填不会阻塞启动，只会在该通道
+  实际使用时明确报错。字段说明见 [`config/README.md`](../config/README.md)。
+- `scheduler.py` 的 `start / fg / serve` 启动前会再做一次同样的校验；缺必填项
+  直接拒绝启动，不会以默认口令裸奔。
+- 管理口令与注册密钥**不再写进 `modules.json`，也不再内嵌到 `index.html`**；
+  看板管理面板审批外部模块时现场输入密码，由同源调度器校验。
 
 `status` 会打印每个模块的「下次时间 / 状态 / 上次耗时 / 数据域」。私有任务挂在
 `CASE_EXTRA_DIRS` 下时也会一起列出来。
@@ -310,6 +338,9 @@ python3 scheduler.py status                     # 确认模块还在
 ## 11. 一次部署的自检清单
 
 - [ ] `date` 是 CST +0800
+- [ ] `./install.sh` 通过；`config/secrets.json` 存在且权限为 `600`
+- [ ] `python3 case/_tools/check_secrets.py` 返回 0
+- [ ] `index.html` 里搜不到明文管理密码 / 注册密钥
 - [ ] `python3 scheduler.py status` 能列出全部 key（含私有任务）
 - [ ] `python3 scheduler.py health` 返回 `0`
 - [ ] `curl -s http://127.0.0.1:8767 | head` 有响应

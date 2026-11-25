@@ -59,6 +59,10 @@ CASE_LIB = os.path.join(CASE_DIR, "_lib")
 
 if DH_ROOT not in sys.path:
     sys.path.insert(0, DH_ROOT)
+if CASE_LIB not in sys.path:
+    sys.path.insert(0, CASE_LIB)
+
+import app_secrets  # noqa: E402  （敏感配置统一入口）
 
 NA = "\033[2m—\033[0m"
 GRN = "\033[32m"
@@ -446,15 +450,17 @@ def cmd_sections(argv: List[str]) -> int:
     if a == "pw":
         if len(argv) < 2:
             raise SystemExit("用法: manager.py sections pw <新密码>")
-        _sec = _secrets()
-        if _sec is None:
-            raise SystemExit("读不到 case/_lib/app_secrets.py，无法写统一凭据")
-        path = _sec.set_value("scheduler", "password", argv[1])
-        print("管理密码已写入 %s（权限 600，未落任何仓库文件）" % path)
-        if os.environ.get("SCHEDULER_PASSWORD"):
-            print("%s注意%s：检测到环境变量 SCHEDULER_PASSWORD，运行时仍以环境变量为准，"
-                  "请一并改掉或清除。" % (YEL, RST))
-        print("改完执行 python3 scheduler.py restart 生效")
+            if len(argv[1]) < 10:
+                raise SystemExit("新密码至少 10 位（不要用 123456）")
+            _sec = _secrets()
+            if _sec is None:
+                raise SystemExit("读不到 case/_lib/app_secrets.py，无法写统一凭据")
+            path = _sec.set_value("scheduler", "password", argv[1])
+            print("管理密码已写入 %s（权限 600，未落任何仓库文件，不回显）" % path)
+            if os.environ.get("SCHEDULER_PASSWORD") or os.environ.get("COZE_SEC_API_PASSWORD"):
+                print("%s注意%s：检测到 SCHEDULER_PASSWORD / COZE_SEC_API_PASSWORD 环境变量，"
+                      "运行时仍以环境变量为准，请一并改掉或清除。" % (YEL, RST))
+            print("调度器每次请求都会重读凭据，无需重启。")
         return 0
     if a in ("on", "off"):
         if len(argv) < 2:

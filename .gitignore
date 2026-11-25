@@ -27,13 +27,22 @@ modules.json
 .coze
 
 # ===== 敏感配置（绝不入库）=====
-# 飞书 APP ID / APP Secret / Webhook、调度器管理密码与注册密钥、TreasuryDirect
-# 凭据，一律走 ~/.config/stock-dashboard/secrets.json 或环境变量。
-# 仓库里只保留 secrets.example.json / feishu_secret.example.json 占位模板。
-# 详见 DEPLOY.md「敏感配置」一节。
+# 飞书 APP ID / APP Secret / Webhook、调度器管理密码与注册密钥、Tushare token、
+# SMTP 授权码、FRED key、TreasuryDirect 凭据，一律走
+# ~/.config/stock-dashboard/secrets.json 或环境变量。
+# 仓库里只保留 case/_lib/secrets.example.json 占位模板。
+# 详见 docs/SECRETS.md / DEPLOY.md「敏感配置」一节。
 secrets.json
 feishu_secret.json
 *.secret.json
 .env
 .env.*
 !.env.example
+
+# 本机安装数据（含绝对路径 / 端口 / 启停状态，因机器而异）
+modules.json
+modules.json.bak_*
+
+# 运行时状态
+case/_lib/.alert_quota.json
+.switches.local.json

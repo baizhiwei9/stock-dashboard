@@ -74,7 +74,7 @@ def _buyback_headers():
     except Exception:                                      # noqa: BLE001
         sec = {}
     if not (sec.get("client_id") and sec.get("client_secret")):
-        return None
+        return {}
     return {"client_id": sec["client_id"], "client_secret": sec["client_secret"]}
 
 
@@ -582,6 +582,9 @@ def fetch_buyback_schedule():
 
 def fetch_buyback_results(since_days=45):
     """最近 since_days 天内已完成（Results 状态）的回购操作明细。"""
+    if not BUYBACK_HEADERS:
+        print("[buyback] 未配置 treasury.client_id/client_secret，跳过回购明细")
+        return []
     now = datetime.now()
     start = (now - timedelta(days=since_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     end = (now + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")

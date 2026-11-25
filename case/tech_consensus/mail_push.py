@@ -11,10 +11,19 @@
 import json
 import os
 import subprocess
+import sys
 
-# 钉钉企业邮箱（用户已授权，无额外凭据）
-EMAIL_FROM = "baizhiwei9492@dingtalk.com"   # 发件人
-EMAIL_TO = "410119229@qq.com"               # 收件人
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
+
+# 发件人/收件人：只从 config/secrets.json / 环境变量取
+EMAIL_FROM = app_secrets.get("email.sender", "")
+EMAIL_TO = app_secrets.get("email.recipients", "")
 
 DWS_CLI = os.path.expanduser("~/.local/bin/dws")
 
@@ -29,6 +38,9 @@ def send_mail(subject, markdown_body, img_path=None, inline_img=True):
     Returns:
         bool
     """
+    if not (EMAIL_FROM and EMAIL_TO):
+        print("[邮件] 未配置 email.sender/email.recipients（见 config/secrets.json），跳过发送")
+        return False
     try:
         cmd = [DWS_CLI, "mail", "message", "send",
                "--from", EMAIL_FROM,

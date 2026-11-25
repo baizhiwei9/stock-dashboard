@@ -16,9 +16,20 @@ Tushare API 初始化配置
 代理: https://ttx.dailyfetch.top/
 """
 
+import os
+import sys
+
 import tushare as ts
 
-TS_TOKEN = '1f7d5d325804a92b869963036fab5e5cb71e7820e7d60903ee9952b1'
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
+
+TS_TOKEN = app_secrets.get("tushare.token")
 TS_HTTP_URL = "https://ttx.dailyfetch.top/"
 
 

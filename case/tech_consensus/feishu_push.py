@@ -1,22 +1,28 @@
 # -*- coding: utf-8 -*-
 """飞书图文投递：先发汇总图（image_key 卡片），再发文字说明卡片
-凭据引用 momentum-risk-control/feishu_config.py（既有资产，不复制密钥进本工程）
+凭据统一从 config/secrets.json 读取（不复制明文进本工程）
 """
 import os
 import sys
+
 import requests
 
-CFG_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/skills/user/momentum-risk-control"
-if CFG_DIR not in sys.path:
-    sys.path.insert(0, CFG_DIR)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
 
 TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
 IMAGE_UPLOAD_URL = "https://open.feishu.cn/open-apis/im/v1/images"
 
 
 def _config():
-    import feishu_config as fc
-    return fc.APP_ID, fc.APP_SECRET, fc.WEBHOOK_URL
+    return (app_secrets.get("feishu.app_id"),
+            app_secrets.get("feishu.app_secret"),
+            app_secrets.get("feishu.webhook"))
 
 
 def _tenant_token(app_id, app_secret):

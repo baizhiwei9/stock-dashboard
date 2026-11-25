@@ -14,7 +14,7 @@
     AA  : BAMLC0A2CAA
     BB  : BAMLH0A1HYBB
     CCC : BAMLH0A3HYC
-API key 运行时从环境变量 FRED_API_KEY 或既有 macroliq_fetcher/.env 读取，不写入本文件。
+API key 只从 config/secrets.json 的 fred.api_key（或 FRED_API_KEY 环境变量）读取。
 
 用法：
     python3 credit_spread_alert.py                         # 计算并落盘 JSON（不发送）
@@ -23,7 +23,7 @@ API key 运行时从环境变量 FRED_API_KEY 或既有 macroliq_fetcher/.env �
     python3 credit_spread_alert.py --direction signed      # 切换为带符号差值口径
     python3 credit_spread_alert.py --dry-run               # 仅计算，明确不发送
 
-邮件凭据不写入本文件：163 授权码运行时从环境变量 EMAIL_AUTH_CODE 或既有配置文件读取。
+邮件凭据不写入本文件：统一从 config/secrets.json 读取。
 """
 import argparse
 import bisect
@@ -42,7 +42,12 @@ from email.mime.text import MIMEText
 from email.utils import formataddr
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-WS = os.path.dirname(HERE)
+_ROOT = os.path.dirname(os.path.dirname(HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
 
 # ---------------- 监控对象 ----------------
 SERIES = {"AA": "BAMLC0A2CAA", "BB": "BAMLH0A1HYBB", "CCC": "BAMLH0A3HYC"}
@@ -103,34 +108,16 @@ DEFAULT_OUT = os.path.join(HERE, "credit_spread_output.json")
 
 # ---------------- 邮件通道（复用环境既有配置） ----------------
 DWS_CLI = os.path.expanduser("~/.local/bin/dws")
-EMAIL_FROM = "baizhiwei9492@dingtalk.com"   # 钉钉企业邮箱（用户已授权，无额外凭据）
-EMAIL_TO = "410119229@qq.com"               # 收件人
-SMTP_HOST = "smtp.163.com"
-SMTP_USER = "songshang951@163.com"          # 回退通道发件账号
-SMTP_LEGACY = [                             # 既有 163 授权码所在文件（仅回退通道）
-    os.path.join(WS, "ses_gffe5f530aa190ffeRxnRiUPRdvAPh0", "daily_wavelet_monitor.py"),
-    os.path.join(WS, "ses_gffe5f530aa190ffeRxnRiUPRdvAPh0", "test_email_only.py"),
-]
+EMAIL_FROM = app_secrets.get("email.sender", "")
+EMAIL_TO = app_secrets.get("email.recipients", "")
+SMTP_HOST = app_secrets.get("email.smtp_host", "smtp.163.com")
+SMTP_USER = app_secrets.get("email.username", "")
 
 
 # ---------------- 取数 ----------------
 def get_fred_key():
-    """优先环境变量，其次既有 macroliq_fetcher/.env（不在本文件写密钥）。"""
-    key = os.environ.get("FRED_API_KEY", "").strip()
-    if key:
-        return key
-    import glob as _glob
-    cands = _glob.glob(os.path.join(WS, "*", "macroliq_fetcher", ".env"))
-    cands.append(os.path.join(WS, ".env"))
-    for path in cands:
-        try:
-            with open(path, encoding="utf-8") as fh:
-                m = re.search(r"^\s*FRED_API_KEY\s*=\s*(\S+)", fh.read(), re.M)
-            if m:
-                return m.group(1).strip().strip("'\"")
-        except Exception:  # noqa: BLE001
-            continue
-    return ""
+    """FRED API key：只从 config/secrets.json 的 fred.api_key（或 FRED_API_KEY 环境变量）取。"""
+    return app_secrets.get("fred.api_key", "")
 
 
 def _http_text(url, tries=3, timeout=30):
@@ -257,19 +244,8 @@ def compute_alerts(direction="widening", window=WINDOW, threshold=THRESHOLD):
 
 # ---------------- 邮件 ----------------
 def get_auth_code():
-    code = os.environ.get("EMAIL_AUTH_CODE", "").strip()
-    if code:
-        return code
-    for path in SMTP_LEGACY:
-        try:
-            with open(path, encoding="utf-8") as fh:
-                src = fh.read()
-            m = re.search(r"EMAIL_PASS\s*=\s*[\"']([^\"']+)[\"']", src)
-            if m and len(m.group(1)) >= 6:
-                return m.group(1)
-        except Exception:  # noqa: BLE001
-            continue
-    return ""
+    """163 授权码：只从 config/secrets.json / 环境变量取。"""
+    return app_secrets.get("email.password", "")
 
 
 def send_via_dws(subject, body):
@@ -353,6 +329,9 @@ def build_body(result):
 
 
 def send_alert_email(result):
+    if not (EMAIL_FROM and EMAIL_TO):
+        print("[邮件] 未配置 email.sender/email.recipients（见 config/secrets.json），跳过发送")
+        return (False, "未配置 email.sender/email.recipients")
     subject = build_subject(result)
     body = build_body(result)
     ok, info = send_via_dws(subject, body)

@@ -6,6 +6,13 @@
     "port": 8767,
     "_note": "password / registry_key 不写这里：见 ~/.config/stock-dashboard/secrets.json 的 scheduler 段（python3 setup.py 录入）。本文件是模板，实际配置请复制成 modules.json 后修改。"
   },
+  "queue": {
+    "max_parallel": 1,
+    "_note": "max_parallel=1 串行；pull_forward=队列空着就把后面的任务提前拉进来串着跑（16:00 之后生效，最多提前 pull_ahead_min 分钟）",
+    "pull_forward": true,
+    "pull_forward_from": "16:00",
+    "pull_ahead_min": 240
+  },
   "modules": [
     {
       "key": "macro",

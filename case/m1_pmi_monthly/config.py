@@ -1,56 +1,39 @@
 # -*- coding: utf-8 -*-
 """月度宏观报告工程 - 可复用配置
-飞书 webhook 与邮件通道复用既有工作区凭据（未新增密钥落盘）。
+
+飞书 webhook 与邮件凭据统一从 config/secrets.json 读取（见 config/README.md），
+本文件不再保存任何明文凭据，也不再从别的工作区脚本里刮授权码。
 """
 import os
 import sys
 
-WS = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace"
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
 
-# ---- 飞书（复用既有 feishu_config.webhook，仅发消息不需要 APP_SECRET）----
-_FEISHU_CFG = os.path.join(
-    WS, "ses_gffe5febb5eaeeffe0mTIpBeu5w0Nq0", "feishu_config.py")
-if os.path.exists(_FEISHU_CFG):
-    _d = {}
-    with open(_FEISHU_CFG, encoding="utf-8") as _f:
-        exec(compile(_f.read(), _FEISHU_CFG, "exec"), _d)
-    FEISHU_WEBHOOK = _d.get("WEBHOOK_URL", "")
-else:
-    FEISHU_WEBHOOK = os.environ.get("FEISHU_WEBHOOK_URL", "")
+import app_secrets  # noqa: E402
+
+DATA_DIR = os.path.join(_HERE, "data")
+OUT_DIR = os.path.join(_HERE, "output")
+
+# ---- 飞书（群机器人发消息不需要 APP_SECRET）----
+FEISHU_WEBHOOK = app_secrets.get("feishu.webhook", "")
 
 # ---- 邮件：主通道钉钉企业邮箱（dws CLI），回退 163 SMTP ----
 DWS_CLI = os.path.expanduser("~/.local/bin/dws")
-EMAIL_FROM = "baizhiwei9492@dingtalk.com"
-EMAIL_TO = "410119229@qq.com"
+EMAIL_FROM = app_secrets.get("email.sender", "")
+EMAIL_TO = app_secrets.get("email.recipients", "")
 
-EMAIL_HOST = "smtp.163.com"
-EMAIL_PORT = 25
-EMAIL_USER = "songshang951@163.com"
-
-_LEGACY_PATHS = [
-    os.path.join(WS, "ses_gffe5f530aa190ffeRxnRiUPRdvAPh0", "daily_wavelet_monitor.py"),
-    os.path.join(WS, "ses_gffe5f530aa190ffeRxnRiUPRdvAPh0", "test_email_only.py"),
-]
+EMAIL_HOST = app_secrets.get("email.smtp_host", "smtp.163.com")
+EMAIL_PORT = app_secrets.get_int("email.smtp_port", 25)
+EMAIL_USER = app_secrets.get("email.username", "")
 
 
 def get_auth_code():
-    """163 授权码：环境变量优先，缺失时读既有 legacy 配置（不新落盘）。"""
-    code = os.environ.get("EMAIL_AUTH_CODE", "")
-    if code:
-        return code
-    import re
-    for p in _LEGACY_PATHS:
-        try:
-            with open(p, encoding="utf-8") as f:
-                src = f.read()
-            m = re.search(r"EMAIL_PASS\s*=\s*[\"']([^\"']+)[\"']", src)
-            if m and len(m.group(1)) >= 6:
-                return m.group(1)
-        except Exception:
-            continue
-    return ""
+    """SMTP 授权码：只从 config/secrets.json / 环境变量取。"""
+    return app_secrets.get("email.password", "")
 
 
 def ensure_dirs():

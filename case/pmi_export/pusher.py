@@ -104,6 +104,9 @@ def send_via_smtp(subject, html_body):
 
 def send_email(subject, markdown_body, html_body=None):
     """邮件发送：主通道 dws，失败回退 163 SMTP。"""
+    if not (EMAIL_FROM and EMAIL_TO):
+        print("[邮件] 未配置 email.sender/email.recipients（见 config/secrets.json），跳过发送")
+        return False
     if send_via_dws(subject, markdown_body):
         return True
     print("[邮件] 主通道失败，尝试 163 SMTP 回退...")

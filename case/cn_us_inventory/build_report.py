@@ -7,6 +7,7 @@
   build_report3   「库存周期切换预测报告」+ 飞书交互卡片推送
 """
 import json
+import os
 import sys
 
 import pandas as pd
@@ -50,7 +51,16 @@ def _load_switches(path):
 
 BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7d65e97affeGRaKRrqXn281SL"
 OUT = BASE + "/库存周期切换预测报告.html"
-FEISHU_CFG = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5febb5eaeeffe0mTIpBeu5w0Nq0/feishu_config.py"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
+
+TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+UPLOAD_URL = "https://open.feishu.cn/open-apis/im/v1/images"
 
 PHASE_COLOR = {
     "主动补库存": ("#E7F6EE", "#1F7A4D"),
@@ -355,21 +365,26 @@ def main(push=True):
         return
 
     # ---- 推送飞书（一条交互式卡片：图表图片 + 报告要点）----
-    ns = {}
-    exec(compile(open(FEISHU_CFG, encoding="utf-8").read(), FEISHU_CFG, "exec"), ns)
-    hook = ns.get("WEBHOOK_URL", "")
+    hook = app_secrets.get("feishu.webhook", "")
     if not hook:
-        print("[飞书] 未取到 webhook")
+        print("[飞书] 未配置 feishu.webhook")
         return
     # 先按最新数据重绘图表（保证图片与报告同源），再上传取 image_key
     import render_chart
     render_chart.main(push=False)
-    tok = requests.post(ns["TOKEN_URL"], json={"app_id": ns["APP_ID"], "app_secret": ns["APP_SECRET"]}, timeout=30).json()
-    t = tok.get("tenant_access_token")
+    t = None
+    app_id = app_secrets.get("feishu.app_id", "")
+    app_secret = app_secrets.get("feishu.app_secret", "")
+    if app_id and app_secret:
+        tok = requests.post(TOKEN_URL, json={"app_id": app_id,
+                                             "app_secret": app_secret}, timeout=30).json()
+        t = tok.get("tenant_access_token")
+    else:
+        print("[飞书] 未配置 feishu.app_id/app_secret，跳过图片上传")
     img_key = None
     if t:
         with open(BASE + "/中美库存周期图表.png", "rb") as fh:
-            up = requests.post(ns["UPLOAD_URL"], headers={"Authorization": f"Bearer {t}"},
+            up = requests.post(UPLOAD_URL, headers={"Authorization": "Bearer %s" % t},
                                files={"image": ("chart.png", fh, "image/png")},
                                data={"image_type": "message"}, timeout=60).json()
         img_key = (up.get("data") or {}).get("image_key")

@@ -42,7 +42,7 @@ for _p in (HUB_DEPS, HUB_ROOT):
         sys.path.insert(0, _p)
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
-from feishu_config import WEBHOOK_URL  # noqa: E402  凭据脱敏：见 DEPLOY.md「飞书凭据」
+from feishu_config import WEBHOOK_URL  # noqa: E402  凭据统一走 app_secrets，见 DEPLOY.md「敏感配置」
 # 沙箱依赖持久化: pip 安装到工作区内 .pydeps, 避免 /tmp 被清理后模块丢失
 LOCAL_DEPS = os.path.join(OUTPUT_DIR, '.pydeps')
 if os.path.isdir(LOCAL_DEPS):

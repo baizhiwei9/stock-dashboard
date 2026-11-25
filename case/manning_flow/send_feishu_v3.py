@@ -16,7 +16,7 @@ from matplotlib.font_manager import FontProperties, fontManager
 import subprocess
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
-from feishu_config import WEBHOOK_URL  # noqa: E402  凭据脱敏：见 DEPLOY.md「飞书凭据」
+from feishu_config import WEBHOOK_URL  # noqa: E402  凭据统一走 app_secrets，见 DEPLOY.md「敏感配置」
 # 字体
 result = subprocess.run(['fc-list', ':lang=zh', 'file'], capture_output=True, text=True)
 zh_font_path = None

@@ -14,8 +14,10 @@
 本脚本不改动共享 feishu_push.py，彩色卡在本地自建后复用 fp._send_card 发送。
 """
 import os, sys, json
-D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-FSH_DIR = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5f28eb4508ffeXvGpuDQNknTjQn/tech_consensus_daily"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+D = os.path.join(_HERE, "data")
+# 复用仓库内 tech_consensus 的飞书卡片工具（凭据走 config/secrets.json）
+FSH_DIR = os.path.join(os.path.dirname(_HERE), "tech_consensus")
 sys.path.insert(0, FSH_DIR)
 import feishu_push as fp
 

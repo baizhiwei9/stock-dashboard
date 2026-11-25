@@ -2,6 +2,7 @@
 """渲染中美库存周期图表(PNG) 并用飞书应用凭据上传后推送到飞书"""
 import json
 import os
+import sys
 import numpy as np
 import pandas as pd
 import requests
@@ -47,7 +48,16 @@ BASE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5e7
 DATA = BASE + "/data"
 OUT_PNG = BASE + "/中美库存周期图表.png"
 FONT = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/.fonts/NotoSansSC-Regular.ttf"
-CFG = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/ses_gffe5febb5eaeeffe0mTIpBeu5w0Nq0/feishu_config.py"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_LIB = os.path.join(_ROOT, "case", "_lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+
+import app_secrets  # noqa: E402
+
+TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+UPLOAD_URL = "https://open.feishu.cn/open-apis/im/v1/images"
 
 PH = {"主动补库存": (231, 246, 238), "被动补库存": (251, 233, 217),
       "主动去库存": (251, 234, 230), "被动去库存": (233, 242, 251)}
@@ -299,18 +309,23 @@ def main(push=True):
         return
 
     # 上传 + 推送飞书
-    ns = {}
-    exec(compile(open(CFG, encoding="utf-8").read(), CFG, "exec"), ns)
-    tok = requests.post(ns["TOKEN_URL"], json={"app_id": ns["APP_ID"], "app_secret": ns["APP_SECRET"]}, timeout=30).json()
+    hook = app_secrets.get("feishu.webhook", "")
+    app_id = app_secrets.get("feishu.app_id", "")
+    app_secret = app_secrets.get("feishu.app_secret", "")
+    if not (hook and app_id and app_secret):
+        print("[飞书] 未配置 feishu.webhook / app_id / app_secret，跳过推送")
+        return
+    tok = requests.post(TOKEN_URL, json={"app_id": app_id,
+                                         "app_secret": app_secret}, timeout=30).json()
     t = tok.get("tenant_access_token")
     print("token:", "ok" if t else str(tok)[:200])
     with open(OUT_PNG, "rb") as fh:
-        up = requests.post(ns["UPLOAD_URL"], headers={"Authorization": f"Bearer {t}"},
+        up = requests.post(UPLOAD_URL, headers={"Authorization": "Bearer %s" % t},
                            files={"image": ("chart.png", fh, "image/png")},
                            data={"image_type": "message"}, timeout=60).json()
     key = (up.get("data") or {}).get("image_key")
     print("image_key:", key, "" if key else str(up)[:200])
-    r = requests.post(ns["WEBHOOK_URL"], json={"msg_type": "image", "content": {"image_key": key}}, timeout=30).json()
+    r = requests.post(hook, json={"msg_type": "image", "content": {"image_key": key}}, timeout=30).json()
     print("[飞书图片]", "发送成功" if r.get("code") == 0 or r.get("StatusCode") == 0 else str(r)[:200])
 
 

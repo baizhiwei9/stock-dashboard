@@ -428,7 +428,7 @@ def send_ashare_alert(asof, reds, always=False, skew=None, sk_alarms=None, gx=No
     if ok:
         return "sent"
     # 邮件发送失败：在飞书消息侧补通知（唯一出口以外的第二触达，避免报警静默丢失）
-    mailbox = getattr(email_alert, "EMAIL_TO", "") or "410119229@qq.com"
+    mailbox = getattr(email_alert, "EMAIL_TO", "") or "（未配置）"
     note = ("数据日：%s\n"
             "报警构成：%s\n"
             "邮件失败双通道原因：%s\n"

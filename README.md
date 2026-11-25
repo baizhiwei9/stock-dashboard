@@ -13,7 +13,7 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | `build.py` | 生成 `index.html`（唯一渲染入口，纯 Python，无前端框架） |
 | `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` 里每个 task 的启停时间跑，**不用 crontab** |
 | `manager.py` | 命令行运维：模块清单 / 体检 / 手动跑 / 启停 / 板块显隐 |
-| `modules.json` | 模块与调度配置，**含密码与注册密钥**（入库方便改；对外公开前必须先改） |
+| `modules.json` | 模块与调度配置（**不含任何口令**；口令/密钥见 `config/secrets.json`） |
 | `sections.json` | Tab 与子类结构 |
 | `registry.json` | 已注册 Worker 清单 |
 | `publish.sh` | 发布到 Coze Pages |
@@ -28,12 +28,16 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 
 
 ```bash
-# 改 modules.json 里的 api.password / api.registry_key（初始都是 123456，务必改掉）
+./install.sh                # 首次安装：强制输入 api.password / api.registry_key 等敏感项，缺项不能继续
 
 python3 scheduler.py fg     # 前台跑调度（同时起 HTTP 控制台，端口见 modules.json）
 python3 build.py            # 或单次生成 index.html
 python3 manager.py list     # 命令行运维：清单 / status / run / enable / disable
 ```
+
+敏感配置**只放 `config/secrets.json`**（已 `.gitignore`，权限 0600），字段清单见
+[`config/README.md`](config/README.md)。仓库里只有占位模板 `config/secrets.example.json`；
+`./install.sh` 与 `scheduler.py` 启动前都会校验，缺必填项直接拒绝启动。
 
 `manager.py` 是**命令行工具**，不监听端口；HTTP 控制台和注册接口都由 `scheduler.py`
 提供（默认端口 `modules.json` 的 `api.port`，现为 `8767`）。
@@ -134,11 +138,14 @@ python3 manager.py list                      # 清单里 case 任务标 case
 2. 进后台待审批列表
 3. 管理页用管理密码批准 → 出现在看板
 
-双密钥分开：`X-SD-PW` 管管理动作，`X-SD-KEY` 只管注册。两者都不在 `modules.json` 里——
-统一放在 `~/.config/stock-dashboard/secrets.json` 的 `scheduler` 段（`password` / `registry_key`），
-由安装脚本 `python3 setup.py` 强制录入，弱口令直接拒收。详见 [DEPLOY.md](DEPLOY.md) §3.3。
+双密钥分开：`X-SD-PW` 管管理动作，`X-SD-KEY` 只管注册。两者都不在 `modules.json` 里，
+也不写进生成的 `index.html`——统一放在部署机的
+`~/.config/stock-dashboard/secrets.json` 的 `api` 段（`password` / `registry_key`，
+别名 `scheduler` 段同样可读），由安装脚本 `python3 setup.py` 或 `./install.sh`
+强制录入，弱口令直接拒收。审批面板要求现场输入管理密码，由同源调度器校验。
+详见 [DEPLOY.md](DEPLOY.md)「敏感配置」与 [docs/SECRETS.md](docs/SECRETS.md)。
 
-改密码：`python3 manager.py sections pw '<新密码>'` → `python3 scheduler.py restart`。
+改密码：`python3 manager.py sections pw '<新密码>'`（调度器每次请求重读凭据，无需重启）。
 
 ## 给 Agent 读：JSON 快照
 
