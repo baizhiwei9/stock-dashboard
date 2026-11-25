@@ -45,14 +45,6 @@ import feishu_creds as creds  # noqa: E402
 TARGET = app_secrets.write_target()
 
 # 常见弱口令：见到直接拒，不做「只是提示」
-_WEAK = {
-    "123456", "1234567", "12345678", "123456789", "1234567890",
-    "password", "passwd", "admin", "admin123", "root", "test",
-    "qwerty", "abc123", "111111", "000000", "888888", "666666",
-    "stock-dashboard", "stockdashboard", "feishu",
-}
-
-
 # ---------------------------------------------------------------- 交互
 def _ask(label, hint, secret=False, default=None):
     """录入一项。default 不为 None 时，直接回车 = 采用 default。"""
@@ -112,20 +104,12 @@ def _verify_webhook(url):
 
 
 def _pw_problem(pw):
-    """管理密码强度校验。返回问题描述，合格返回 None。"""
-    if len(pw) < 12:
-        return "至少 12 位（当前 %d 位）" % len(pw)
-    if pw.strip().lower() in _WEAK:
-        return "这是常见弱口令，必须换掉"
-    kinds = sum([
-        any(c.islower() for c in pw),
-        any(c.isupper() for c in pw),
-        any(c.isdigit() for c in pw),
-        any(not c.isalnum() for c in pw),
-    ])
-    if kinds < 2:
-        return "至少包含小写字母 / 大写字母 / 数字 / 符号中的两类"
-    return None
+    """管理密码强度校验。返回问题描述，合格返回 None。
+
+    规则本体在 app_secrets.pw_problem —— 交互录入（app_secrets._cmd_init）
+    也调那一个，两边不会再各写一套。
+    """
+    return app_secrets.pw_problem(pw)
 
 
 # 值注入用的环境变量裸名（FEISHU_APP_ID 这类），file_only 校验时临时摘掉。
@@ -359,7 +343,8 @@ def _upgrade_local_secrets():
             todo[k] = new
             if old:
                 changed.append("%s（modules.json 旧值 %s → 已换）"
-                               % (k, "弱口令" if old.strip() in _WEAK else "长度 %d" % len(old)))
+                               % (k, "弱口令" if app_secrets.is_weak_pw(old)
+                                  else "长度 %d" % len(old)))
 
     if not changed:
         print("\nmodules.json 与凭据文件已对齐，无需改动")
@@ -439,15 +424,38 @@ def main():
     # ---------- 非交互落盘（批量装机 / CI） ----------
     if a.init:
         print("\n--- 从环境变量落盘 ---")
-        wrote = app_secrets.persist_env(TARGET)
+        try:
+            wrote = app_secrets.persist_env(TARGET)
+        except OSError as e:
+            # exit 2：写盘本身失败（目录不存在 / 不可写 / 权限不足）。
+            # 跟「没东西可落盘」分开，否则装机脚本会把两种完全不同的故障
+            # 报成同一句话，排错方向直接跑偏。
+            print("  ✗ 写盘失败：%s: %s" % (type(e).__name__, e))
+            print("  检查 COZE_SECRETS 指向的目录是否存在且可写；"
+                  "不设它就默认写 ~/.config/stock-dashboard/。")
+            return 2
         if not wrote:
-            print("  环境变量里没有新配置可落盘（已有的不覆盖）。")
-            print("  需要设置的变量（COZE_SEC_ 前缀）：")
-            for k in ("api.password", "api.registry_key",
-                      "feishu.app_id", "feishu.app_secret", "feishu.webhook"):
-                print("    %s" % ", ".join(app_secrets._env_names(k)))
+            # 没东西可落盘有两种：幂等重跑（文件里已有值），或压根没给凭据。
+            # 前者继续走校验就行；后者必须 exit 3 —— 否则空环境 + 空盘会一路
+            # 走到 --check 报「校验未通过 N 项」，看不出根因是「你什么都没给」。
+            snap = _state(True)
+            have = any(snap[k] for k in ("feishu", "scheduler", "treasury"))
+            if not have:
+                print("  ✗ 环境变量里没有可落盘的配置，凭据文件也是空的。")
+                print("  先 export 下面这些再跑（COZE_SEC_ 前缀）：")
+                for k in ("api.password", "api.registry_key",
+                          "feishu.app_id", "feishu.app_secret", "feishu.webhook"):
+                    print("    %s" % ", ".join(app_secrets._env_names(k)))
+                return 3
+            print("  环境变量里没有新配置可落盘（已有的不覆盖），继续校验磁盘。")
         a.check = True          # 落盘后照常走完整校验
         a.file_only = True      # 但校验的是「磁盘上真的写了什么」，不是 env 里还剩下什么
+        # 上面那行必须在重新取状态之前生效。cur/f/s/t 是最开头取的（那时
+        # a.file_only 还是命令行传进来的 False），不重取就等于拿 env 当磁盘内容，
+        # --init 自带的那次校验会假通过 —— 文件里是 10 位弱口令、env 里是强口令，
+        # 于是先打「✅ 全部就绪」，install.sh 紧接着 --check --file-only 又 exit 1。
+        cur = _state(True)
+        f, s, t = cur["feishu"], cur["scheduler"], cur["treasury"]
 
     # ---------- 只校验 ----------
     if a.check:

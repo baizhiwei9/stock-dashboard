@@ -41,10 +41,21 @@ echo "== 补齐敏感配置（环境变量 -> 配置文件，已有的不覆盖�
 # 落盘失败必须当场暴露，不能 || true 吞掉：写不进去（比如 COZE_SECRETS 指到不可写
 # 路径）时，后面的 --check 会读到还留在环境里的 COZE_SEC_* 而照样全绿，装完磁盘
 # 上空空如也，等第一次启动才 fail-closed。这种「假通过」比直接失败贵得多。
-if ! "$PY" setup.py --init ${SD_SKIP_LIVE:+--skip-live}; then
+# 退出码分开：2=写盘失败（查路径可写性），3=压根没给凭据。混成一个码会把
+# 「你没 export 任何 COZE_SEC_*」误导成「目录不可写」，排错方向就错了。
+set +e
+"$PY" setup.py --init ${SD_SKIP_LIVE:+--skip-live}
+_init_rc=$?
+set -e
+if [ "$_init_rc" -ne 0 ]; then
   echo "" >&2
-  echo "✗ 敏感配置落盘失败（上面是原始报错）。" >&2
-  echo "  检查 COZE_SECRETS 指向的目录是否存在且可写；不设它就默认写 ~/.config/stock-dashboard/。" >&2
+  case "$_init_rc" in
+    2) echo "✗ 敏感配置落盘失败（上面是原始报错）。" >&2
+       echo "  检查 COZE_SECRETS 指向的目录是否存在且可写；不设它就默认写 ~/.config/stock-dashboard/。" >&2 ;;
+    3) echo "✗ 没有可落盘的凭据：环境变量和凭据文件都是空的。" >&2
+       echo "  先 export COZE_SEC_*（变量名见上面），或者跑 python3 setup.py 交互录入。" >&2 ;;
+    *) echo "✗ 敏感配置初始化失败（exit $_init_rc）。" >&2 ;;
+  esac
   exit 1
 fi
 
