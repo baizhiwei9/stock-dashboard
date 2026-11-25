@@ -1,0 +1,29 @@
+# 运行时产物
+index.html
+pub/
+logs/
+__pycache__/
+*.pyc
+scheduler.pid
+daily.log
+
+# 运行状态（每次跑都在变，不入库）
+state.json
+state_config_alerts.json
+
+# case 任务产出（数据与产物不入库，只留代码）
+case/*/out/
+case/*/logs/
+case/*/__pycache__/
+case/*/data/
+case/*/state/
+case/*/fonts/
+
+# 云平台部署元数据
+.coze
+case/_lib/.alert_quota.json
+
+# 敏感配置（只提交 config/secrets.example.json）
+config/secrets.json
+config/.secrets-*
+config/*.local.json
