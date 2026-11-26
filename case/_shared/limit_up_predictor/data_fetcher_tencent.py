@@ -17,6 +17,24 @@ DataHub 口径 → 本模块口径（训练模型按本模块口径产出，转�
     vol（手）             →  volume（手，同口径）
     amount（千元）        →  amount = 千元 × 10 = volume × close（旧口径：手·元/100）
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
 
 import requests
 import pandas as pd
@@ -58,7 +76,7 @@ def _hub_candidates(_start):
         cur = parent
     out += [os.environ.get('DATA_HUB_PATH') or os.environ.get('DATAHUB_DIR')
             or os.environ.get('EDB_REPO') or '',
-            '/opt/coze/.fuse_drive/dataHub_三级体系']
+            _cp('/opt/coze/.fuse_drive/dataHub_三级体系')]
     seen, uniq = set(), []
     for p in out:
         if p and p not in seen:

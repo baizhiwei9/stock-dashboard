@@ -4,6 +4,24 @@
 所有数据通过 akshare / 网页爬取自动采集
 2026-06-16 重写8个数据采集函数，聚焦pbc.gov.cn + CFETS + akshare
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
 
 import sys
 import json
@@ -364,9 +382,9 @@ def fetch_bond_buy_sell():
 
 def _bond_buy_sell_fallback():
     """国债买卖回退：从历史评分数据中取最近一次非空值"""
-    output_dir = "/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子"
+    output_dir = _cp("/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子")
     if not os.path.exists(output_dir):
-        output_dir = "/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子"
+        output_dir = _cp("/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子")
     if not os.path.exists(output_dir):
         print("  ⚠ 回退失败：输出目录不存在")
         return None
@@ -597,9 +615,9 @@ def fetch_repo_volume():
 
     # ===== 策略3：历史数据回退 =====
     try:
-        output_dir = "/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子"
+        output_dir = _cp("/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子")
         if not os.path.exists(output_dir):
-            output_dir = "/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子"
+            output_dir = _cp("/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子")
         import glob
         json_files = sorted(glob.glob(os.path.join(output_dir, "*_评分数据.json")), reverse=True)
         for jf in json_files[:8]:
@@ -1409,7 +1427,7 @@ def _run_analysis():
     print("=" * 60)
 
     # 保存报告
-    output_dir = "/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子"
+    output_dir = _cp("/Coze/Drive/蓁宝/所有对话/主对话/国债期货四因子")
     os.makedirs(output_dir, exist_ok=True)
 
     output_file = f"{output_dir}/{report_date}_国债期货四因子周报.md"
