@@ -112,8 +112,22 @@
           ]
         },
         "at": {
-          "type": "string",
-          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          "description": "本地时间 HH:MM。一天多个时间点（如早报 07:50 + 晚报 19:55）写数组，元素为 HH:MM 字符串，1-6 个；字符串写法行为与旧版完全一致",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              }
+            }
+          ]
         },
         "weekdays": {
           "type": "array",
