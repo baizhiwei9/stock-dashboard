@@ -17,10 +17,11 @@
 2. 值是已存在的目录或以路径分隔符结尾 → 拼 ``datahub.db``；
 3. 相对路径 → 按当前工作目录展开为绝对（与 data_hub 的 ``abspath`` 一致）；
 4. 都没设 → ``${DATAHUB_HOME:-~/.local/share/datahub}/datahub.db``；
-5. **统一库必须存在且真的有 ``edb_points`` 表才选它**。否则
-   （``DATAHUB_DB_AUTO_MIGRATE=0`` / 迁移失败 / 新机器 / ``DB_PATH`` 指到
-   别的项目的库）回退旧 ``edb.sqlite3`` 并打一条 warning —— 避免「读到空
-   却以为没有数据」，也避免把旧库里还有效的数据挡在外面。
+5. **统一库必须存在、有 ``edb_points`` 表、且至少一行**才选它。否则
+   （``DATAHUB_DB_AUTO_MIGRATE=0`` / 迁移失败 / 新机器 / 表建了但没数据 /
+   库损坏或被独占锁住 / ``DB_PATH`` 指到别的项目的库）回退旧 ``edb.sqlite3``
+   并打一条 warning —— 避免「读到空却以为没有数据」，也避免把旧库里还有效的
+   数据挡在外面。
 
 只解析路径，**不 import data_hub**：报告脚本不该因为查路径触发
 ``ensure_db()`` 的建库/迁移副作用。也不做进程内缓存 —— 同进程里环境变量可能变。
@@ -112,7 +113,9 @@ def edb_points_state(path: str) -> str:
             return "ok" if has_row is not None else "empty"
         finally:
             conn.close()
-    except Exception:                                    # noqa: BLE001
+    except Exception as err:                            # noqa: BLE001
+        _log.debug("[edb_paths] 探测 %s 失败：%s: %s",
+                   path, type(err).__name__, err)
         return "error"
 
 
@@ -174,6 +177,12 @@ def edb_db_path() -> Optional[str]:
     elif state == "empty":
         _warn_once(
             "[edb_paths] 统一库 %s 的 edb_points 是空表（迁移没跑或还没采？），"
+            "回退旧 edb.sqlite3", unified)
+    elif state == "error":
+        # 损坏 / 被 VACUUM 独占锁住 / 无权限：读不到就说一声再回退。
+        # 静默回退等于「读到冻结数据且无痕迹」，正是这一系列 PR 在修的那类问题。
+        _warn_once(
+            "[edb_paths] 统一库 %s 读不了（损坏/被锁/无权限？），"
             "回退旧 edb.sqlite3", unified)
     for repo in legacy_candidates():
         p = os.path.join(repo, LEGACY_DB_REL)
