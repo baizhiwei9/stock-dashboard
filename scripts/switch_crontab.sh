@@ -65,6 +65,7 @@ m = {
  "concept_tracker_top20": "热点概念Top20", "cycle_monitor": "库存信贷周期",
  "oil_monitor": "油价月报", "style_drift_monitor": "风格漂移监控",
  "vol_monitor_daily": "股指波动率监控", "credit_spread_weekly": "信用利差周报",
+ "bond_four_factor": "国债期货四因子",
  "margin_season_weekly": "两融季节同比(周五)", "hurst_daily": "Hurst指数",
  "tugou_archive": "土狗归档", "weekly_stock_monitor": "自选股周报",
  "tech_consensus_daily": "科技共识日报",
@@ -225,7 +226,9 @@ build_crontab() {  # $1 = 输出文件；其余 = 要移除的 --name
   if ! crontab -l > "$src" 2>/dev/null; then
     : > "$src"        # 新机器上 crontab 为空时 `crontab -l` 非 0 属正常
   fi
-  before="$(wc -l < "$src" | tr -d ' ')"
+  # 行数口径与安装前自检（grep -c ''）一致：crontab 文件末尾没有换行时 wc -l 会少算 1 行，
+  # 第③道闸会误判「行数对不上」而拒绝安装（安全但会挡住合法的 --apply）。
+  before="$(awk 'END{print NR}' "$src")"
   if [ "$before" -eq 0 ]; then
     echo "  ❌ 读到的 crontab 是空的，拒绝继续（防止把生产 crontab 清空）" >&2
     rm -f "$src" "$msg"
