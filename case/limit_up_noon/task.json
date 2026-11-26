@@ -1,0 +1,35 @@
+{
+  "key": "limit_up_noon",
+  "title": "涨停预测·午盘",
+  "desc": "同一模型用实时快照更新候选池（每日一次，不是高频轮询）",
+  "section": "stock",
+  "visibility": "public",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "12:00",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "bash run.sh",
+  "cwd": ".",
+  "timeout": 3900,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "requires": [
+    "datahub"
+  ],
+  "entry": "run.sh",
+  "legacy_cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u daily_runner.py --mode noon",
+  "imported_from": "modules.json（2026-11-26 迁入 case）",
+  "import_note": "代码在 ../_shared/limit_up_predictor，output/ 与早盘共用；发送内嵌（B 类一体式）",
+  "note": "全市场 2205 只 × 3 年历史，DataHub 多源并行取数；实测早盘 1329s、午盘 1878s 且午盘受数据源抖动影响更大，1800s 会在取数阶段被砍（2026-11-26 午盘 exit=124）。上限放到 3900s，与 five_strategy 同档。"
+}
