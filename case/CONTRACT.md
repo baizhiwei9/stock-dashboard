@@ -58,6 +58,7 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 | `key` | string | `^[a-z0-9_]{2,40}$`，必须等于目录名 |
 | `title` | string | 牌面标题 |
 | `sched` | object | `{"mode":"daily\|weekly\|monthly","at":"HH:MM","weekdays":[1..7],"days":[1..31]}`；`at` 也可写数组表示一天多个时间点：`"at":["07:50","19:55"]`（早报+晚报，1-6 个） |
+| `not_before` | string | `"HH:MM"`。**只在「提前拉取」时生效**：`pull_forward` 默认 16:00 起，会把未来 `pull_ahead_min`（默认 240）分钟内的任务提前拉起；配了 `not_before` 且当前时刻早于它就跳过。**到点正常跑不检查此字段**。所以要「绝不被提前拉起」（快照、build 这类等全部 producer 的任务），把它设成与 `sched.at` 相同值；只在数据晚到时用，填真实就绪时刻。 |
 | `metrics` | array | 要展示的指标声明，可为空数组；首跑后由 publish 回填 |
 
 ### 必填（二选一）

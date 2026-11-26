@@ -355,9 +355,9 @@
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"指标仓云盘快照\" --timeout 900 -- /usr/bin/python3 case/_tools/push_snapshot.py",
       "timeout": 900,
       "enabled": true,
-      "not_before": "22:30",
+      "not_before": "23:20",
       "depends": [],
-      "note": "快照失败必须能看见：push_snapshot.py 在 store.snapshot() 返回空时 exit 1（`python -m data_hub.tech.store --snapshot` 只打印 None 就 exit 0，health 记不到失败）。"
+      "note": "快照失败必须能看见：push_snapshot.py 在 store.snapshot() 返回空时 exit 1（`python -m data_hub.tech.store --snapshot` 只打印 None 就 exit 0，health 记不到失败）。 not_before 与 at 同值：build/快照这类「等全部 producer」的任务绝不能被提前拉起，not_before 只在 pull_forward 提前拉取时生效，设成与 at 相同就等于禁止提前跑。"
     },
     {
       "key": "build",
@@ -375,6 +375,7 @@
           5
         ]
       },
+      "not_before": "23:40",
       "depends": [
         "macro",
         "liquidity",
