@@ -422,8 +422,33 @@ def _treasury_yield_2y():
     raise RuntimeError("Treasury.gov 收益率页无有效 2Y 观测")
 
 
+def _unified_db_path():
+    """DataHub 统一库路径（2026-11-26 起 EDB 各表并入这里）。
+
+    认法与 data_hub.core.dbpath 一致：DB_PATH → DB_Path → DATAHUB_DB_PATH →
+    默认 ~/.local/share/datahub/datahub.db；值是目录时自动拼 datahub.db。
+    """
+    for key in ("DB_PATH", "DB_Path", "DATAHUB_DB_PATH"):
+        raw = (os.environ.get(key) or "").strip()
+        if not raw:
+            continue
+        p = os.path.expanduser(raw)
+        if os.path.isdir(p):
+            p = os.path.join(p, "datahub.db")
+        if os.path.exists(p):
+            return p
+    default = os.path.join(os.path.expanduser("~"), ".local", "share",
+                           "datahub", "datahub.db")
+    return default if os.path.exists(default) else None
+
+
 def _edb_db_path():
     """定位 data_hub EDB 库（统一接口；多路径探测，兼容换机/换挂载）。"""
+    # 统一库优先：旧 edb.sqlite3 已不再写入、但文件一直存在，
+    # 继续优先读它只会拿到冻结数据（且不会触发任何兜底）。
+    unified = _unified_db_path()
+    if unified:
+        return unified
     env = (os.environ.get("EDB_REPO") or "").strip()
     cands = []
     if env:
