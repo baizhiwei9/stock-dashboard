@@ -1,0 +1,24 @@
+{
+  "key": "options_close_monitor",
+  "title": "收盘期权监控（五轨+图）",
+  "desc": "收盘期权监控五轨与图表；算法在 options_utility 仓，本任务只做薄包装",
+  "section": "option",
+  "visibility": "public",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "18:30",
+    "weekdays": [1, 2, 3, 4, 5]
+  },
+  "cmd": "python3 -u run.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": false,
+    "email": false
+  },
+  "source_repo": "baizhiwei9/options_utility",
+  "source_entry": "alert/reports/close.py",
+  "original_cron_name": "收盘期权监控(五轨+图)"
+}

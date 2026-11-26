@@ -590,3 +590,55 @@ git add options/ && git commit -m "chore(options): 期权日更脚本入库" && 
 stock-dashboard / datahub-multi-tier / precious-task 任一仓库。
 
 三者都属盘中告警或一天多次（缠论日终一天 4 次），按 §12.1 边界未纳入本次迁移，需要单独决策。
+
+## 13. 期权 7 条日更接入 case（2026-11-26）
+
+> 更正 §12.7 的说法：期权日更的**算法代码其实在公开仓 `options_utility`**（`run/*.sh`、
+> `alert/`、`calc/` 都在），只是 `datahub-multi-tier` 里的 `options/` 目录从未被跟踪。
+> 本节把 7 条**日更、无大模型依赖**的任务接成 case，算法仍只在 `options_utility` 一份，
+> 这里只放薄包装（`run.py` 调入口脚本），不复制策略代码。
+
+### 13.1 接入的 7 条
+
+| key | 时间 | options_utility 入口 |
+|---|---|---|
+| `options_midday` | 12:30 | `alert/reports/midday.py` |
+| `options_pcr_close` | 14:55 | `alert/tasks/oi_pcr.py close` |
+| `options_oi_daily` | 15:30 | `alert/reports/oi_daily.py` |
+| `options_pcr_macd` | 15:50 | `alert/tasks/pcr_macd_task.py batch` |
+| `options_basis_daily` | 16:30 | `calc/basis_daily.py` → `alert/tasks/basis_ma20.py` |
+| `options_close_monitor` | 18:30 | `alert/reports/close.py` |
+| `options_skew10` | 18:50 | `alert/tasks/skew10.py` |
+
+盘中采样类（OI/基差/VIX 每 15–30 分钟、PCR 14:30 盘中）**不接**，仍留原调度。
+
+### 13.2 新机器怎么跑
+
+1. 三个仓 clone 成**同级目录**（顺序任意，名字要对）：
+   ```bash
+   git clone https://github.com/baizhiwei9/stock-dashboard.git
+   git clone https://github.com/baizhiwei9/options_utility.git
+   git clone https://github.com/baizhiwei9/datahub-multi-tier.git
+   ```
+2. 放好 `~/.config/stock-dashboard/secrets.json`（600），跑 `python3 -m data_hub.tech.check_secrets` 自检。
+3. 直接跑 scheduler 即可，不需要 crontab。路径可用环境变量覆盖：
+   - `OPTIONS_UTILITY_ROOT`：options_utility 仓根（默认找同级目录，最后兜底老云盘路径）
+   - `DATA_HUB_PATH` / `DATAHUB_DIR`：datahub 仓根（默认同级 `datahub-multi-tier`）
+4. 先手工验证一条（不会重复推送）：
+   ```bash
+   cd stock-dashboard/case/options_oi_daily && python3 -u run.py
+   ```
+
+### 13.3 防双跑护栏
+
+`task.json` 里 `enabled: true`，任务跑之前会检查 `crontab -l`：如果老机器上还挂着
+同名 `--name "期权OI日报"` 的行，任务打印 `[skip]` 并退出 0，**不会和 crontab 双推**。
+新机器没有 crontab（或 `crontab` 命令不存在）时正常执行。确认迁完后把老 crontab 行删掉，
+task 自动接管。
+
+### 13.4 已知尾巴
+
+- `options_utility/run/basis_daily.sh` 比老机器 live 版少了一行 `calc/basis_daily.py`；
+  case 包装里已按 live 行为跑两步，但 crontab 直接调该脚本的人仍会丢日频基差，需单独修该仓。
+- 期权数据目前仍是「算完直接推飞书 + 落 JSON 快照」，未入库；按老板口径后续改成
+  `data_hub.core.persist.persist_result()` 落 `hub_points`，图片除外。不在本次范围。
