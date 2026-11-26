@@ -1,0 +1,24 @@
+{
+  "key": "realestate_city_fetch",
+  "title": "京沪房产成交取数",
+  "desc": "北京住建委存量房网签（日 + 月）+ 上海二手房/一手房逐日成交，落 data_hub.realestate，供地产日报与看板消费",
+  "section": "realestate",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "07:30"
+  },
+  "cmd": "python3 -u run.py",
+  "cwd": ".",
+  "timeout": 900,
+  "enabled": true,
+  "deliver": {
+    "report": false,
+    "email": false
+  },
+  "visibility": "public",
+  "requires": [
+    "data_hub"
+  ],
+  "needs_llm": false
+}
