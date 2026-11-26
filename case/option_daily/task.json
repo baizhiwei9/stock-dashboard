@@ -1,0 +1,44 @@
+{
+  "key": "option_daily",
+  "title": "沪深300ETF 期权日报",
+  "desc": "平值IV / 25Δ偏度 / 持仓PCR / Gamma Flip（一天三档，22:50 与 23:30 只重算微笑）",
+  "section": "option",
+  "section_domain": "",
+  "visibility": "public",
+  "metrics": [
+    {"key": "option.atm_iv", "sec": "000300.SH", "name": "沪深300ETF 平值IV", "dec": 4},
+    {"key": "option.iv_skew", "sec": "000300.SH", "name": "沪深300ETF 25Δ偏度", "dec": 4},
+    {"key": "option.pcr_oi", "sec": "000300.SH", "name": "沪深300ETF 持仓PCR", "dec": 3},
+    {"key": "option.gex_flip", "sec": "000300.SH", "name": "沪深300ETF Gamma Flip", "dec": 4}
+  ],
+  "sched": {
+    "mode": "daily",
+    "at": ["22:20", "22:50", "23:30"],
+    "weekdays": [1, 2, 3, 4, 5]
+  },
+  "cmd": "python3 -u run_daily.py",
+  "cwd": ".",
+  "timeout": 2400,
+  "enabled": false,
+  "needs_llm": false,
+  "deliver": {"report": true, "email": false},
+  "pipeline": {
+    "on_fail": "stop",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.5,
+    "require_data": true,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "data": ["data/chain_*.json", "data/stage_*.json"],
+      "report": ["out/report.md", "out/*.png"]
+    },
+    "stages": [
+      {"name": "fetch", "hook": true, "timeout": 900},
+      {"name": "check", "builtin": "artifacts"},
+      {"name": "render", "hook": true, "timeout": 900},
+      {"name": "emit", "hook": true, "builtin": "emit"},
+      {"name": "dispatch", "hook": true, "timeout": 300, "optional": true}
+    ]
+  }
+}
