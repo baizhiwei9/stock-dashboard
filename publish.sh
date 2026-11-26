@@ -16,6 +16,32 @@ APP_NAME="Stock Dashboard"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
+# 失败诊断：daily.log 记全量，stderr 打一行摘要
+# 为什么要有这个：2026-11-25 22:43 build 整链 exit=1，health 只留了「退出码 1」，
+# daily.log 里虽有 AUTH_REQUIRED 原文，但没人会去翻；scheduler 的 logs/build.log
+# 只有 health_run 那句「退出码 1」。失败原因必须落在当次日志里。
+diag() {
+    local reason="$1"
+    {
+        echo "$(ts) 发布失败：$reason"
+        echo "--- 诊断 ---"
+        echo "HOME=$HOME  CLI=$CLI"
+        if [ -r "$HOME/.coze/cli/config.json" ]; then
+            echo "config.json: 存在 $(stat -c '%a %s字节' "$HOME/.coze/cli/config.json" 2>/dev/null)"
+        else
+            echo "config.json: 不存在（$HOME/.coze/cli/config.json）"
+        fi
+        if [ -n "${COZE_API_TOKEN:-}" ]; then echo "COZE_API_TOKEN: 已设置"; else echo "COZE_API_TOKEN: 未设置"; fi
+        echo "auth status: $("$CLI" deploy auth status --format json 2>&1 | tr -d '\n' | head -c 300)"
+        echo "--- deploy 输出（末 15 行）---"
+        printf '%s\n' "$OUT" | tail -15
+    } >> "$LOG"
+    # stderr 一行摘要：scheduler 的 logs/build.log 能看到，crontab 邮件也能看到
+    local code
+    code=$(printf '%s' "$OUT" | grep -oE '"code": *"[A-Z_]+"' | head -1 | grep -oE '[A-Z_]+')
+    echo "[publish] 发布失败：$reason${code:+（$code）}" >&2
+}
+
 [ -f "$HERE/index.html" ] || { echo "$(ts) 发布跳过：index.html 不存在" >> "$LOG"; exit 1; }
 
 cd "$HERE" || exit 1
@@ -48,8 +74,7 @@ except Exception: print('')
 fi
 
 if [ -z "$DID" ]; then
-    echo "$(ts) 发布失败：未拿到 deploy_history_id（已重试1次）" >> "$LOG"
-    echo "$OUT" | head -5 >> "$LOG"
+    diag "未拿到 deploy_history_id（已重试1次）"
     exit 1
 fi
 
@@ -74,10 +99,10 @@ except Exception: print('')
             echo "$(ts) 发布成功 $URL deploy=$DID" >> "$LOG"
             exit 0 ;;
         Failed|Canceled)
-            echo "$(ts) 发布失败 status=$ST deploy=$DID" >> "$LOG"
+            diag "deploy 状态 $ST（deploy=$DID）"
             exit 1 ;;
     esac
 done
 
-echo "$(ts) 发布超时 deploy=$DID 最后状态=${ST:-unknown}" >> "$LOG"
+diag "轮询 200s 超时，最后状态=${ST:-unknown}（deploy=$DID）"
 exit 1
