@@ -22,7 +22,8 @@
       "key": "cot.direction",
       "sec": "CU.SHF",
       "name": "COMEX铜 COT 方向",
-      "dec": 0
+      "dec": 0,
+      "text": true
     },
     {
       "key": "cot.index",
@@ -40,7 +41,8 @@
       "key": "cot.direction",
       "sec": "AU.SHF",
       "name": "COMEX黄金 COT 方向",
-      "dec": 0
+      "dec": 0,
+      "text": true
     },
     {
       "key": "cot.index",
@@ -58,7 +60,8 @@
       "key": "cot.direction",
       "sec": "AG.SHF",
       "name": "COMEX白银 COT 方向",
-      "dec": 0
+      "dec": 0,
+      "text": true
     }
   ],
   "sched": {
@@ -71,7 +74,7 @@
   "cmd": "python3 -u pipeline.py",
   "cwd": ".",
   "timeout": 3600,
-  "enabled": false,
+  "enabled": true,
   "needs_llm": false,
   "deliver": {
     "report": true,
