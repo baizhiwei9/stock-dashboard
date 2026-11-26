@@ -132,8 +132,16 @@ ensure_modules_json() {
       say "modules.json 已存在，忽略 SD_MODULES_FROM（要重新导入请先删掉本机 modules.json）"
     return 0
   fi
-  # 旧机模块清单导入：build / macro / liquidity 等 producer 仍写在 modules.json（不入库），
-  # 新机器靠它才不会只剩 case 任务、公开看板没人构建。
+  # modules.json 已入库（可移植版）。被误删时先从 git 恢复，别生成空清单 ——
+  # 空清单会让 build / macro 等 12 个 producer 静默消失，比启动失败更难发现。
+  if [ -d "$HERE/.git" ] && git -C "$HERE" cat-file -e "HEAD:modules.json" 2>/dev/null; then
+    if git -C "$HERE" show "HEAD:modules.json" > "$HERE/modules.json" 2>/dev/null; then
+      say "modules.json 缺失，已从 git 恢复（HEAD:modules.json）"
+      return 0
+    fi
+  fi
+  # 旧机模块清单导入：极老版本的 modules.json 里还有本机绝对路径，用 SD_MODULES_FROM
+  # 搬过来后靠 doctor 挑出失效路径（新机器默认不需要这一步）。
   if [ -n "${SD_MODULES_FROM:-}" ]; then
     [ -f "$SD_MODULES_FROM" ] || return 1
     "$PY" - "$SD_MODULES_FROM" <<'PYEOF' || return 1
@@ -196,8 +204,19 @@ try:
         legacy = (json.load(f) or {}).get("modules") or []
     # 旧机 modules.json 里的路径/占位符在本机很可能失效：启动前把「绝对 cwd 不存在」和
     # 「scheduler 不会展开的占位符」挑出来，避免任务静默跑空。
+    # 展开口径必须和 datahub_path.expand_root() 一致：那边加了占位这里不加，
+    # doctor 会把合法占位符误报成 unresolved（反之会漏报）。
+    try:
+        sys.path.insert(0, root)
+        import datahub_path as _dp
+        _fcli = _dp.feishu_cli_dir(root)
+    except Exception:                                         # noqa: BLE001
+        _fcli = os.path.expanduser("~/.feishu_cli")
+    KNOWN_PH = ("{{DATAHUB_ROOT}}", "{{REPO_ROOT}}", "{{FEISHU_CLI_DIR}}")
     def _expand(v):
-        return (v or "").replace("{{DATAHUB_ROOT}}", hub).replace("{{REPO_ROOT}}", root)
+        return ((v or "").replace("{{DATAHUB_ROOT}}", hub)
+                        .replace("{{REPO_ROOT}}", root)
+                        .replace("{{FEISHU_CLI_DIR}}", _fcli))
     bad_cwd, unresolved = [], []
     for m in legacy:
         if not m.get("enabled"):
@@ -206,7 +225,7 @@ try:
         if cwd and os.path.isabs(cwd) and not os.path.isdir(cwd):
             bad_cwd.append(m.get("key"))
         for ph in sorted(set(re.findall(r"\{\{[A-Z_]+\}\}", _expand(m.get("cmd"))))):
-            if ph not in ("{{DATAHUB_ROOT}}", "{{REPO_ROOT}}"):
+            if ph not in KNOWN_PH:
                 unresolved.append("%s:%s" % (m.get("key"), ph))
     out["modules_cfg"] = {"count": len(legacy),
                           "enabled": sum(1 for m in legacy if m.get("enabled")),

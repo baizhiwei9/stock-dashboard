@@ -77,7 +77,7 @@ fi
 
 echo
 echo "== 敏感配置就绪。接下来："
-echo "   1) 本机模块清单：cp modules.example.json modules.json 后按提示替换占位符"
+echo "   1) 本机模块清单：modules.json 已随仓库提供，无需复制；本机差异用环境变量覆盖"
 echo "   2) 全仓自检：   python3 setup.py --audit"
 echo "   3) 构建发布：   python3 build.py && ./publish.sh"
 echo "   4) 常驻调度：   python3 scheduler.py start"

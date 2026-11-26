@@ -124,11 +124,10 @@ export SD_ALERT_WEBHOOK=                                 # 可选：调度器拉
 [docs/SECRETS.md](SECRETS.md)。
 
 ```bash
-# ① 复制本机模块清单（modules.json 是本机安装数据，不入库）
-cp modules.example.json modules.json
-#    然后把里面的 {{DATAHUB_ROOT}} / {{WORKSPACE_A}} / {{WORKSPACE_B}} /
-#    {{FEISHU_CLI_DIR}} / {{FEISHU_CHAT_ID}} / {{ALERT_EMAIL}} 换成这台机器的真实值
-#    （文件末尾 _placeholders 有对照表）
+# ① 模块清单：modules.json 已入库，clone 下来就有，不用复制也不用改路径
+#    （cwd/cmd 是 {{DATAHUB_ROOT}} / {{REPO_ROOT}} / {{FEISHU_CLI_DIR}} 占位，
+#     由 datahub_path.expand_root() 在拉起任务时展开。见 DEPLOY_PORTABLE.md §3）
+python3 datahub_path.py        # 确认 DataHub 解析到哪，空串=没找到
 
 # ② 录入敏感配置（飞书凭据 + 管理密码 + 注册密钥，缺失或弱口令会中断安装）
 python3 setup.py

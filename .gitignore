@@ -34,12 +34,13 @@ case/_shared/limit_up_predictor/catboost_info/
 case/*/daily_reports/*
 case/*/logs/
 
-# ===== 本地安装配置（不入库）=====
-# modules.json 是「这台机器怎么跑」的配置：含本机绝对路径、端口、要启用的模块，
-# 以及历史遗留的 api.password / registry_key。它属于本地安装数据，不是框架代码。
-# 仓库里只放 modules.example.json 模板；新装机器复制成 modules.json 再改。
-# 详见 DEPLOY.md「敏感配置」一节。
-modules.json
+# ===== 本地安装配置 =====
+# modules.json 现在**入库**：cwd/cmd 全部用 {{DATAHUB_ROOT}} / {{REPO_ROOT}} /
+# {{FEISHU_CLI_DIR}} 占位，不再含任何本机绝对路径，换机器 clone 下来直接能跑。
+# 敏感项（api.password / api.registry_key / token）已迁到
+# ~/.config/stock-dashboard/secrets.json，不再写进这个文件。
+# 只忽略运行期产物：备份、以及各机器的本地覆盖。
+modules.json.bak_*
 
 # 云平台部署元数据
 .coze
@@ -56,10 +57,6 @@ feishu_secret.json
 .env
 .env.*
 !.env.example
-
-# 本机安装数据（含绝对路径 / 端口 / 启停状态，因机器而异）
-modules.json
-modules.json.bak_*
 
 # 运行时状态
 case/_lib/.alert_quota.json

@@ -1,17 +1,10 @@
 {
   "version": 2,
-  "note": "【模板】复制成 modules.json 再改。modules.json 含本机路径与端口，属本地安装配置，不入库。由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。",
+  "note": "由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。cwd/cmd 里的 {{DATAHUB_ROOT}} / {{REPO_ROOT}} / {{FEISHU_CLI_DIR}} 由 datahub_path.expand_module() 在启动任务时展开，本文件不写任何本机绝对路径。task_tags_notify 的 cmd 里有飞书群 chat_id 和告警邮箱，那是「通知对象」不是凭据（没有 app_secret 也用不了），换人用就改这两处。",
   "api": {
     "host": "0.0.0.0",
     "port": 8767,
-    "_note": "password / registry_key 不写这里：见 ~/.config/stock-dashboard/secrets.json 的 scheduler 段（python3 setup.py 录入）。本文件是模板，实际配置请复制成 modules.json 后修改。"
-  },
-  "queue": {
-    "max_parallel": 1,
-    "_note": "max_parallel=1 串行；pull_forward=队列空着就把后面的任务提前拉进来串着跑（16:00 之后生效，最多提前 pull_ahead_min 分钟）",
-    "pull_forward": true,
-    "pull_forward_from": "16:00",
-    "pull_ahead_min": 240
+    "_note": "password / registry_key 已移至 ~/.config/stock-dashboard/secrets.json 的 scheduler 段（见 DEPLOY.md §3.3）"
   },
   "modules": [
     {
@@ -35,7 +28,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"宏观与美元环流\" --timeout 2400 -- /usr/bin/python3 -u -m data_hub.tech.producers.macro_daily --days 500",
       "timeout": 2400,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "liquidity",
@@ -59,7 +52,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"流动性与两融\" --timeout 2400 -- /usr/bin/python3 -u -m data_hub.tech.producers.liquidity_daily --days 500",
       "timeout": 2400,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "rmt",
@@ -82,7 +75,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"RMT随机矩阵\" --timeout 3600 -- /usr/bin/python3 -u -m data_hub.tech.producers.rmt_daily --lookback 300 --max-comps 150",
       "timeout": 3600,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "chanlun",
@@ -106,7 +99,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"缠论结构+趋势动量\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.chanlun_daily",
       "timeout": 1800,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "dfa",
@@ -129,7 +122,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"DFA/Hurst\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.dfa_daily",
       "timeout": 1800,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "option",
@@ -152,7 +145,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"期权定价(IV/偏度/PCR/VIX)\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.option_daily --days 3",
       "timeout": 1800,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "bond",
@@ -175,7 +168,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"债券与理财\" --timeout 1800 -- /usr/bin/python3 -u -m data_hub.tech.producers.bond_daily --days 12",
       "timeout": 1800,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "risk",
@@ -198,7 +191,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"风险与机会标签\" --timeout 1200 -- /usr/bin/python3 -u -m data_hub.tech.producers.risk_daily --days 3",
       "timeout": 1200,
-      "enabled": false
+      "enabled": true
     },
     {
       "key": "task_tags",
@@ -227,7 +220,7 @@
       "cwd": "{{DATAHUB_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"任务结论转录\" --timeout 600 -- /usr/bin/python3 -u -m data_hub.tech.producers.task_tags_daily",
       "timeout": 600,
-      "enabled": false,
+      "enabled": true,
       "depends": []
     },
     {
@@ -255,94 +248,21 @@
         ]
       },
       "cwd": "{{DATAHUB_ROOT}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat {{FEISHU_CHAT_ID}} --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel email --to {{ALERT_EMAIL}} --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】'",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel email --to 410119229@qq.com --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】'",
       "timeout": 300,
-      "enabled": false,
+      "enabled": true,
       "depends": [
         "task_tags"
       ]
     },
     {
-      "key": "risk_v52",
-      "title": "每日风险报告 v5.2",
-      "desc": "读风险仪表盘 V5.2 的 26 个维度算综合分与风险等级，落 DailyPredict/outputs/YYYYMMDD_daily_risk_v52.json 供 task_tags 转录；报告与飞书通知仍由任务自己发。",
-      "domains": [
-        "risk"
-      ],
-      "sched": {
-        "mode": "daily",
-        "at": "19:30",
-        "weekdays": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ]
-      },
-      "cwd": "{{WORKSPACE_A}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 DailyPredict/daily_risk_report.py",
-      "timeout": 1800,
-      "enabled": false,
-      "depends": []
-    },
-    {
-      "key": "vol_surface_vix",
-      "title": "波动率曲面（自算 VIX）",
-      "desc": "取全量期权数据算 IV 曲面/偏度/PCR 与自算 VIX，落 outputs/YYYYMMDD_vol_surface.json 供 task_tags 转录；图表与飞书通知仍由任务自己发。",
-      "domains": [
-        "option"
-      ],
-      "sched": {
-        "mode": "daily",
-        "at": "19:00",
-        "weekdays": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ]
-      },
-      "cwd": "{{WORKSPACE_A}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 vol_surface_runner.py",
-      "timeout": 1800,
-      "enabled": false,
-      "depends": []
-    },
-    {
-      "key": "basis_daily",
-      "title": "期货基差日报（IF/IC/IM）〔暂挂：等 datahub 侧 producer〕",
-      "desc": "读 options 项目 16:30 落的 YYYYMMDD_basis_daily.json，转录成 basis.* 指标并打 risk_level（极值/MA20 拐头判定全部复用任务侧函数，不重算阈值）；标签入库供 22:35 统一推送",
-      "domains": [
-        "futures"
-      ],
-      "sched": {
-        "mode": "daily",
-        "at": "16:40",
-        "weekdays": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ]
-      },
-      "cwd": "{{DATAHUB_ROOT}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -u -m data_hub.tech.producers.basis_daily",
-      "timeout": 900,
-      "enabled": false,
-      "depends": [],
-      "note": "2026-11-25 从 crontab（16:30）迁入 scheduler，单独一条便于排障；上线时删掉 crontab 那条避免双跑。⚠️ 暂挂：datahub 侧 data_hub/tech/producers/basis_daily.py 尚不存在（仓里只有 collectors/futures/futures_basis.py 的 get_futures_basis() 取数函数，不是 producer、不写 metric_points），现在置 enabled=true 会在 16:40 每次 ModuleNotFoundError → spawn 失败 → health 连败 → 5 次后刷邮件。等 producer 落地后只改这一行 enabled=true 即可，build.depends 已经排好序。"
-    },
-    {
       "key": "tech_snapshot",
       "title": "指标仓云盘快照",
-      "desc": "把 tech 指标仓（活库 ~/.local/share/cozedb/tech_metrics.db）压成云盘 gzip 快照，供换机/换会话恢复；落点由 data_hub.tech.store.cloud_dir() 决定（默认 <DataHub>/output/tech_metrics.db.gz）。放在 23:20：所有 producer 跑完、build 之前，页面上看到的快照大小/时间才是当天的。",
+      "desc": "把 tech 指标仓压成云盘 gzip 快照（换机/换会话恢复用）。落点由 data_hub.tech.store.cloud_dir() 决定，现在是 <DataHub>/output/tech_metrics.db.gz。放在 build 之前，页面才能显示当天快照的大小/时间。",
       "domains": [],
       "sched": {
         "mode": "daily",
-        "at": "23:20",
+        "at": "22:37",
         "weekdays": [
           1,
           2,
@@ -355,18 +275,18 @@
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"指标仓云盘快照\" --timeout 900 -- /usr/bin/python3 case/_tools/push_snapshot.py",
       "timeout": 900,
       "enabled": true,
-      "not_before": "23:20",
+      "not_before": "22:37",
       "depends": [],
-      "note": "快照失败必须能看见：push_snapshot.py 在 store.snapshot() 返回空时 exit 1（`python -m data_hub.tech.store --snapshot` 只打印 None 就 exit 0，health 记不到失败）。 not_before 与 at 同值：build/快照这类「等全部 producer」的任务绝不能被提前拉起，not_before 只在 pull_forward 提前拉取时生效，设成与 at 相同就等于禁止提前跑。"
+      "note": "快照失败必须能看见：push_snapshot.py 在 store.snapshot() 返回空时 exit 1（`python -m data_hub.tech.store --snapshot` 只打印 None 就 exit 0，health 记不到失败）。"
     },
     {
       "key": "build",
       "title": "看板构建与发布",
-      "desc": "读指标仓 → 生成 index.html → 发布 Pages（23:40：等 23:10 的 nowcast 日更把美东 10:00 版落库）",
+      "desc": "读指标仓 → 生成 index.html → 发布 Pages",
       "domains": [],
       "sched": {
         "mode": "daily",
-        "at": "23:40",
+        "at": "22:40",
         "weekdays": [
           1,
           2,
@@ -375,7 +295,6 @@
           5
         ]
       },
-      "not_before": "23:40",
       "depends": [
         "macro",
         "liquidity",
@@ -383,7 +302,6 @@
         "chanlun",
         "dfa",
         "risk",
-        "basis_daily",
         "task_tags",
         "task_tags_notify",
         "tech_snapshot"
@@ -391,40 +309,9 @@
       "cwd": "{{REPO_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"看板构建发布\" --timeout 1800 -- bash -c \"python3 build.py && ./publish.sh\"",
       "timeout": 1800,
-      "enabled": false
-    },
-    {
-      "key": "cleanup",
-      "title": "产物清理（保留期）",
-      "desc": "按 case/_lib/cleanup_rules.json 删过期产物：取数缓存 30 天、报告/图片 90 天、告警 MD 30 天、轮转日志 30 天；默认 dry-run，这里是 --apply。git 跟踪的文件永不删。",
-      "domains": [],
-      "sched": {
-        "mode": "daily",
-        "at": "04:30",
-        "weekdays": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7
-        ]
-      },
-      "cwd": "{{REPO_ROOT}}",
-      "cmd": "python3 case/_lib/cleanup.py --apply",
-      "timeout": 1800,
       "enabled": true,
-      "depends": []
+      "not_before": "22:40"
     }
   ],
-  "_placeholders": {
-    "{{DATAHUB_ROOT}}": "datahub-multi-tier 仓库在本机的绝对路径",
-    "{{REPO_ROOT}}": "stock-dashboard 仓库在本机的绝对路径（cleanup / tech_snapshot 等框架自带模块用）",
-    "{{WORKSPACE_A}}": "运行 risk_v52 / vol_surface_vix 的工作目录",
-    "{{WORKSPACE_B}}": "运行 five_strategy / factor_daily / limit_up_* 的工作目录",
-    "{{FEISHU_CLI_DIR}}": "lark-cli 配置目录（含凭据，勿入库）",
-    "{{FEISHU_CHAT_ID}}": "推送目标群 chat_id（oc_ 开头）",
-    "{{ALERT_EMAIL}}": "alert 级通知的收件邮箱"
-  }
+  "_note": "本文件入库，是全部机器的默认模块清单。私有任务（risk_v52 / vol_surface_vix 等）不在本文件里，它们由 precious-task 仓的 case/*/task.json 提供，启动时用 SD_CASE_EXTRA_DIRS=../precious-task/case 挂载。"
 }

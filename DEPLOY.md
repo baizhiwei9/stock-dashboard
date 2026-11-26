@@ -46,9 +46,10 @@ git clone https://github.com/baizhiwei9/datahub-multi-tier
 export DATA_HUB_PATH=/path/to/datahub-multi-tier   # 或 EDB_REPO=/path/to/datahub-multi-tier
 ```
 
-`modules.json` 的 `cwd` / `cmd` 请用 `{{DATAHUB_ROOT}}` 占位（见 `modules.example.json`），
-scheduler 启动任务时会换成实际解析结果；写死本机路径会让任务子进程的 `PYTHONPATH`
-跟看门狗探测结果脱节。
+`modules.json` **已入库**，`cwd` / `cmd` 全部是 `{{DATAHUB_ROOT}}` / `{{REPO_ROOT}}` /
+`{{FEISHU_CLI_DIR}}` 占位，scheduler 启动任务时才换成本机解析结果 —— 所以文件里
+不该出现任何本机绝对路径。写死路径会让任务子进程的 `PYTHONPATH` 跟看门狗探测结果脱节。
+改这个文件时请保持占位符写法，`test_modules_portable.py` 会拦下漏改的绝对路径。
 
 ---
 
