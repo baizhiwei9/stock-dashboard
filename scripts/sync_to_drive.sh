@@ -14,7 +14,7 @@
 #
 # 环境变量：
 #   SD_LOCAL_DIR      本机部署根（默认：脚本所在仓库根，即 scripts/ 的上一级）
-#   SD_DRIVE_DIR      云盘备份目录（默认：/Coze/Drive/股市监控画布/backup）
+#   SD_DRIVE_DIR      备份目标目录（**必须显式给**；云盘默认路径已废弃）
 #   SD_LOG_FILE       日志（默认：$SD_LOCAL_DIR/logs/sync_to_drive.log）
 #   SD_MAX_LOG_BYTES  日志轮转阈值（默认 5MB）
 #
@@ -33,7 +33,7 @@ set -uo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)
 SD_LOCAL_DIR=${SD_LOCAL_DIR:-$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd -P)}
-SD_DRIVE_DIR=${SD_DRIVE_DIR:-/Coze/Drive/股市监控画布/backup}
+SD_DRIVE_DIR=${SD_DRIVE_DIR:-}
 SD_LOG_FILE=${SD_LOG_FILE:-$SD_LOCAL_DIR/logs/sync_to_drive.log}
 SD_MAX_LOG_BYTES=${SD_MAX_LOG_BYTES:-$((5 * 1024 * 1024))}
 
@@ -84,6 +84,11 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+[ -n "$SD_DRIVE_DIR" ] || {
+  echo "sync_to_drive: 没有备份目标 —— 请显式设 SD_DRIVE_DIR（云盘默认路径已废弃）" >&2
+  exit 1
+}
 
 # ---------- 日志 ----------
 log_dir=$(dirname -- "$SD_LOG_FILE")

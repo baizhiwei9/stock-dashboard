@@ -13,9 +13,10 @@
 DataHub 根口径（与 ``stock-dashboard/datahub_path.py`` 完全一致）
 ─────────────────────────────────────────────────────────────
 1. 向上找仓库根的 ``datahub_path.py``，exec 它拿 ``datahub_root()``
-   （环境变量 → 同级 checkout → 云盘兜底，全在那一份里）；
+   （环境变量 → 同级 checkout，全在那一份里）；
 2. 它不在时退回「同级 checkout ``<repo>/../datahub-multi-tier``」；
-3. 最后才退老云盘路径 —— 原机部署还在用，不能直接删。
+3. 都没有就返回空串 —— 云盘旧副本（``/opt/coze/.fuse_drive/...``）已废弃，
+   不再作为兜底：退过去只会静默连错库。
 
 刻意**不**按「上层目录里存在 datahub-multi-tier 就认」来猜：机器上残留的
 同名旧副本（``/tmp/datahub-multi-tier`` 这类）会让它静默连错库。
@@ -38,7 +39,6 @@ import json
 import os
 import sys
 
-CLOUD_DEFAULT = "/opt/coze/.fuse_drive/dataHub_三级体系"
 ENV_NAMES = ("DATA_HUB_PATH", "DATAHUB_DIR", "EDB_REPO")
 
 
@@ -92,7 +92,6 @@ def hub_candidates(start=None):
             break
         cur = parent
     out += [(os.environ.get(n) or "") for n in ENV_NAMES]
-    out.append(CLOUD_DEFAULT)
     seen, uniq = set(), []
     for p in out:
         if p and p not in seen:

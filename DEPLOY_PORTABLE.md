@@ -41,8 +41,8 @@ python3 case/_lib/paths.py
 
 | 变量 | 作用 | 不设时的行为 |
 |---|---|---|
-| `DATA_HUB_PATH` | DataHub 仓库根 | 向上找仓库根的 `datahub_path.py` → 同级 `../datahub-multi-tier` → 云盘兜底 |
-| `CASE_WORKSPACE` | 老「蓁宝/所有对话/主对话」目录 | 云盘 `/Coze/Drive/蓁宝/所有对话/主对话` |
+| `DATA_HUB_PATH` | DataHub 仓库根 | 向上找仓库根的 `datahub_path.py` → 同级 `../datahub-multi-tier`；都没有则报错 |
+| `CASE_WORKSPACE` | 老「蓁宝/所有对话/主对话」目录 | 空（不再默认云盘旧目录） |
 | `CASE_DRIVE_ROOT` | `/Coze/Drive` 的新位置 | 仍是 `/Coze/Drive` |
 | `CASE_FUSE_ROOT` | `/opt/coze/.fuse_drive` 的新位置 | 仍是 `/opt/coze/.fuse_drive` |
 | `CASE_APP_DATA` | `/app/data` 的新位置 | 仍是 `/app/data` |
@@ -165,49 +165,6 @@ PY
 - 优先：把这三块也迁进仓库（后续单独提 PR）
 - 临时：拷到新机器，用 `GROWTH_SCREENER_DIR` / `{{WORKSPACE_A}}` 指过去
 
-### 5.1 必须手工搬的状态文件（不搬 = 历史内容全量重推）
-
-有两个任务把「跑到哪了」记在**脚本同目录**（`Path(__file__).parent`）。代码迁过来了、
-状态文件没跟，程序会当成「从没跑过」——把历史内容**整个重推一遍**，比不迁机更糟。
-
-| 状态文件 | 原机位置 | 大小 | 新机目标位置 | 谁在用 | 丢失后果 |
-|---|---|---|---|---|---|
-| `hurst_state.db` | `/opt/coze/.fuse_drive/hurst_指数/hurst_state.db` | 576 KB（`hurst_daily_cache` 66 行） | `case/hurst_daily/hurst_state.db` | `case/hurst_daily/hurst_daily.py:84` | Hurst 午报重复推送 |
-| `archive_state.json` | `<主对话>/土狗归档/archive_state.json` | 103 KB | `case/tugou_archive/archive_state.json` | `case/tugou_archive/tugou_archive.py:48` | 土狗归档全量重跑 |
-| `playwright_state.json` | `<主对话>/土狗归档/playwright_state.json` | 763 KB | `case/tugou_archive/playwright_state.json` | `tugou_archive.py:49`（已废弃，保留兼容） | 登录态丢失，需重新扫码 |
-| `articles/`（目录） | `<主对话>/土狗归档/articles/` | 351 条 / 1.6 MB | `case/tugou_archive/articles/` | `tugou_archive.py:47` | 历史文章全丢 |
-
-搬运（新机上执行，从原机拉）：
-
-```bash
-cd /opt/data/stock-dashboard          # 新机仓库根
-
-# Hurst（sqlite，直接拷）
-scp <原机>:/opt/coze/.fuse_drive/hurst_指数/hurst_state.db  case/hurst_daily/
-
-# 土狗（json + 历史文章目录）
-scp <原机>:"<主对话>/土狗归档/archive_state.json"     case/tugou_archive/
-scp <原机>:"<主对话>/土狗归档/playwright_state.json"  case/tugou_archive/
-scp -r <原机>:"<主对话>/土狗归档/articles"            case/tugou_archive/
-```
-
-搬完验证（三个都必须非零，且 db 能查出行）：
-
-```bash
-ls -l case/hurst_daily/hurst_state.db \
-      case/tugou_archive/archive_state.json \
-      case/tugou_archive/playwright_state.json
-ls case/tugou_archive/articles | wc -l                                  # 期望 351 上下
-sqlite3 case/hurst_daily/hurst_state.db 'select count(*) from hurst_daily_cache'   # 期望 66 上下
-python3 -c "import json;d=json.load(open('case/tugou_archive/archive_state.json'));print(len(d))"
-```
-
-> **这四个路径已写进 `.gitignore`** —— 它们是本机运行态数据，`git status` 里不该出现，
-> 也**绝不能 commit**（含历史推送记录，体积不小）。换机器只能手工搬，没有别的路径。
->
-> 换机器后第一次跑，务必看日志确认是「增量」而不是「全量」：
-> 土狗日志里出现大量「已归档，跳过」才对；Hurst 卡片应该只有当天数据。
-
 ---
 
 ## 6. 迁机自检清单
@@ -252,10 +209,11 @@ done
 | 历史数据 | `datahub-multi-tier/output/` 47M（含 `margin_detail.db` 43M） | **不迁移**，按需重新算 |
 | 期权 `options/` | 只在云盘 + 本机，未入库 | **已入库**（本次 PR） |
 | `modules.json` | 本机手写 | 从 `modules.example.json` 生成 |
-| 云盘兜底 | 命中 | 探测不到，自动走仓库内副本 |
+| 云盘兜底 | 框架层曾按云盘兜底 | 框架层已删兜底：解析不到就报错；case 脚本的旧根字面量走 `_cp()` 重定向 |
 
-**注意**：代码里所有云盘路径都保留成了「最后兜底」，所以在原机上行为**完全不变**，
-不会因为这次改造把正在跑的东西改坏。
+**注意**：框架层（`datahub_path.py` / `hub_root.py` / 启动脚本）的云盘兜底已删除，
+解析不到 DataHub 就显式报错；case 脚本里的旧根字面量统一走 `_cp()`，可用
+`CASE_DRIVE_ROOT` / `CASE_FUSE_ROOT` 重定向，不设时原样返回。
 
 ---
 

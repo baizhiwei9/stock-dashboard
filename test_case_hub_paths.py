@@ -41,7 +41,10 @@ def _load_helper(rel_path):
     src = open(os.path.join(HERE, rel_path), encoding="utf-8").read()
     start = src.index("def _hub_candidates(")
     end = src.index("\n_HUB_", start)
-    ns = {"os": os}
+    # #111 起 case 脚本用 _cp() 做旧根重定向（实现在 case/_lib/cloud_paths.py）；
+    # 只抽 _hub_candidates 片段时 _cp 不在作用域，注入恒等实现
+    # （等价于「没设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT」的原机行为）。
+    ns = {"os": os, "_cp": lambda p, *a, **kw: p}
     exec(compile(src[start:end], rel_path, "exec"), ns)
     return ns["_hub_candidates"]
 
