@@ -4,11 +4,53 @@
   "desc": "收盘期权监控五轨与图表；算法在 options_utility 仓，本任务只做薄包装",
   "section": "option",
   "visibility": "public",
-  "metrics": [],
+  "metrics": [
+    {
+      "key": "opt.skew.close.沪深300",
+      "sec": "OPT.SKEW",
+      "name": "沪深300 SKEW",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew.close.500ETF",
+      "sec": "OPT.SKEW",
+      "name": "500ETF SKEW",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew.close.中证1000",
+      "sec": "OPT.SKEW",
+      "name": "中证1000 SKEW",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew.close.科创50ETF",
+      "sec": "OPT.SKEW",
+      "name": "科创50ETF SKEW",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew.close.创业板ETF",
+      "sec": "OPT.SKEW",
+      "name": "创业板ETF SKEW",
+      "unit": "",
+      "dec": 2
+    }
+  ],
   "sched": {
     "mode": "daily",
     "at": "18:30",
-    "weekdays": [1, 2, 3, 4, 5]
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
   },
   "cmd": "python3 -u run.py",
   "cwd": ".",
@@ -20,5 +62,34 @@
   },
   "source_repo": "baizhiwei9/options_utility",
   "source_entry": "alert/reports/close.py",
-  "original_cron_name": "收盘期权监控(五轨+图)"
+  "original_cron_name": "收盘期权监控(五轨+图)",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": false,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/latest.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "cmd": "python3 -u run.py",
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      }
+    ]
+  }
 }
