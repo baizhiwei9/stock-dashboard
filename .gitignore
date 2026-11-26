@@ -67,3 +67,7 @@ case/manning_flow/weekly_report_*.json
 # 模拟盘账户状态与产出（每次跑都在变，属本机运行数据）
 case/*/sim_trade/state/
 case/*/sim_trade/output/
+
+# 任务运行期临时产物（截断日志、调试中间文件），含凭据片段，一律不入库
+case/*/.tmp/
+case/**/.tmp/

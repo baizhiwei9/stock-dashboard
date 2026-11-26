@@ -400,3 +400,121 @@ python3 scheduler.py status                     # 确认模块还在
 - [ ] 手动跑通一个任务：`scheduler.py run <key>`，`out/status.json` 全绿
 - [ ] `python3 build.py` 能生成 `index.html`
 - [ ] `index.html` 里目标 Tab 有数据
+---
+
+## 12. 日更 / 周更任务从 crontab 收拢进 case/（本次迁移）
+
+### 12.1 边界：什么进 case/，什么留在原地
+
+| 类别 | 判定 | 处置 |
+|---|---|---|
+| **日更 / 周更** | 每交易日一次、每周一次、每月一次 | ✅ 收进 `case/`，由 `scheduler.py` 排期 |
+| **一天多次** | 15 分钟 / 1 小时 / 盘中多点采样（如 09:45+15:15、10:15/11:35/14:15/15:10） | ❌ 不动，继续走原 crontab、原数据库 |
+| **管理类** | 策略监控启停这类开关脚本 | ❌ 不动 |
+| **消耗大模型** | 实际调 LLM 接口（如 `bond_four_factor` 打 DeepSeek） | ❌ 不进本框架，代码留库但不切 |
+| **已废弃** | crontab 里被 `#` 注释掉的 | ❌ 不迁 |
+
+已收进 `case/` 的 21 条日更/周更任务明细（key、crontab 原名、频率、入口、文件数、体积）
+见 [`docs/DAILY_TASK_MIGRATION.md`](DAILY_TASK_MIGRATION.md)。
+
+切换清单是 **20 个 key / 21 条 cron**：
+
+- `bond_four_factor`（国债期货四因子）**被剔出** —— 它实际调 LLM（`main.py:31` → `llm_utils.py:50`
+  打 `api.deepseek.com`），按「消耗大模型的不用管」继续走原 crontab。
+- `risk_forecast_daily` **一个 key 对两条 cron**：`风险预测·午间` 12:30 + `风险预测·日终` 20:50，
+  **必须一起切** —— 只删一条会让同一脚本一条走 scheduler、一条走 crontab，两套入口并存。
+
+> **重要：这 21 个 `task.json` 的 `enabled` 全部是 `false`。**
+> 代码进库不等于接管。不切 crontab 就永远不会双跑，也不会停摆。
+
+### 12.2 为什么不能「开着 enabled 又留着 crontab」
+
+`crontab` 和 `scheduler.py` 是两套独立的触发器。同一个任务两边都开，会在同一分钟各起一个进程：
+
+- 同时写 `out/latest.json` 和指标仓 → 后写的覆盖先写的，指标可能抖动
+- 同时发飞书/邮件 → 重复推送
+- 同时抢上游数据文件 → 偶发读到半截文件
+
+反过来只删 crontab 不启 `enabled`，任务会直接停摆。
+所以切换必须**原子**：开 `enabled` 和删 crontab 行在同一次执行内完成。
+
+### 12.3 切换步骤（默认 dry-run，不动生产）
+
+```bash
+cd /srv/monitor/stock-dashboard
+
+# ① 预演：只打印会删哪些 crontab 行、会把哪些任务设为 enabled=true
+bash scripts/switch_crontab.sh
+
+# ② 确认预演输出里是预期的 21 条，再真正执行
+#    会自动备份 crontab 到 /tmp/crontab.bak.<时间戳>
+bash scripts/switch_crontab.sh --apply
+
+# ③ 验证：crontab 少 21 行、scheduler status 里这 21 个 enabled=true
+crontab -l | grep -c health_run
+python3 scheduler.py status | grep -E 'midline_preference|sector_screening_v4'
+
+# ④ 单个任务先手动跑一遍，确认输出正常再等它自己到点
+python3 scheduler.py run sector_screening_v4
+
+# ⑤ 出问题一键回滚：恢复 crontab 备份 + 把 enabled 改回 false
+bash scripts/switch_crontab.sh --revert
+```
+
+`--revert` 做两件事：把 21 个 `task.json` 的 `enabled` 改回 `false`，
+并提示用 `/tmp/crontab.bak.*` 恢复 crontab（`crontab /tmp/crontab.bak.<时间戳>`）。
+
+### 12.4 切换前的环境前提
+
+这 21 个任务原先在别的目录、别的工作副本里跑，迁进来后有两处必须对上：
+
+1. **`PYTHONPATH` 要能 import 到 `data_hub`**
+   ```bash
+   echo "$PYTHONPATH" | tr ':' '\n' | grep datahub     # 应命中本机 datahub-multi-tier
+   python3 -c "import data_hub; print(data_hub.__file__)"   # 路径必须在本机，不是云盘副本
+   ```
+   命中云盘旧副本（`/opt/coze/.fuse_drive/dataHub_三级体系`）不会报错，
+   只会读到另一套库 —— 属于**静默连错库**，数字不对但没有任何告警。
+
+2. **`DATAHUB_ROOT` / 数据根**
+   ```bash
+   python3 case/_tools/check_imports.py       # 依赖闭包是否完整
+   python3 case/_tools/check_secrets.py       # 凭据是否齐全（飞书 / tushare / email）
+   ```
+   `check_imports.py` 报 `data_hub.*` / `commodities_strategies.*` / `calc.*` 未解析时，
+   先确认是 `PYTHONPATH` 没带全，不是文件缺失；`report_stats` 这类共享模块在 `case/_shared/`。
+
+### 12.5 切换后的自检清单
+
+- [ ] `crontab -l | grep -c health_run` 比切换前少 21
+- [ ] `python3 scheduler.py status` 里 21 个 key 全部 `enabled=true`，`next_run` 是预期时间
+- [ ] 抽 3 个任务 `scheduler.py run <key>`，`out/status.json` 全绿、指标有数
+- [ ] 观察 1 个完整交易日：`logs/<key>.log` 无重复执行记录，飞书/邮件无重复推送
+- [ ] 指标仓数值与切换前同一天的值一致（口径没跑偏）
+
+### 12.6 凭据：不要写死在脚本里
+
+这批任务迁进来时踩过一次：`case/bond_four_factor/llm_utils.py` 曾写死明文 DeepSeek API key，
+并随代码进了 git 历史。现在的口径是——
+
+```bash
+# 统一走 app_secrets 的 5 级查找链，脚本里只写 get()，不写值
+python3 case/_lib/app_secrets.py set deepseek.api_key <新key>
+python3 case/_lib/app_secrets.py check            # 只报有无与来源，不打印值
+```
+
+脚本侧读法（`DEEPSEEK_API_KEY` 环境变量优先，回退 secrets.json）：
+
+```python
+import app_secrets
+KEY = os.environ.get("DEEPSEEK_API_KEY") or app_secrets.get("deepseek.api_key", "")
+```
+
+**key 一旦进过 git 历史就必须轮换**，删 commit 不算修好——历史还在。
+另外 `.gitignore` 已加 `case/*/.tmp/`：任务跑挂了留下的截断日志里常有完整环境变量。
+
+### 12.7 还没进任何仓库的
+
+`杨康平顶底 v2`（`run_topbottom_v2.sh`）和 `缠论模拟盘·日终`（`sim_engine/run_daily_summary.sh`）
+目前只在源目录，不在 stock-dashboard / datahub-multi-tier / precious-task 任一仓库。
+前者一天一次但属盘中告警、后者同任务一天 4 次，按 §12.1 边界未纳入本次迁移，需要单独决策。
