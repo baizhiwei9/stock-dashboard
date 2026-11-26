@@ -183,8 +183,16 @@ def sched_text(m) -> str:
     """
     s = m.get("sched") or {}
     mode = s.get("mode")
-    at = s.get("at", "?")
     names = "一二三四五六日"
+
+    def _at_txt(v) -> str:
+        # at 可能是 "19:55"，也可能是一天多个时间点的数组 ["07:50","19:55"]
+        if isinstance(v, (list, tuple)):
+            xs = [str(x).strip() for x in v if str(x or "").strip()]
+            return " / ".join(xs) if xs else "?"
+        return str(v if v is not None else "?").strip() or "?"
+
+    at = _at_txt(s.get("at", "?"))
 
     def _wd_text(wd) -> str:
         wd = sorted(int(x) for x in wd if str(x).isdigit() and 1 <= int(x) <= 7)
