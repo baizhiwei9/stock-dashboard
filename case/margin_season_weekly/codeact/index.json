@@ -1,0 +1,14 @@
+[
+  {
+    "name": "weekly_capital_flow.py",
+    "path": "./codeact/scripts/weekly_capital_flow.py",
+    "description": "国金周度资金流监控完整版。严格按国金策略《资金跟踪系列》五大资金主体框架：ETF行业分摊(宽基按成分股申万权重分摊)+两融季节性同比(Z-score判定)+北上双口径(降级)+主动偏股基金(框架预留)+龙虎榜。输出资金共识矩阵、行业综合Z-score排序(ETF25%+两融25%+北上20%+主动基金20%+龙虎榜10%)、科技板块五级判断。支持飞书推送。",
+    "params": {
+      "result_mode": "display_only",
+      "end_date": "last_friday",
+      "push_feishu": "false",
+      "output_dir": "./reports"
+    },
+    "status": "active"
+  }
+]

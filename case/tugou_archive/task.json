@@ -1,0 +1,29 @@
+{
+  "key": "tugou_archive",
+  "title": "土狗归档",
+  "desc": "",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "23:30",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "bash run_daily.sh",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/土狗归档",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/土狗归档/run_daily.sh",
+  "imported_from": "case/_seed/tasks.json"
+}

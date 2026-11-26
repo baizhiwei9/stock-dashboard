@@ -1,0 +1,25 @@
+{
+  "key": "weekly_stock_monitor",
+  "title": "自选股周报",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "10:00",
+    "weekdays": [
+      7
+    ]
+  },
+  "cmd": "python3 -u weekly_stock_monitor.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/root/.coze/agents/7691719640636244234/workspace",
+  "original_entry": "/root/.coze/agents/7691719640636244234/workspace/weekly_stock_monitor.py",
+  "imported_from": "case/_seed/tasks.json"
+}

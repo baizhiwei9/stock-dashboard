@@ -1,0 +1,29 @@
+{
+  "key": "circulation_daily",
+  "title": "环流日报",
+  "desc": "",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "19:00",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u scripts/circulation_daily.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": true
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/环流日报",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/circulation_daily.py",
+  "imported_from": "case/_seed/tasks.json"
+}

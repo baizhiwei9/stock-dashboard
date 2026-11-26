@@ -1,0 +1,29 @@
+{
+  "key": "liquidity_risk_monitor",
+  "title": "流动性风险监控",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "19:00",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u scripts/liquidity_risk_monitor.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/市场情绪监控",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/市场情绪监控/scripts/liquidity_risk_monitor.py",
+  "imported_from": "case/_seed/tasks.json"
+}

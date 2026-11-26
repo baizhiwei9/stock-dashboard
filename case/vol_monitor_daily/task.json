@@ -1,0 +1,29 @@
+{
+  "key": "vol_monitor_daily",
+  "title": "股指波动率监控",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "12:00",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u vol_monitor_daily.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/opt/coze/.fuse_drive/股指波动率/vol_monitor",
+  "original_entry": "/opt/coze/.fuse_drive/股指波动率/vol_monitor/vol_monitor_daily.py",
+  "imported_from": "case/_seed/tasks.json"
+}

@@ -1,0 +1,25 @@
+{
+  "key": "margin_season_weekly",
+  "title": "两融季节同比(周五)",
+  "desc": "",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "18:30",
+    "weekdays": [
+      5
+    ]
+  },
+  "cmd": "python3 -u codeact/scripts/weekly_combined_report.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/opt/coze/.fuse_drive/两融季节同比",
+  "original_entry": "/opt/coze/.fuse_drive/两融季节同比/codeact/scripts/weekly_combined_report.py",
+  "imported_from": "case/_seed/tasks.json"
+}

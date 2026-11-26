@@ -1,0 +1,91 @@
+{
+  "config": {
+    "wide_screen_mode": true
+  },
+  "header": {
+    "tag": "header",
+    "template": "red",
+    "title": {
+      "tag": "plain_text",
+      "content": "📈 Hurst 指数日报 | 2026-08-17 午盘"
+    }
+  },
+  "elements": [
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "> **数据截止日期**: 2026-08-17  \n> 基于 DFA-1 去趋势波动分析，短周期=60日，长周期=250日"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**📊 五大指数 Hurst 指标**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "| 指数 | 短H | 长H | 短长差 | 波动H | 信号 | 操作建议 |\n|------|------|------|------|------|------|------|\n| 沪深300 | 0.299 | 0.518 | <font color='red'>-0.219</font> | 0.684 | 🔴 死叉 | 清仓或对冲 |\n| 中证1000 | 0.484 | 0.655 | <font color='red'>-0.171</font> | 0.706 | ⚪ 退相 | 观望为主 |\n| 科创50 ⚠️ | 0.620 | 0.671 | <font color='red'>-0.051</font> | 0.597 | 🟡 有序 | 顺势持有 |\n| 恒生指数 | 0.741 | 0.532 | <font color='green'>+0.209</font> | 0.427 | 🟡 有序 | 顺势持有 |\n| 恒生科技 | 0.644 | 0.508 | <font color='green'>+0.136</font> | 0.461 | 🟡 有序 | 顺势持有 |"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**📋 今日整体状态**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "🔴 **死叉信号**: 1 个　🟡 **有序状态**: 3 个　⚪ **退相状态**: 1 个"
+      }
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "\n**综合判断**: 🟡 局部走弱，规避死叉品种，等待信号明朗"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "<font color='grey'>📖 **📖 信号说明**</font>\n<font color='grey'>• **🟢 金叉**: 短H上穿长H，短H>0.55且长H>0.5 → 市场从随机游走进入有序相，趋势刚形成</font>\n<font color='grey'>• **🔴 死叉**: 短H下穿长H，短H<0.55，且至少满足2条附加条件 → 趋势记忆性瓦解，相变退相</font>\n<font color='grey'>• **🟠 临界预警**: 短H>0.7 且 波动率H>0.7 → 临界慢化，系统濒临崩溃</font>\n<font color='grey'>• **🟡 有序状态**: 短H>0.55 且 长H>0.5，未触发金叉 → 趋势进行中</font>\n<font color='grey'>• **⚪ 退相状态**: 短H<0.5 或 长H<0.5 → 无序震荡，观望为主</font>\n<font color='grey'>• **优先级**: 临界 > 金叉/死叉 > 有序/退相</font>\n<font color='grey'>• **⚠️ 数据警告**: 窗口内有涨跌停断层或连续停牌，Hurst值可能失真</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "note",
+      "elements": [
+        {
+          "tag": "plain_text",
+          "content": "算法：DFA-1 去趋势波动分析 | 短周期60日 / 长周期250日 | 生成：2026-08-18 17:38 | 案例分析学习材料，不构成投资建议"
+        }
+      ]
+    }
+  ]
+}
