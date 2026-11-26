@@ -689,12 +689,19 @@ def _dir_cls(d: str) -> str:
     return {"short": "s", "watch": "w"}.get(d or "long", "")
 
 
-def _pick_table(picks: List[Dict], limit: int = 30) -> str:
-    """统一的 picks 表：名次 · 名称 · 代码 · 行业 · 分数 · 理由/标签。"""
+def _pick_table(picks: List[Dict], limit: int = 30,
+                links: Optional[Dict[int, str]] = None) -> str:
+    """统一的 picks 表：名次 · 名称 · 代码 · 行业 · 分数 · 理由/标签。
+
+    links: {行号(1-based): 子页面相对路径}，给了就把名称做成超链（点进该股子页面）。
+    """
     rows = []
     for i, p in enumerate(picks[:limit], 1):
         name = p.get("name") or p.get("code") or "—"
         code = p.get("code") or ""
+        href = (links or {}).get(i)
+        name_html = ('<a href="%s" target="_blank" rel="noopener">%s</a>'
+                     % (html.escape(href), html.escape(name))) if href else html.escape(name)
         if p.get("sector_l2") and p.get("sector_l3"):
             ind = "%s › %s" % (p["sector_l2"], p["sector_l3"])
         else:
@@ -709,7 +716,7 @@ def _pick_table(picks: List[Dict], limit: int = 30) -> str:
         rows.append(
             '<tr><td class="rk">%d</td><td class="nmc">%s</td><td class="cd">%s</td>'
             '<td>%s</td><td class="sc">%s</td><td class="rs">%s</td></tr>'
-            % (i, html.escape(name), html.escape(code), html.escape(ind), sc_txt, rcell))
+            % (i, name_html, html.escape(code), html.escape(ind), sc_txt, rcell))
     return ('<table class="pk-tb"><thead><tr><th></th><th>名称</th><th>代码</th>'
             '<th>行业</th><th>分数</th><th>理由 / 标签</th></tr></thead>'
             '<tbody>%s</tbody></table>' % "".join(rows))
@@ -850,11 +857,13 @@ def _stock_page_body(alg_title: str, as_of: str, p: Dict) -> str:
 
 
 def _pick_block(w: Dict, root: Optional[str], page_dir: str = "") -> str:
-    """一个算法一块 —— 主页面只挂入口，内容全在子页面。
+    """一个算法一块 —— 两头都做（大佬 2026-11-26 定）：
 
-    大佬 2026-11-26：主页面别铺全量，「整个超链，点开弹出一个子页面」。
-    所以这里只出：算法名 + 数据日/口径/只数 + 一行摘要 + 「打开子页面」超链
-    （外加前几只的股票直达链接）。真正的表、飞书卡片、报告 md 都在子页面里。
+    1. **主页面全量展示**：完整清单表，每只股票名做成超链；
+    2. **子页面**：每只股票一个独立页（点名字打开），算法页还有完整清单 +
+       飞书交互卡片 + 当日报告。
+
+    原话：「你全量展示还是全量展示啊？但是用那个不更好吗？就是你两头都做」。
     """
     import pick_pool
     data = pick_pool.load_picks(root) if root else None
@@ -878,55 +887,59 @@ def _pick_block(w: Dict, root: Optional[str], page_dir: str = "") -> str:
     meta_bits = [b for b in (html.escape(as_of), cad_txt,
                              ("<b>%d</b> 只" % len(picks)) if picks else "今日无票") if b]
 
-    # ── 生成该算法的子页面 ──
-    link_html = ""
+    # ── 先生成子页面（拿到每只股票页的链接，主页表格要用）──
+    stock_links: Dict[int, str] = {}
+    algo_link = ""
+    has_card = bool(_card_section(root, key))
     if not page_dir:
         page_dir = os.path.dirname(os.path.abspath("."))
     try:
         pdir = _pick_pages_dir(page_dir)
-        body = ['<h1 class="pk-h1">%s</h1>' % title,
-                '<div class="pk-sub">%s%s</div>'
-                % (" · ".join([as_of, cad_txt] + (["%d 只" % len(picks)] if picks else [])),
-                   ("　" + html.escape(note)) if note else "")]
+        # 每只股票一个独立子页面
+        for i, p in enumerate(picks[:60], 1):
+            sub_body = _stock_page_body(title_raw, as_of, p)
+            sub_body += _card_section(root, key)
+            nm = p.get("name") or p.get("code") or ("%d" % i)
+            sfn = _write_page(
+                os.path.join(pdir, "stk-%s-%02d-%s.html"
+                             % (key, i, "".join(c for c in str(p.get("code") or nm)
+                                                if c.isalnum())[:12])),
+                "%s · %s" % (nm, title_raw), sub_body, "../private.html")
+            if sfn:
+                stock_links[i] = "pick-pages/%s" % sfn
+        # 算法总页：完整清单（同样带股票链接）+ 飞书卡片 + 报告
+        abody = ['<h1 class="pk-h1">%s</h1>' % title,
+                 '<div class="pk-sub">%s%s</div>'
+                 % (" · ".join([as_of, cad_txt] + (["%d 只" % len(picks)] if picks else [])),
+                    ("　" + html.escape(note)) if note else "")]
         if note:
-            body.append('<div class="pk-why">%s</div>' % html.escape(note))
-        body.append('<h3 class="pk-sect">入选清单</h3>')
-        body.append(_pick_table(picks) if picks else '<div class="pk-empty">今日无票</div>')
-        body.append(_card_section(root, key))
-        body.append(_report_section(root))
+            abody.append('<div class="pk-why">%s</div>' % html.escape(note))
+        abody.append('<h3 class="pk-sect">入选清单</h3>')
+        abody.append(_pick_table(picks, links={k: os.path.basename(v) for k, v in stock_links.items()})
+                     if picks else '<div class="pk-empty">今日无票</div>')
+        abody.append(_card_section(root, key))
+        abody.append(_report_section(root))
         fn = _write_page(os.path.join(pdir, "algo-%s.html" % key),
-                         "%s · %s" % (title_raw, as_of), "".join(body), "../private.html")
+                         "%s · %s" % (title_raw, as_of), "".join(abody), "../private.html")
         if fn:
-            n_stock = sum(1 for p in picks if p.get("code") or p.get("name"))
-            link_html = ('<div class="pk-link"><a class="pk-go" href="pick-pages/%s" '
-                         'target="_blank" rel="noopener">打开子页面 →</a>'
-                         '<span class="sm">含完整清单%s%s</span></div>'
-                         % (html.escape(fn),
-                            " · 飞书卡片" if _card_section(root, key) else "",
-                            " · 当日报告" if _report_section(root) else ""))
-            # 每只股票自己的子页面
-            for i, p in enumerate(picks[:40], 1):
-                sub_body = _stock_page_body(title_raw, as_of, p)
-                sub_body += _card_section(root, key)
-                nm = p.get("name") or p.get("code") or ("%d" % i)
-                sfn = _write_page(
-                    os.path.join(pdir, "stk-%s-%02d-%s.html"
-                                 % (key, i, "".join(c for c in str(p.get("code") or nm)
-                                                    if c.isalnum())[:12])),
-                    "%s · %s" % (nm, title_raw), sub_body, "../private.html")
-                if sfn and i <= 5:            # 主页只给前 5 只直达链接，其余在子页面里
-                    link_html += ('<a class="pk-chip" href="pick-pages/%s" target="_blank" '
-                                  'rel="noopener">%s</a>' % (html.escape(sfn), html.escape(nm)))
+            algo_link = "pick-pages/%s" % fn
     except Exception as e:                               # noqa: BLE001
         print("[pick-page] %s 子页面生成失败：%s" % (key, str(e)[:140]), file=sys.stderr)
 
+    # ── 主页面：全量展示 + 每只股票挂超链 + 算法子页入口 ──
+    entry = ""
+    if algo_link:
+        entry = ('<a class="pk-go" href="%s" target="_blank" rel="noopener">'
+                 '打开子页面 →</a>' % html.escape(algo_link))
+    body_tbl = (_pick_table(picks, links=stock_links) if picks
+                else '<div class="pk-empty">今日无票</div>')
     return ('<div class="pk-algo"><div class="pk-hd">'
-            '<span class="nm">%s</span><span class="meta">%s</span>%s</div>'
-            '<div class="pk-sum">%s</div>%s</div>'
+            '<span class="nm">%s</span><span class="meta">%s</span>%s%s</div>'
+            '%s</div>'
             % (title, " · ".join(meta_bits),
                ('<span class="note" title="%s">%s</span>'
                 % (html.escape(note), html.escape(note))) if note else "",
-               _pick_summary(picks), link_html))
+               entry, body_tbl))
 
 
 def _pick_summary(picks: List[Dict], n: int = 6) -> str:
