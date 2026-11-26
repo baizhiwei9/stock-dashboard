@@ -40,9 +40,18 @@ if HERE not in sys.path:
 import build as B                                            # noqa: E402  复用 CSS / 卡片渲染 / 取数
 import feishu_card_dom as FCD                                # noqa: E402  飞书卡片 → DOM
 
+# 各算法选股结果的统一契约（case/_shared/pick_pool.py）
+_SHARED = os.path.join(HERE, "case", "_shared")
+if _SHARED not in sys.path:
+    sys.path.insert(0, _SHARED)
+
 # task.json 没写 section / section_domain 的任务：不丢，单独归到「未分板块」
 UNSORTED = "unsorted"
-SECTION_ORDER = ("stock", "watch", "pick", "futures", "realestate", "macro",
+# 2026-11-26 大佬要求：把「选股」并进「自选股」，一个 tab 里按算法分块。
+# 各算法统一走 case/_shared/pick_pool.py 的 out/picks.json 契约，
+# 显示层只认那一份，不再逐个适配各家的杂 json。
+PICK_SEC = "watch"
+SECTION_ORDER = ("stock", "watch", "futures", "realestate", "macro",
                  "liquidity", "bond", "option", "risk", "modules", UNSORTED)
 # 板块别名只维护一份，在 case/_lib/case_registry.py 的 SECTION_ALIAS，
 # 这里不再平行维护（credit/credit_spread→bond、macro_watch→macro 都在那边）。
@@ -50,9 +59,10 @@ SECTION_ORDER = ("stock", "watch", "pick", "futures", "realestate", "macro",
 EXTRA_SECTIONS = {
     # watch / pick 只在本页出现，sections.json（公开看板导航）里没有这两个 key
     "watch": {"num": "—", "title": "自选股",
-              "sub": "我的实盘 / 自选股（默尔根、亚丽）：持仓风险与机会"},
-    "pick": {"num": "—", "title": "选股",
-             "sub": "选股 / 选行业 / 选概念：策略给出的标的池"},
+              "sub": "实盘持仓 + 各算法的自选股：一个算法一块，统一口径（代码·行业·理由·分数）"},
+    # 兼容老 task.json 里还写着 section_domain=pick 的任务：一律并入自选股
+    "pick": {"num": "—", "title": "自选股",
+             "sub": "（已并入自选股）"},
     UNSORTED: {"num": "—", "title": "未分板块",
                "sub": "私有仓里没写 section / section_domain 的任务，先按原样列出"},
 }
@@ -620,6 +630,331 @@ def _lightbox_html() -> str:
 """
 
 
+PICK_CSS = """
+/* ── 自选股：一个算法一块，统一结构 ── */
+.pk-algo{margin:0 0 26px}
+.pk-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding:0 0 8px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.pk-hd .nm{font-size:14.5px;font-weight:600;color:var(--tx)}
+.pk-hd .meta{font-size:11.5px;color:var(--tx3)}
+.pk-hd .meta b{font-weight:500;color:var(--tx2)}
+.pk-hd .note{margin-left:auto;font-size:11.5px;color:var(--tx3);max-width:52%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-tb{width:100%;border-collapse:collapse;font-size:12px}
+.pk-tb th{text-align:left;font-weight:500;color:var(--tx3);font-size:11px;
+  padding:4px 8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.pk-tb td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);
+  color:var(--tx2);vertical-align:top}
+.pk-tb tr:last-child td{border-bottom:0}
+.pk-tb .cd{font-family:var(--mono,monospace);color:var(--tx3);font-size:11.5px}
+.pk-tb .nmc{color:var(--tx);font-weight:500}
+.pk-tb .rk{color:var(--tx3);font-size:11px;width:28px}
+.pk-tb .sc{font-family:var(--mono,monospace);color:var(--tx2);white-space:nowrap}
+.pk-tb .rs{color:var(--tx3);font-size:11.5px;line-height:1.55}
+.pk-tag{display:inline-block;padding:1px 6px;margin:1px 3px 1px 0;border-radius:5px;
+  background:rgba(90,140,255,.13);color:#8fb2ff;font-size:10.5px;white-space:nowrap}
+.pk-tag.s{background:rgba(255,90,110,.13);color:#ff8b9a}
+.pk-tag.w{background:rgba(255,190,80,.13);color:#ffc866}
+.pk-empty{font-size:12px;color:var(--tx3);padding:6px 0 2px}
+.pk-miss{font-size:11.5px;color:var(--tx3);padding:4px 0 0}
+.pk-sum{font-size:12px;color:var(--tx2);line-height:1.7;margin:2px 0 8px}
+.pk-link{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pk-go{display:inline-block;padding:5px 13px;border:1px solid var(--blue);
+  border-radius:8px;color:var(--blue);font-size:12px;text-decoration:none;
+  transition:background .16s ease}
+.pk-go:hover{background:rgba(74,158,255,.12)}
+.pk-link .sm{font-size:11px;color:var(--tx3)}
+.pk-chip{display:inline-block;padding:2px 9px;margin:2px 4px 2px 0;border-radius:6px;
+  background:rgba(255,255,255,.05);color:var(--tx2);font-size:11px;text-decoration:none}
+.pk-chip:hover{background:rgba(74,158,255,.16);color:var(--blue)}
+/* ── 子页面 ── */
+.pk-crumb{margin:0 0 14px;font-size:12px}
+.pk-crumb a{color:var(--tx3);text-decoration:none}
+.pk-crumb a:hover{color:var(--blue)}
+.pk-h1{font-size:20px;font-weight:600;color:var(--tx);margin:0 0 6px}
+.pk-h1 .cd{font-family:var(--mono,monospace);font-size:13px;color:var(--tx3);font-weight:400}
+.pk-sub{font-size:12px;color:var(--tx3);margin:0 0 14px}
+.pk-why{font-size:12.5px;color:var(--tx2);line-height:1.7;padding:10px 14px;
+  border-left:2px solid var(--blue);background:rgba(74,158,255,.06);
+  border-radius:0 8px 8px 0;margin:0 0 16px}
+.pk-sect{font-size:13px;font-weight:600;color:var(--tx2);margin:22px 0 10px}
+.pk-kv{width:100%;border-collapse:collapse;font-size:12.5px}
+.pk-kv th{text-align:left;font-weight:400;color:var(--tx3);width:110px;
+  padding:5px 10px 5px 0;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+.pk-kv td{color:var(--tx);padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+"""
+
+
+def _dir_cls(d: str) -> str:
+    return {"short": "s", "watch": "w"}.get(d or "long", "")
+
+
+def _pick_table(picks: List[Dict], limit: int = 30,
+                links: Optional[Dict[int, str]] = None) -> str:
+    """统一的 picks 表：名次 · 名称 · 代码 · 行业 · 分数 · 理由/标签。
+
+    links: {行号(1-based): 子页面相对路径}，给了就把名称做成超链（点进该股子页面）。
+    """
+    rows = []
+    for i, p in enumerate(picks[:limit], 1):
+        name = p.get("name") or p.get("code") or "—"
+        code = p.get("code") or ""
+        href = (links or {}).get(i)
+        name_html = ('<a href="%s" target="_blank" rel="noopener">%s</a>'
+                     % (html.escape(href), html.escape(name))) if href else html.escape(name)
+        if p.get("sector_l2") and p.get("sector_l3"):
+            ind = "%s › %s" % (p["sector_l2"], p["sector_l3"])
+        else:
+            ind = p.get("sector_l3") or p.get("sector_l2") or p.get("industry") or ""
+        sc = p.get("score")
+        sc_txt = ("%.2f" % sc).rstrip("0").rstrip(".") if isinstance(sc, (int, float)) else ""
+        tags = "".join('<span class="pk-tag %s">%s</span>'
+                       % (_dir_cls(p.get("direction")), html.escape(str(t)))
+                       for t in (p.get("tags") or [])[:4])
+        why = html.escape(p.get("reason") or "")
+        rcell = (why + ("<br>" if why and tags else "") + tags) if (why or tags) else ""
+        rows.append(
+            '<tr><td class="rk">%d</td><td class="nmc">%s</td><td class="cd">%s</td>'
+            '<td>%s</td><td class="sc">%s</td><td class="rs">%s</td></tr>'
+            % (i, name_html, html.escape(code), html.escape(ind), sc_txt, rcell))
+    return ('<table class="pk-tb"><thead><tr><th></th><th>名称</th><th>代码</th>'
+            '<th>行业</th><th>分数</th><th>理由 / 标签</th></tr></thead>'
+            '<tbody>%s</tbody></table>' % "".join(rows))
+
+
+PICK_PAGE_TMPL = """<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>__CSS__</style>
+</head><body><div class="wrap">
+<div class="pk-crumb"><a href="__HOME__">← 返回自选股</a></div>
+__BODY__
+</div></body></html>
+"""
+
+
+def _pick_pages_dir(page_dir: str) -> str:
+    """子页面落地目录：<页面目录>/pick-pages/。"""
+    d = os.path.join(page_dir, "pick-pages")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _pick_page_css() -> str:
+    """子页面用同一套样式（公开页 CSS + 自选股 CSS），保证和主页面一致。"""
+    try:
+        import feishu_card_dom as FCD
+        return B.CSS + PICK_CSS + FCD.CSS
+    except Exception:                                   # noqa: BLE001
+        return B.CSS + PICK_CSS
+
+
+def _write_page(path: str, title: str, body: str, home_rel: str) -> str:
+    """写一个子页面，返回相对主页面的路径。失败返回空串（不挡主页面）。"""
+    try:
+        html_doc = (PICK_PAGE_TMPL
+                    .replace("__TITLE__", html.escape(title))
+                    .replace("__CSS__", _pick_page_css())
+                    .replace("__HOME__", html.escape(home_rel))
+                    .replace("__BODY__", body))
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html_doc)
+        return os.path.basename(path)
+    except Exception as e:                              # noqa: BLE001
+        print("[pick-page] 写 %s 失败：%s" % (path, str(e)[:120]), file=sys.stderr)
+        return ""
+
+
+def _card_section(root: Optional[str], key: str = "") -> str:
+    """任务 dump 的飞书交互卡片 → HTML（飞书看到什么，子页面就看到什么）。
+
+    查找顺序：
+      1. `<root>/out/card.json`（框架版任务：dump_card 写的，契约位置）
+      2. `<root>/card.json`
+      3. `<WS>/.cache/picks/cards/<key>.json`（宿主机脚本还没迁 case 时的落点）
+    """
+    cands: List[str] = []
+    if root:
+        for sub in ("out", ""):
+            base = os.path.join(root, sub) if sub else root
+            if not os.path.isdir(base):
+                continue
+            cands.extend(os.path.join(base, n) for n in CARD_NAMES)
+    if key:
+        try:
+            import pick_pool
+            cands.append(os.path.join(pick_pool.fallback_dir(), "cards", "%s.json" % key))
+        except Exception:                                  # noqa: BLE001
+            pass
+    for fp in cands:
+        if not os.path.isfile(fp):
+            continue
+        try:
+            card = json.load(open(fp, encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        body = FCD.card_to_html(card)
+        if body:
+            return ('<h3 class="pk-sect">飞书交互卡片（同一份内容）</h3>' + body)
+    return ""
+
+
+def _report_section(root: Optional[str]) -> str:
+    """任务报告 md → 子页面（有就带，没有不占位）。"""
+    md = _report_md({"key": "", "dir": root}) if root else ""
+    if not md:
+        return ""
+    return ('<h3 class="pk-sect">当日报告</h3>'
+            '<div class="fc-card"><div class="fc-div">%s</div></div>' % FCD.md_to_html(md))
+
+
+def _stock_page_body(alg_title: str, as_of: str, p: Dict) -> str:
+    """单只股票的子页面：把 picks 里这条能给的字段全摊开。"""
+    name = p.get("name") or p.get("code") or "—"
+    ind = (("%s › %s" % (p["sector_l2"], p["sector_l3"]))
+           if p.get("sector_l2") and p.get("sector_l3")
+           else (p.get("sector_l3") or p.get("sector_l2") or p.get("industry") or "—"))
+    kv_rows = []
+    for label, key, fmt in (
+            ("代码", "code", None), ("行业", None, None), ("方向", "direction", None),
+            ("分数", "score", "%.2f"), ("参考价", "price", "%.2f"),
+            ("目标价", "target", "%.2f"), ("止损", "stop", "%.2f"),
+            ("名次", "rank", "%.0f")):
+        if key is None:
+            val = ind
+        else:
+            v = p.get(key)
+            if isinstance(v, (int, float)) and fmt:
+                val = fmt % v
+            else:
+                val = "" if v in (None, "") else str(v)
+        if val not in ("", "—") or label == "行业":
+            kv_rows.append('<tr><th>%s</th><td>%s</td></tr>'
+                           % (html.escape(label), html.escape(str(val))))
+    tags = "".join('<span class="pk-tag %s">%s</span>'
+                   % (_dir_cls(p.get("direction")), html.escape(str(t)))
+                   for t in (p.get("tags") or []))
+    extra = {k: v for k, v in p.items()
+             if k not in ("code", "name", "industry", "sector_l1", "sector_l2", "sector_l3",
+                          "reason", "direction", "tags", "score", "rank", "price",
+                          "target", "stop")}
+    extra_rows = "".join('<tr><th>%s</th><td>%s</td></tr>'
+                         % (html.escape(str(k)), html.escape(str(v)))
+                         for k, v in extra.items() if v not in (None, "", [], {}))
+
+    return ('<h1 class="pk-h1">%s <span class="cd">%s</span></h1>'
+            '<div class="pk-sub">%s · %s</div>'
+            '%s'
+            '<h3 class="pk-sect">指标</h3>'
+            '<table class="pk-kv">%s%s</table>'
+            '%s'
+            % (html.escape(name), html.escape(p.get("code") or ""),
+               html.escape(alg_title), html.escape(as_of or ""),
+               ('<div class="pk-why">%s</div>' % html.escape(p["reason"])) if p.get("reason") else "",
+               "".join(kv_rows), extra_rows,
+               ('<h3 class="pk-sect">标签</h3><div>%s</div>' % tags) if tags else ""))
+
+
+def _pick_block(w: Dict, root: Optional[str], page_dir: str = "") -> str:
+    """一个算法一块 —— 两头都做（大佬 2026-11-26 定）：
+
+    1. **主页面全量展示**：完整清单表，每只股票名做成超链；
+    2. **子页面**：每只股票一个独立页（点名字打开），算法页还有完整清单 +
+       飞书交互卡片 + 当日报告。
+
+    原话：「你全量展示还是全量展示啊？但是用那个不更好吗？就是你两头都做」。
+    """
+    import pick_pool
+    data = pick_pool.load_picks(root) if root else None
+    if not data:
+        # 脚本还没迁进 case 时，结果写在统一落盘目录 <WS>/.cache/picks/<key>.json
+        data = pick_pool.load_picks_fallback(w.get("key") or "")
+    title_raw = w.get("title") or w.get("key") or ""
+    title = html.escape(title_raw)
+    key = w.get("key") or ""
+    if not data:
+        return ('<div class="pk-algo"><div class="pk-hd"><span class="nm">%s</span>'
+                '<span class="meta">%s</span></div>'
+                '<div class="pk-miss">该算法尚未按统一契约输出 picks（显示层不猜数据）</div></div>'
+                % (title, html.escape(key)))
+
+    picks = data.get("picks") or []
+    as_of = data.get("as_of") or ""
+    cad = data.get("cadence") or ""
+    cad_txt = {"daily": "日更", "weekly": "周更", "monthly": "月更"}.get(cad, cad)
+    note = data.get("note") or ""
+    meta_bits = [b for b in (html.escape(as_of), cad_txt,
+                             ("<b>%d</b> 只" % len(picks)) if picks else "今日无票") if b]
+
+    # ── 先生成子页面（拿到每只股票页的链接，主页表格要用）──
+    stock_links: Dict[int, str] = {}
+    algo_link = ""
+    has_card = bool(_card_section(root, key))
+    if not page_dir:
+        page_dir = os.path.dirname(os.path.abspath("."))
+    try:
+        pdir = _pick_pages_dir(page_dir)
+        # 每只股票一个独立子页面
+        for i, p in enumerate(picks[:60], 1):
+            sub_body = _stock_page_body(title_raw, as_of, p)
+            sub_body += _card_section(root, key)
+            nm = p.get("name") or p.get("code") or ("%d" % i)
+            sfn = _write_page(
+                os.path.join(pdir, "stk-%s-%02d-%s.html"
+                             % (key, i, "".join(c for c in str(p.get("code") or nm)
+                                                if c.isalnum())[:12])),
+                "%s · %s" % (nm, title_raw), sub_body, "../private.html")
+            if sfn:
+                stock_links[i] = "pick-pages/%s" % sfn
+        # 算法总页：完整清单（同样带股票链接）+ 飞书卡片 + 报告
+        abody = ['<h1 class="pk-h1">%s</h1>' % title,
+                 '<div class="pk-sub">%s%s</div>'
+                 % (" · ".join([as_of, cad_txt] + (["%d 只" % len(picks)] if picks else [])),
+                    ("　" + html.escape(note)) if note else "")]
+        if note:
+            abody.append('<div class="pk-why">%s</div>' % html.escape(note))
+        abody.append('<h3 class="pk-sect">入选清单</h3>')
+        abody.append(_pick_table(picks, links={k: os.path.basename(v) for k, v in stock_links.items()})
+                     if picks else '<div class="pk-empty">今日无票</div>')
+        abody.append(_card_section(root, key))
+        abody.append(_report_section(root))
+        fn = _write_page(os.path.join(pdir, "algo-%s.html" % key),
+                         "%s · %s" % (title_raw, as_of), "".join(abody), "../private.html")
+        if fn:
+            algo_link = "pick-pages/%s" % fn
+    except Exception as e:                               # noqa: BLE001
+        print("[pick-page] %s 子页面生成失败：%s" % (key, str(e)[:140]), file=sys.stderr)
+
+    # ── 主页面：全量展示 + 每只股票挂超链 + 算法子页入口 ──
+    entry = ""
+    if algo_link:
+        entry = ('<a class="pk-go" href="%s" target="_blank" rel="noopener">'
+                 '打开子页面 →</a>' % html.escape(algo_link))
+    body_tbl = (_pick_table(picks, links=stock_links) if picks
+                else '<div class="pk-empty">今日无票</div>')
+    return ('<div class="pk-algo"><div class="pk-hd">'
+            '<span class="nm">%s</span><span class="meta">%s</span>%s%s</div>'
+            '%s</div>'
+            % (title, " · ".join(meta_bits),
+               ('<span class="note" title="%s">%s</span>'
+                % (html.escape(note), html.escape(note))) if note else "",
+               entry, body_tbl))
+
+
+def _pick_summary(picks: List[Dict], n: int = 6) -> str:
+    """一行摘要：前几只的名字 + 行业，让主页面不点开也能看个大概。"""
+    if not picks:
+        return ""
+    bits = []
+    for p in picks[:n]:
+        nm = p.get("name") or p.get("code") or ""
+        ind = p.get("sector_l3") or p.get("industry") or ""
+        bits.append("%s%s" % (html.escape(nm), ("（%s）" % html.escape(ind)) if ind else ""))
+    more = ("　等 %d 只" % len(picks)) if len(picks) > n else ""
+    return "、".join(bits) + more
+
+
 def build_private(out_path: str, with_images: bool = True,
                   max_images: int = 6,
                   assets: Optional[str] = None,
@@ -637,7 +972,10 @@ def build_private(out_path: str, with_images: bool = True,
 
     by_sec: Dict[str, List[Dict]] = {}
     for w in ws:
-        by_sec.setdefault(w.get("tab") or w.get("sec") or "modules", []).append(w)
+        sec = w.get("tab") or w.get("sec") or "modules"
+        if sec == "pick":                 # 选股并入自选股（2026-11-26）
+            sec = PICK_SEC
+        by_sec.setdefault(sec, []).append(w)
 
     cfg = B.load_sections(os.path.join(HERE, "sections.json"))
     meta = {x["key"]: x for x in (cfg.get("sections") or [])}
@@ -658,6 +996,15 @@ def build_private(out_path: str, with_images: bool = True,
             if pg:
                 n_page += 1
                 cards.append(pg)
+            if sec == PICK_SEC:
+                # 自选股：一个算法一块，统一表（代码·行业·理由·分数）
+                cards.append(_pick_block(w, _task_root(w), page_dir))
+                if with_report:
+                    ex = _excerpt_html(w)
+                    if ex:
+                        n_rep += 1
+                        cards.append(ex)
+                continue
             # 大佬要求配图在前：先出图、再出指标卡（图在上、卡片在下）
             if with_images:
                 shots = _shots_html(w, assets_root, page_dir, max_images)
@@ -700,7 +1047,7 @@ def build_private(out_path: str, with_images: bool = True,
         '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         '<title>Private Tasks · 私有任务展示区</title>\n<style>'
-        + B.CSS + PRIVATE_CSS + FCD.CSS +
+        + B.CSS + PRIVATE_CSS + PICK_CSS + FCD.CSS +
         '</style>\n</head>\n<body>\n<div class="wrap">\n\n'
         '<header class="top">\n'
         '  <h1>Private Tasks<small>私有任务展示区 · precious-task（与公开看板分开两套页面）</small></h1>\n'
