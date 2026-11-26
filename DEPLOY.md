@@ -439,6 +439,21 @@ bash scripts/sync_to_drive.sh               # 同步一次
 不加 `--prune` 就不会删云盘上的东西。数据全是从公开源抓的，丢了重跑一遍就有，
 **不需要做主从/双写/一致性那一套**。
 
+**`tech_snapshot` / `build` 两个任务要指到备份目录**：`push_snapshot.py` 的落盘目录
+由 `TECH_METRICS_CLOUD_DIR` 决定（默认 `<DataHub>/output`，本机盘）。跑在本机盘时
+如果不设，快照落在本机、看板那行会显示本机路径；想让快照也上云盘，给这两个任务的
+`cmd` 前缀同一个环境变量：
+
+```
+TECH_METRICS_CLOUD_DIR=/Coze/Drive/股市监控画布/datahub-multi-tier/output PYTHONPATH=<DataHub> ...
+```
+
+**必须两个任务设成同一个值** —— `build.py` 是拿这个变量去找文件、判「已生成 / 未生成」的，
+两边不一致时看板会一直显示「未生成」。
+
+备份盘里不放 `case/*/data/db`、`case/*/data/md`（逐日 CSV 原件，两个两融任务就占 230MB），
+这些重抓一遍就有；`data/` 下的汇总 csv/json 照常备份。
+
 ---
 
 ## 8. 部署自检清单
