@@ -16,6 +16,8 @@
 #   SD_ALERT_WEBHOOK 连续拉不起来时的告警 webhook，留空则去凭据文件找 alert.webhook，
 #                    都没有就只写日志（不静默失败，也不外发）
 #   SD_ALERT_AT      连续失败几次才告警（默认 3）
+#   SD_CASE_EXTRA_DIRS 私有任务目录（默认 ../precious-task/case），导出成
+#                    CASE_EXTRA_DIRS 交给 scheduler；不存在则跳过
 #
 # 落盘（都在 stock-dashboard/logs/）：
 #   watchdog.log   拉起/重启/失败记录（健康时不写，避免每分钟一行噪音）
@@ -45,6 +47,26 @@ if [ -n "$DH" ]; then
     *) export PYTHONPATH="$DH${PYTHONPATH:+:$PYTHONPATH}" ;;
   esac
   export EDB_REPO="${EDB_REPO:-$DH}"
+fi
+
+# 私有任务目录：调度器只认环境变量 CASE_EXTRA_DIRS（见 case/CONTRACT.md §2），
+# cron 的 env 里没有这一行，私有仓的 case/ 就永远挂不进来 —— 表现是「任务在私有仓
+# 里配好了，但调度台里根本没有它」。默认取公开仓同级的 precious-task/case（标准布局），
+# 目录不存在就不设，不制造空路径；已显式设过的（SD_CASE_EXTRA_DIRS / CASE_EXTRA_DIRS）
+# 只追加不覆盖，多目录用冒号分隔。
+PRIV_CASE="${SD_CASE_EXTRA_DIRS:-$HERE/../precious-task/case}"
+if [ -d "$PRIV_CASE" ]; then
+  # 归一成物理路径再比：$HERE/../precious-task/case 与 /Coze/.../precious-task/case
+  # 是同一个目录，不归一就会重复挂载、同一个任务扫两遍。
+  PRIV_CASE="$(cd "$PRIV_CASE" && pwd -P)"
+  _dup=0
+  _old_ifs="$IFS"; IFS=':'
+  for _p in ${CASE_EXTRA_DIRS:-}; do
+    [ -n "$_p" ] || continue
+    [ "$(cd "$_p" 2>/dev/null && pwd -P)" = "$PRIV_CASE" ] && _dup=1
+  done
+  IFS="$_old_ifs"
+  [ "$_dup" = 1 ] || export CASE_EXTRA_DIRS="${CASE_EXTRA_DIRS:+$CASE_EXTRA_DIRS:}$PRIV_CASE"
 fi
 
 say() { echo "$TS $*" >> "$LOG"; }
