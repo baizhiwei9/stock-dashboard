@@ -26,6 +26,21 @@ import threading
 import contextlib
 import subprocess
 from datetime import datetime
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+
+_HUB_ROOT = _hub_root_path()
+
 
 warnings.filterwarnings('ignore')
 socket.setdefaulttimeout(20)
@@ -365,7 +380,7 @@ if DATAHUB_DIR not in sys.path:
 # 2026-11-25: /Coze/Drive/dataHub_三级体系 在云盘根、本会话不可达，改为探测式挂载
 # 真源按优先级：$DATAHUB_ROOT > .fuse_drive 视图 > 云盘根视图
 for _p in (os.environ.get('DATAHUB_ROOT', ''),
-           '/opt/coze/.fuse_drive/dataHub_三级体系',
+           _HUB_ROOT,
            '/Coze/Drive/dataHub_三级体系'):
     try:
         if _p and os.path.isdir(_p) and _p not in sys.path:

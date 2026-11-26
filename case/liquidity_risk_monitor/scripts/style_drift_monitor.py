@@ -9,6 +9,21 @@ A股风格漂移监控（期权版）
 """
 
 import os, sys, json, time, sqlite3, math, re, socket, warnings
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+
+_HUB_ROOT = _hub_root_path()
+
 import datetime
 from datetime import timedelta
 from typing import Optional, Dict, List, Tuple
@@ -24,7 +39,7 @@ socket.setdefaulttimeout(15)
 
 # ── DataHub 统一数据入口（禁止直连 tushare/交易所） ──
 _HUB_PATHS = [
-    '/opt/coze/.fuse_drive/dataHub_三级体系',
+    _HUB_ROOT,
     os.path.join(os.path.dirname(os.path.abspath(__file__)),
                  '..', '..', '..', 'codeact', 'scripts'),
 ]
@@ -822,7 +837,7 @@ def fetch_today_unified(db, trade_date, lookback_days=7):
     :return: (成功标的数, 4, 实际入库交易日)
     """
     import datetime as _dt
-    DATAHUB = "/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts"
+    DATAHUB = _HUB_ROOT
     if DATAHUB not in sys.path:
         sys.path.insert(0, DATAHUB)
     from data_hub.collectors.option_metrics_history import get_option_metrics_history

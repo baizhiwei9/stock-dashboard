@@ -31,6 +31,24 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from pathlib import Path
 
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import (  # noqa: E402
+    feishu_webhook as _feishu_webhook,
+    smtp_password as _smtp_password,
+    tushare_token as _tushare_token,
+)
+
 # ========= 路径配置 =========
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -273,7 +291,7 @@ def load_config():
     cfg_path = CONFIG_DIR / "config.json"
     if not cfg_path.exists():
         default = {
-            "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/6d34534a-af18-48ba-be77-a30c524734a8",
+            "feishu_webhook": _feishu_webhook(),
             "email": {
                 "smtp_server": "smtp.163.com",
                 "smtp_port": 465,
@@ -301,7 +319,15 @@ def load_config():
         log.warning(f"配置文件已创建模板: {cfg_path}，请填写邮箱授权码")
         return default
     with open(cfg_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        cfg = json.load(f)
+    # 配置文件里不再放凭据（历史上明文进过 git）。空值从环境变量 / secrets.json 补。
+    if not (cfg.get("feishu_webhook") or "").strip():
+        cfg["feishu_webhook"] = _feishu_webhook()
+    _email = cfg.get("email") or {}
+    if isinstance(_email, dict) and not (_email.get("password") or "").strip():
+        _email["password"] = _smtp_password()
+        cfg["email"] = _email
+    return cfg
 
 
 def push_feishu_card(webhook: str, title: str, markdown: str, template: str = "blue") -> bool:

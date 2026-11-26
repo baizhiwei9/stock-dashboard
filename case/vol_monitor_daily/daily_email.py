@@ -1,4 +1,6 @@
 """波动率日报邮件发送模块"""
+import os
+import sys
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -12,7 +14,21 @@ log = logging.getLogger("vol_monitor")
 SMTP_HOST = "smtp.163.com"
 SMTP_PORT = 465
 SMTP_USER = "songshang951@163.com"
-SMTP_PASS = "TBmy7DAsj9aNJdxb"
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import tushare_token as _tushare_token, smtp_password as _smtp_password  # noqa: E402
+
+SMTP_PASS = _smtp_password()
 
 
 def send_daily_report_email(data, judgments, target_date, md_report, wavelet_image=None,

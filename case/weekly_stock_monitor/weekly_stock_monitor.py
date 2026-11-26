@@ -14,6 +14,21 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
+
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import smtp_password as _smtp_password  # noqa: E402
+
 # ================================================================
 # 配置
 # ================================================================
@@ -21,7 +36,7 @@ EMAIL_CONFIG = {
     'smtp_server': 'smtp.163.com',
     'smtp_port': 465,
     'sender': 'songshang951@163.com',
-    'password': 'TBmy7DAsj9aNJdxb',
+    'password': _smtp_password(),
     'receiver': '410119229@qq.com'
 }
 

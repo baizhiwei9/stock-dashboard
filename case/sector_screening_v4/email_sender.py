@@ -53,6 +53,24 @@ from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
 from email.utils import formataddr, formatdate
 
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import (  # noqa: E402
+    feishu_webhook as _feishu_webhook,
+    smtp_password as _smtp_password,
+    tushare_token as _tushare_token,
+)
+
 # ============================================================
 # 统一账号配置（全系统唯一真源）
 # ============================================================
@@ -60,7 +78,7 @@ DEFAULT_CONFIG = {
     'smtp_host': os.environ.get('EMAIL_SMTP_HOST', 'smtp.163.com'),
     'smtp_port': int(os.environ.get('EMAIL_SMTP_PORT', '465')),
     'from_addr': os.environ.get('EMAIL_FROM_ADDR', 'songshang951@163.com'),
-    'from_pass': os.environ.get('EMAIL_FROM_PASS', 'TBmy7DAsj9aNJdxb'),
+    'from_pass': os.environ.get('EMAIL_FROM_PASS', _smtp_password()),
     'to_addr': os.environ.get('EMAIL_TO_ADDR', '410119229@qq.com'),
     'use_ssl': True,
 }

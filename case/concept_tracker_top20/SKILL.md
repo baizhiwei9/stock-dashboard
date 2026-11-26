@@ -28,7 +28,7 @@
 ## 数据来源
 - **热点概念**：东方财富概念板块涨幅排行（手动维护，每周更新）
 - **行情数据**：tushare
-- **Token**: a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265
+- **Token**: 不写明文，走 `case/_lib/hub_root.py` 的 `tushare_token()`
 
 ## 输出内容
 - 概念名称

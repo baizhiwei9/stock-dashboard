@@ -15,6 +15,21 @@ import json
 import os
 import numpy as np
 import akshare as ak
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+
+_HUB_ROOT = _hub_root_path()
+
 
 # ============================================================
 # data_hub 统一数据接口（两融 / 期权等统一从这里取数）
@@ -25,7 +40,7 @@ if _HUB_SCRIPTS not in sys.path:
     sys.path.insert(0, _HUB_SCRIPTS)
 
 # DataHub 统一取数（禁止直连 akshare/tushare）
-_HUB_MAIN = '/opt/coze/.fuse_drive/dataHub_三级体系'
+_HUB_MAIN = _HUB_ROOT
 if os.path.isdir(os.path.join(_HUB_MAIN, 'data_hub')) and _HUB_MAIN not in sys.path:
     sys.path.insert(0, _HUB_MAIN)
 try:
@@ -35,7 +50,21 @@ except Exception as _e:
     print(f"  [警告] DataHub 导入失败，将回退直连: {_e}")
 
 # 设置Tushare Token
-ts.set_token('a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265')
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import tushare_token as _tushare_token, smtp_password as _smtp_password  # noqa: E402
+
+ts.set_token(_tushare_token())
 pro = ts.pro_api()
 
 # 创建输出目录

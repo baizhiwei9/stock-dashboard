@@ -26,9 +26,24 @@ from bs4 import BeautifulSoup
 # ══════════════════════════════════════════════════════════════════
 import os as _os, sys as _sys  # noqa: E402
 import pandas as _pd  # noqa: E402
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+
+_HUB_ROOT = _hub_root_path()
+
 
 _HUB_PATHS = [
-    '/opt/coze/.fuse_drive/dataHub_三级体系',
+    _HUB_ROOT,
     '/root/.coze/agents/7649998561689780486/workspace/codeact/scripts',
 ]
 for _hp in _HUB_PATHS:
@@ -323,7 +338,21 @@ except ImportError:
             _sys.modules[_mn] = _m
 
 # ============ 配置 ============
-TUSHARE_TOKEN = "a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265"
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import tushare_token as _tushare_token, smtp_password as _smtp_password  # noqa: E402
+
+TUSHARE_TOKEN = _tushare_token()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "outputs")
 CACHE_FILE = os.path.join(SCRIPT_DIR, "cache.json")
@@ -446,7 +475,7 @@ def render_ncd_plot():
     return None
 
 
-EDB_ROOT = '/opt/coze/.fuse_drive/dataHub_三级体系'  # 统一 DataHub 根（原指向外汇掉期点旧副本）
+EDB_ROOT = _HUB_ROOT  # 统一 DataHub 根（原指向外汇掉期点旧副本）
 EDB_AVAILABLE = False
 try:
     if EDB_ROOT not in sys.path:
@@ -1644,7 +1673,7 @@ def send_omo_alert_email(omo_data, alert_reason, percentile, overnight_ops, hist
     smtp_server = 'smtp.163.com'
     smtp_port = 465
     sender = 'songshang951@163.com'
-    password = 'TBmy7DAsj9aNJdxb'
+    password = _smtp_password()
     sender_name = '环流日报告警'
     receiver = '410119229@qq.com'
     

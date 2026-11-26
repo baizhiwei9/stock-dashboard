@@ -33,6 +33,39 @@ import glob
 import re
 from datetime import datetime
 
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import (  # noqa: E402
+    feishu_webhook as _feishu_webhook,
+    smtp_password as _smtp_password,
+    tushare_token as _tushare_token,
+)
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+
+_HUB_ROOT = _hub_root_path()
+
+
 # ===================== 路径配置 =====================
 BASE = '/Coze/Drive/蓁宝/所有对话/主对话'
 def _latest_trade_date():
@@ -72,12 +105,12 @@ PEG_SCRIPT     = os.path.join(MAD_DIR, 'src/peg_filter.py')
 
 TUSHARE_TOKEN = os.environ.get(
     'COZE_TUSHARE_TOKEN_7649020808588689460',
-    'a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265'
+    _tushare_token()
 )
 
 # ── DataHub 统一数据入口（禁止直连 tushare/akshare 取数） ──
 _HUB_PATHS = [
-    '/opt/coze/.fuse_drive/dataHub_三级体系',
+    _HUB_ROOT,
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
         os.path.dirname(os.path.abspath(__file__))))), 'codeact', 'scripts'),
 ]

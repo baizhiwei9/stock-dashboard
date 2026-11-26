@@ -1,10 +1,10 @@
 {
-  "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/6d34534a-af18-48ba-be77-a30c524734a8",
+  "feishu_webhook": "",
   "email": {
     "smtp_server": "smtp.163.com",
     "smtp_port": 465,
     "sender": "songshang951@163.com",
-    "password": "TBmy7DAsj9aNJdxb",
+    "password": "",
     "receiver": "410119229@qq.com"
   },
   "thresholds": {

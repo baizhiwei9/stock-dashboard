@@ -14,6 +14,21 @@ from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import sys as _sys
 import tushare as ts
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+
+_HUB_ROOT = _hub_root_path()
+
 
 # === 配置 ===
 # OUTPUT_DIR 使用绝对路径（基于脚本所在目录），确保从任何工作目录运行都一致
@@ -22,7 +37,7 @@ OUTPUT_DIR = SCRIPT_DIR  # 输出目录 = 脚本所在目录
 REPORT_PREFIX = 'TOP200概念汇总'
 
 # 使用 data_hub 统一的 Tushare 配置（代理优先，自动降级）
-_sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts')
+_sys.path.insert(0, _HUB_ROOT)
 from data_hub.tushare_config import get_tushare_pro, is_tushare_dead
 pro = get_tushare_pro()
 

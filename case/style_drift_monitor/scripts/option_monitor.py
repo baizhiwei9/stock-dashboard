@@ -71,7 +71,21 @@ except Exception:
 
 # tushare
 import tushare as ts
-TS_TOKEN = "a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265"
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import tushare_token as _tushare_token, smtp_password as _smtp_password  # noqa: E402
+
+TS_TOKEN = _tushare_token()
 ts.set_token(TS_TOKEN)
 pro = ts.pro_api()
 

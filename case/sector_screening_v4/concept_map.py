@@ -21,8 +21,23 @@ import pickle
 from datetime import datetime, timedelta
 
 import pandas as pd
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
 
-DATA_HUB_PATH = '/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts'
+_HUB_ROOT = _hub_root_path()
+
+
+DATA_HUB_PATH = _HUB_ROOT
 sys.path.insert(0, DATA_HUB_PATH)
 
 BASE = '/Coze/Drive/蓁宝/所有对话/主对话'

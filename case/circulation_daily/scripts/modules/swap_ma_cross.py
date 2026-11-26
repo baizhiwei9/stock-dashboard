@@ -44,7 +44,21 @@ MIN_GAP = 3      # 两次确认交叉的最小间隔（交易日）
 SMTP_SERVER = 'smtp.163.com'
 SMTP_PORT = 465
 MAIL_SENDER = 'songshang951@163.com'
-MAIL_PASSWORD = 'TBmy7DAsj9aNJdxb'
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import tushare_token as _tushare_token, smtp_password as _smtp_password  # noqa: E402
+
+MAIL_PASSWORD = _smtp_password()
 MAIL_RECEIVER = '410119229@qq.com'
 MAIL_SENDER_NAME = '环流日报·掉期均线'
 

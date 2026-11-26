@@ -33,6 +33,21 @@ import sys
 import time
 from datetime import datetime, timedelta
 import warnings
+# DataHub 根（唯一口径见 case/_lib/hub_root.py，与 datahub_path.py 一致）
+def _hub_root_path(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            if _lib not in sys.path:
+                sys.path.insert(0, _lib)
+            from hub_root import hub_root
+            return hub_root(_d)
+        _d = os.path.dirname(_d)
+    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+
+_HUB_ROOT = _hub_root_path()
+
 warnings.filterwarnings('ignore')
 
 try:
@@ -43,7 +58,7 @@ except:
 # ============================================================
 # data_hub 路径设置
 # ============================================================
-DATA_HUB_PATH = os.path.expanduser('/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts')
+DATA_HUB_PATH = os.path.expanduser(_HUB_ROOT)
 if DATA_HUB_PATH not in sys.path:
     sys.path.insert(0, DATA_HUB_PATH)
 

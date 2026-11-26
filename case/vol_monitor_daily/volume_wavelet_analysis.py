@@ -23,6 +23,24 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.patches import FancyBboxPatch
 
+def _hub_lib_dir(_f=__file__):
+    _d = os.path.dirname(os.path.abspath(_f))
+    for _ in range(6):
+        _lib = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_lib, "hub_root.py")):
+            return _lib
+        _d = os.path.dirname(_d)
+    return ""
+
+_HUB_LIB_DIR = _hub_lib_dir()
+if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
+    sys.path.insert(0, _HUB_LIB_DIR)
+from hub_root import (  # noqa: E402
+    feishu_webhook as _feishu_webhook,
+    smtp_password as _smtp_password,
+    tushare_token as _tushare_token,
+)
+
 # ──────────────────────────── 配置 ────────────────────────────
 
 # 中文字体
@@ -641,7 +659,7 @@ def _check_and_send_alert(low_freq, mid_freq, high_freq, close_prices, end_str, 
         smtp_host = "smtp.163.com"
         smtp_port = 465
         smtp_user = "songshang951@163.com"
-        smtp_pass = "TBmy7DAsj9aNJdxb"
+        smtp_pass = _smtp_password()
         to_addr = os.environ.get("VOL_ALERT_EMAIL", "410119229@qq.com")
 
         recent_low_avg = np.mean(low_freq[recent]) / 1e8
