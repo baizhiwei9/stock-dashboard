@@ -32,10 +32,11 @@ vi options_utility/config/private.py
 mkdir -p ~/.config/ima
 scp <原机>:~/.config/ima/{api_key,client_id} ~/.config/ima/ && chmod 600 ~/.config/ima/*
 
-# ④ 生成调度配置（见 §3）
+# ④ 调度配置（见 §3）
 cd /opt/data/stock-dashboard
-cp modules.example.json modules.json
-# 把里面的 {{DATAHUB_ROOT}} {{REPO_ROOT}} {{WORKSPACE_A}} 等替换成本机真实路径
+# modules.json 已入库，clone 下来就有，不需要复制/改任何路径
+python3 datahub_path.py            # 确认 DataHub 解析到哪
+python3 -c "import json;d=json.load(open('modules.json'));print('模块数',len(d['modules']))"
 
 # ⑤ 自检
 python3 case/_lib/paths.py
@@ -189,44 +190,85 @@ $LARKSUITE_CLI_CONFIG_DIR/
 
 ## 3. 调度配置 `modules.json`
 
-`modules.json` **故意不入库**（`.gitignore:36-40`）—— 它描述的是「这台机器怎么跑」，含本机绝对路径。
-仓库里只有 `modules.example.json` 模板。
+**`modules.json` 现在入库了。** clone 下来就有，新机器不需要复制、不需要改路径。
 
-16 个模块，`cwd` 全部是占位符：
+为什么能入库：文件里的 `cwd` / `cmd` 已全部改成占位符，**一个本机绝对路径都没有**。
+`datahub_path.expand_root()` 在 scheduler 拉起任务时才展开成本机真实路径。
 
-| 占位符 | 含义 |
-|---|---|
-| `{{DATAHUB_ROOT}}` | datahub-multi-tier 绝对路径 |
-| `{{REPO_ROOT}}` | stock-dashboard 绝对路径 |
-| `{{WORKSPACE_A}}` | 跑 `risk_v52` / `vol_surface_vix` 的目录（见 §5） |
-| `{{WORKSPACE_B}}` | 跑 `five_strategy` / `factor_daily` / `limit_up_*` 的目录 |
-| `{{FEISHU_CLI_DIR}}` | lark-cli 配置目录 |
-| `{{FEISHU_CHAT_ID}}` | 推送目标群 chat_id |
-| `{{ALERT_EMAIL}}` | alert 级通知收件邮箱 |
+| 占位符 | 展开成什么 | 谁提供 |
+|---|---|---|
+| `{{DATAHUB_ROOT}}` | `datahub-multi-tier` 绝对路径 | `DATA_HUB_PATH` / `DATAHUB_DIR` / `EDB_REPO`，或同级 clone |
+| `{{REPO_ROOT}}` | `stock-dashboard` 绝对路径 | 本文件所在目录，自动 |
+| `{{FEISHU_CLI_DIR}}` | `lark-cli` 配置目录 | `LARKSUITE_CLI_CONFIG_DIR` → `<repo>/.feishu_cli` → `~/.feishu_cli` → Coze 平台默认位置，取第一个非空目录 |
+
+也就是说：**新机器只要 `datahub-multi-tier` 跟 `stock-dashboard` 是同级目录**，
+12 个 producer 一条命令就能跑，`modules.json` 一个字都不用改。
+
+12 个模块（生产实况，全部 `enabled: true`）：
+
+| key | 时间 | 干什么 |
+|---|---|---|
+| `macro` | 21:00 | 宏观与美元环流 |
+| `liquidity` | 21:20 | 流动性与两融 |
+| `rmt` | 22:10 | RMT 随机矩阵 |
+| `chanlun` | 22:25 | 缠论结构 + 趋势动量 |
+| `dfa` | 22:28 | DFA / Hurst |
+| `option` | 18:10 | 期权定价 IV/偏度/PCR/VIX |
+| `bond` | 18:40 | 债券与理财 |
+| `risk` | 21:50 | 风险与机会标签 |
+| `task_tags` | 22:20 | 任务结论转录 |
+| `task_tags_notify` | 22:35 | 任务标签汇总推送（飞书 + 邮件） |
+| `tech_snapshot` | 22:37 | 指标仓云盘快照 |
+| `build` | 22:40 | 看板构建发布 |
+
+> `tech_snapshot` / `build` 带 `not_before == at`：它们要等前面 10 个 producer 落完数
+> 才能跑，早跑会构建出半截数据的看板。
+
+### 3.1 私有模块不在这个文件里
+
+`risk_v52`（风险日报 v5.2）和 `vol_surface_vix`（波动率曲面）**已经迁进 `precious-task` 仓**
+的 `case/risk_v52/` 和 `case/vol_surface_vix/`，各自带 `task.json` / `pipeline.py` /
+`trading_day_check.py`，代码完整入库。它们**不写在本文件的 `modules.json` 里**：
+
+- 写在这里会和 `precious-task/case/` 的同名任务撞 key，而 `all_modules()` 是
+  **内置优先**——内置那条赢，`case/` 那条被屏蔽，结果就是跑了一个没人维护的旧路径
+- 私有任务统一靠 `SD_CASE_EXTRA_DIRS=../precious-task/case` 挂载（`start_all.sh` 自动认同级目录）
+
+这两条在 `task.json` 里默认 `enabled: false`，需要时单独打开：
 
 ```bash
-cp modules.example.json modules.json
+cd ../precious-task
 python3 - <<'PY'
-import json, os
-p = "modules.json"
-s = open(p, encoding="utf-8").read()
-for k, v in {
-    "{{DATAHUB_ROOT}}":  "/opt/data/datahub-multi-tier",
-    "{{REPO_ROOT}}":     "/opt/data/stock-dashboard",
-    "{{WORKSPACE_A}}":   "/opt/data/workspace-a",
-    "{{WORKSPACE_B}}":   "/opt/data/workspace-b",
-    "{{FEISHU_CLI_DIR}}":"/root/.config/lark-cli",
-    "{{FEISHU_CHAT_ID}}":"",
-    "{{ALERT_EMAIL}}":   "",
-}.items():
-    s = s.replace(k, v)
-open(p, "w", encoding="utf-8").write(s)
-json.load(open(p))
-print("modules.json 生成完成")
+import json
+for k in ("risk_v52", "vol_surface_vix"):
+    p = "case/%s/task.json" % k
+    d = json.load(open(p, encoding="utf-8"))
+    d["enabled"] = True
+    json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 PY
 ```
 
-然后按需删掉本机不跑的模块条目，`enabled: false` 也可以。
+打开前先按各自 `task.json` 里的 `migrate_note` 验一次（都是 `--no-send` 干跑，不推送）：
+
+```bash
+cd case/risk_v52        && python3 daily_risk_report.py --no-send
+cd case/vol_surface_vix && python3 vol_surface_runner.py --no-send
+```
+
+### 3.2 要改时间/加任务怎么办
+
+直接改 `modules.json` 并提交。`scheduler.py` 每 30s 重扫一次，改完自动生效，不用重启。
+`enabled: false` 的任务既不会被定时拉起，也不会被 `/api/run_all` 手动跑起来。
+
+两处**不是占位符、需要按人改**的值在 `task_tags_notify` 的 `cmd` 里：
+飞书群 `--chat oc_...` 和告警邮箱 `--to ...@qq.com`。它们是「通知对象」，不是凭据
+（没有 `app_secret` 也用不了），所以直接写在文件里；换人用就改这两处。
+
+### 3.3 老机器的 `modules.json` 怎么处理
+
+老机器那份里全是 `/opt/coze/.fuse_drive/...` 之类的绝对路径，**不要搬**。
+真要参考，用 `SD_MODULES_FROM=/旧机/modules.json ./start_all.sh up` 导进来，
+然后 `./start_all.sh doctor` 会把「绝对 cwd 在本机不存在」的模块列出来。
 
 ---
 
@@ -262,14 +304,16 @@ PY
 | 依赖 | 原机位置 | 谁在用 | 缺失后果 |
 |---|---|---|---|
 | **成长股选股器** | `<主对话>/成长股选股器/scripts/growth_screener_dual.py` | `case/sector_screening_v4/_run_growth.py` | 板块筛选 v4 的成长股部分跳过；已改为**明确报错**而非静默崩 |
-| **DailyPredict** | `<workspace_a>/DailyPredict/daily_risk_report.py` | `modules.json` 的 `risk_v52` | 风险日报 v52 不出 |
-| **vol_surface_runner.py** | `<workspace_a>/vol_surface_runner.py` | `modules.json` 的 `vol_surface_vix` | 波动率曲面不出 |
 | **IMA skill（`ima-knowledge-base/`）** | `/Coze/Drive/飞书_cli/skill-drafts/ima-knowledge-base/` | `case/tugou_archive`（上传知识库） | 土狗归档抓完正文也传不上去，日志报 `IMA_API_SCRIPT` 不存在 |
 | **lark-cli 登录态** | `/app/data/所有对话/主对话/.feishu_cli/` | `case/tugou_archive/run_daily.sh` 预检 | 预检失败，直接告警退出 |
 
+> `DailyPredict`（risk_v52）和 `vol_surface_runner.py`（vol_surface_vix）**已不在这个表里** ——
+> 它们 2026-11-25 已整体迁进 `precious-task` 仓的 `case/`，代码、`pipeline.py`、
+> `trading_day_check.py` 全部入库，不再依赖 `<workspace_a>`。详见 §3.1。
+
 解决方式：
 - 优先：把这几块也迁进仓库（后续单独提 PR）
-- 临时：拷到新机器，用 `GROWTH_SCREENER_DIR` / `{{WORKSPACE_A}}` / `CASE_DRIVE_ROOT` / `CASE_APP_DATA` 指过去
+- 临时：拷到新机器，用 `GROWTH_SCREENER_DIR` / `CASE_DRIVE_ROOT` / `CASE_APP_DATA` 指过去
 
 IMA skill 与飞书 CLI 登录态的搬法（原机 → 新机）：
 
@@ -457,7 +501,7 @@ done
 | 期权算法 | 本机/云盘各一份 `datahub-multi-tier/options/`（未跟踪） | 用公开仓 **`options_utility`**（同级 clone）；`case/options_*` 只放薄包装，不复制算法 |
 | IMA skill | 云盘 `/Coze/Drive/飞书_cli/skill-drafts/ima-knowledge-base/` | 不在任何仓库，需单独搬（§5）；可用 `CASE_DRIVE_ROOT` 重定向 |
 | 飞书 CLI 登录态 | `/app/data/所有对话/主对话/.feishu_cli/` | 不在任何仓库，需单独搬（§2.3）；可用 `CASE_APP_DATA` 重定向 |
-| `modules.json` | 本机手写 | 从 `modules.example.json` 生成 |
+| `modules.json` | 本机手写、含绝对路径、不入库 | **入库**，`cwd`/`cmd` 全占位符，换机器不用改 |
 | 云盘兜底 | 框架层曾按云盘兜底 | 框架层已删兜底：解析不到就报错；case 脚本的旧根字面量走 `_cp()` 重定向 |
 
 **注意**：框架层（`datahub_path.py` / `hub_root.py` / 启动脚本）的云盘兜底已删除，

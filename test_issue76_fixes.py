@@ -182,7 +182,7 @@ def test_manager_toggle_writes_modules_json():
 
     tmp = tempfile.mkdtemp()
     cfp = os.path.join(tmp, "modules.json")
-    shutil.copy(os.path.join(HERE, "modules.example.json"), cfp)
+    shutil.copy(os.path.join(HERE, "modules.json"), cfp)
     orig = manager.CFG
     manager.CFG = cfp
     try:

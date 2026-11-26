@@ -522,7 +522,7 @@ def _save_cfg_alerts():
 def all_modules(force=False):
     """内置 modules.json + 外部注册 registry.json + case 任务。key 唯一，内置优先。
 
-    cwd/cmd 里的 {{DATAHUB_ROOT}} 在这里展开：modules.example.json 用占位而不是
+    cwd/cmd 里的 {{DATAHUB_ROOT}} 在这里展开：modules.json 用占位而不是
     本机绝对路径，任务 cmd 里的 PYTHONPATH 与 sd_watchdog.sh / 各入口用的是同一个
     DataHub 根，不会出现「看门狗认为 datahub 在、子进程 import 失败」。
 

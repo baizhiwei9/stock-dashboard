@@ -312,7 +312,7 @@ def _upgrade_local_secrets():
     """
     cfg_path = os.path.join(_HERE, "modules.json")
     if not os.path.exists(cfg_path):
-        print("\n没有 modules.json，跳过（新机器先复制 modules.example.json）")
+        print("\n没有 modules.json，跳过（该文件已入库，缺失时 git checkout -- modules.json 恢复）")
         return
     try:
         with open(cfg_path, encoding="utf-8") as fh:

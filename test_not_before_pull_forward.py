@@ -90,8 +90,8 @@ def test_not_before_later_than_at_also_blocks():
 
 
 def test_example_json_dependency_tasks_have_not_before_eq_at():
-    """modules.example.json 里「等全部 producer」的任务必须 not_before == at。"""
-    p = os.path.join(HERE, "modules.example.json")
+    """modules.json 里「等全部 producer」的任务必须 not_before == at。"""
+    p = os.path.join(HERE, "modules.json")
     if not os.path.isfile(p):
         return
     d = json.load(open(p))
