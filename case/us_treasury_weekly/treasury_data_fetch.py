@@ -48,6 +48,12 @@ from datetime import date, datetime, timedelta
 import pandas as pd
 import requests
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+from edb_paths import edb_db_path as _resolve_edb_db  # noqa: E402
+
+
 # ---------------- 配置 ----------------
 FISCAL_BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 H41_ARCHIVE = "https://www.federalreserve.gov/releases/h41/{ymd}/h41.htm"
@@ -422,47 +428,12 @@ def _treasury_yield_2y():
     raise RuntimeError("Treasury.gov 收益率页无有效 2Y 观测")
 
 
-def _unified_db_path():
-    """DataHub 统一库路径（2026-11-26 起 EDB 各表并入这里）。
-
-    认法与 data_hub.core.dbpath 一致：DB_PATH → DB_Path → DATAHUB_DB_PATH →
-    默认 ~/.local/share/datahub/datahub.db；值是目录时自动拼 datahub.db。
-    """
-    for key in ("DB_PATH", "DB_Path", "DATAHUB_DB_PATH"):
-        raw = (os.environ.get(key) or "").strip()
-        if not raw:
-            continue
-        p = os.path.expanduser(raw)
-        if os.path.isdir(p):
-            p = os.path.join(p, "datahub.db")
-        if os.path.exists(p):
-            return p
-    default = os.path.join(os.path.expanduser("~"), ".local", "share",
-                           "datahub", "datahub.db")
-    return default if os.path.exists(default) else None
-
-
 def _edb_db_path():
-    """定位 data_hub EDB 库（统一接口；多路径探测，兼容换机/换挂载）。"""
-    # 统一库优先：旧 edb.sqlite3 已不再写入、但文件一直存在，
-    # 继续优先读它只会拿到冻结数据（且不会触发任何兜底）。
-    unified = _unified_db_path()
-    if unified:
-        return unified
-    env = (os.environ.get("EDB_REPO") or "").strip()
-    cands = []
-    if env:
-        cands.append(env)
-    cands += [
-        "/opt/coze/.fuse_drive/dataHub_三级体系",
-        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__)))), "dataHub_三级体系"),
-    ]
-    for repo in cands:
-        p = os.path.join(repo, "data_hub", "edb", "data", "edb.sqlite3")
-        if os.path.exists(p):
-            return p
-    return None
+    """EDB 现用库：统一库（校验过 edb_points）优先，否则旧 edb.sqlite3。
+
+    解析与回退顺序都收敛在 :mod:`edb_paths`（两个 case 脚本共用一份）。
+    """
+    return _resolve_edb_db()
 
 
 def _edb_latest(series_id, db=None):
