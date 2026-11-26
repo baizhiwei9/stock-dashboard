@@ -27,12 +27,12 @@
 | 3 | `unified_screener` | 多头排列选股 | 多头排列选股 | 工作日 15:30 | `unified_screener.py` | 28 | 301 KB | `False` |
 | 4 | `sector_screening_v4` | 板块筛选v4 | 板块筛选v4 | 工作日 16:00 | `板块筛选v4_fast.py` | 43 | 453 KB | `False` |
 | 5 | `risk_release_monitor` | 风险释放监控 | 风险释放监控 | 工作日 17:00 | `risk_release_monitor.py` | 2 | 41 KB | `False` |
-| 6 | `risk_forecast_daily` | 风险预测·日终 | 风险预测·日终 | 工作日 20:50 | `risk_forecast_daily.py` | 46 | 1624 KB | `False` |
+| 6 | `risk_forecast_daily` | 风险预测·日终 | 风险预测·日终 / **风险预测·午间** | 工作日 20:50 + 12:30 | `risk_forecast_daily.py` | 46 | 1624 KB | `False` ⚠️ 一个脚本两条 cron，**必须同切** |
 | 7 | `liquidity_risk_monitor` | 流动性风险监控 | 流动性风险监控 | 工作日 19:00 | `liquidity_risk_monitor.py` | 46 | 1624 KB | `False` |
 | 8 | `merged_analysis` | 合并分析 | 合并分析 | 工作日 19:10 | `merged_analysis.py` | 2 | 10 KB | `False` |
 | 9 | `top200_concept` | 涨幅Top200概念 | 涨幅Top200概念 | 周二/周四 20:00 | `top200_concept_report.py` | 72 | 2751 KB | `False` |
 | 10 | `concept_tracker_top20` | 热点概念Top20 | 热点概念Top20 | 周一 08:00 | `concept_tracker_top20.py` | 5 | 36 KB | `False` |
-| 11 | `bond_four_factor` | 国债期货四因子 | 国债期货四因子 | 周六 07:00 | `main.py` | 5 | 62 KB | `False` |
+| 11 | `bond_four_factor` | 国债期货四因子 | 国债期货四因子 | 周六 07:00 | `main.py` | 5 | 62 KB | `False` ⚠️ 调 LLM，**不纳入切换** |
 | 12 | `cycle_monitor` | 库存信贷周期 | 库存信贷周期 | 每月 28 日 20:00 | `cycle_monitor.py` | 10 | 366 KB | `False` |
 | 13 | `oil_monitor` | 油价月报 | 油价月报 | 每月 1 日 20:00 | `oil_monitor.py` | 2 | 35 KB | `False` |
 | 14 | `style_drift_monitor` | 风格漂移监控 | 风格漂移监控 | 工作日 19:20 | `style_drift_monitor.py` | 46 | 1624 KB | `False` |
@@ -105,6 +105,30 @@ bash scripts/switch_crontab.sh --revert     # 回滚：置 enabled=false + 恢�
 - 切换是原子的：**开 scheduler 任务和删 crontab 行在同一次执行内完成**，不会出现双跑或停摆
 
 当前状态：**21 个任务全部 `enabled: false`**，crontab 一行未动。dry-run 实测命中 21 行、移除后 crontab 由 189 行降至 168 行。
+
+## 六点五、不纳入切换的 1 条：`bond_four_factor`
+
+`case/bond_four_factor/` 代码留在库里，但**不进 `scripts/switch_crontab.sh` 的切换清单**。
+
+原因：它确实调大模型。`main.py:31` 会 `from llm_utils import llm_analyze`，
+`llm_utils.py:50` 打 `api.deepseek.com/v1/chat/completions`。
+按「消耗大模型的不用管」的边界，这条继续走原 crontab（周六 07:00）。
+
+因此切换清单是 **20 个 key / 21 条 cron**（`risk_forecast_daily` 一个 key 对两条 cron）。
+
+**该目录原本还有一个安全问题已在本批修掉**：
+`llm_utils.py:16` 曾写死明文 DeepSeek API key。现已改为读
+`DEEPSEEK_API_KEY` 环境变量，回退 `~/.config/stock-dashboard/secrets.json` 的
+`deepseek.api_key`（走 `case/_lib/app_secrets` 统一解析）；无 key 时打印一行提示并跳过
+LLM，只出规则结果，不再带着空 Bearer 去打接口。
+
+> ⚠️ 该 key 已经进过 git 历史，**必须去 DeepSeek 后台轮换**，
+> 然后用 `python3 case/_lib/app_secrets.py set deepseek.api_key <新key>` 写入本机。
+
+另外 `case/hurst_daily/.tmp/trunc/` 里曾误带一份含同一 key 的调试日志入库，
+已删除并在 `.gitignore` 补 `case/*/.tmp/`。
+
+---
 
 ## 七、还差什么
 

@@ -24,7 +24,7 @@ mkdir -p "$BAK_DIR"
 KEYS=(
   midline_preference circulation_daily unified_screener sector_screening_v4
   risk_release_monitor risk_forecast_daily liquidity_risk_monitor merged_analysis
-  top200_concept concept_tracker_top20 bond_four_factor cycle_monitor oil_monitor
+  top200_concept concept_tracker_top20 cycle_monitor oil_monitor
   style_drift_monitor vol_monitor_daily credit_spread_weekly margin_season_weekly
   hurst_daily tugou_archive weekly_stock_monitor tech_consensus_daily
 )
@@ -32,8 +32,8 @@ KEYS=(
 # crontab 里 --name "xxx" 的 xxx（与 KEYS 一一对应，顺序无关）
 NAMES=(
   "中线偏好监控" "环流日报" "多头排列选股" "板块筛选v4" "风险释放监控"
-  "风险预测·日终" "流动性风险监控" "合并分析" "涨幅Top200概念" "热点概念Top20"
-  "国债期货四因子" "库存信贷周期" "油价月报" "风格漂移监控" "股指波动率监控"
+  "风险预测·日终" "风险预测·午间" "流动性风险监控" "合并分析" "涨幅Top200概念" "热点概念Top20"
+  "库存信贷周期" "油价月报" "风格漂移监控" "股指波动率监控"
   "信用利差周报" "两融季节同比(周五)" "Hurst指数" "土狗归档" "自选股周报"
   "科技共识日报"
 )

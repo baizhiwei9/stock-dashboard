@@ -13,9 +13,27 @@ except ImportError:
     import requests
 
 # DeepSeek API配置
-DEEPSEEK_API_KEY = "sk-88da5344e3ba4f318346bafc5d687579"
-DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
-DEEPSEEK_MODEL = "deepseek-v4-flash"
+# 密钥不进仓库：优先环境变量 DEEPSEEK_API_KEY，回退 ~/.config/stock-dashboard/secrets.json
+# 的 deepseek.api_key（由 case/_lib/app_secrets 统一解析，含 5 级查找链）。
+def _load_deepseek_key() -> str:
+    key = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
+    if key:
+        return key
+    try:
+        import sys as _sys
+        import pathlib as _pathlib
+        _lib = _pathlib.Path(__file__).resolve().parents[1] / "_lib"
+        if str(_lib) not in _sys.path:
+            _sys.path.insert(0, str(_lib))
+        import app_secrets as _secrets
+        return (_secrets.get("deepseek.api_key", "") or "").strip()
+    except Exception:
+        return ""
+
+
+DEEPSEEK_API_KEY = _load_deepseek_key()
+DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 def llm_analyze(system_prompt: str, user_content: str, max_tokens: int = 2000) -> str:
     """
@@ -29,6 +47,11 @@ def llm_analyze(system_prompt: str, user_content: str, max_tokens: int = 2000) -
     Returns:
         LLM分析结果文本
     """
+    if not DEEPSEEK_API_KEY:
+        print("  [LLM] 未配置密钥（DEEPSEEK_API_KEY 环境变量或 secrets.json 的 "
+              "deepseek.api_key），跳过 LLM 分析，仅输出规则结果")
+        return ""
+
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
         "Content-Type": "application/json"
