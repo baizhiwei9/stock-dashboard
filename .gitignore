@@ -18,6 +18,19 @@ registry.json
 # 属于本机数据，不是代码。仓库里一个都不放（git ls-files 应查不到 /data/ /out/）。
 case/*/data/
 case/*/out/
+# case 跨任务共用目录里的运行产物（_shared 下只有代码入库）
+case/_shared/reports/*
+!case/_shared/reports/.gitkeep
+case/_shared/limit_up_predictor/output/*
+!case/_shared/limit_up_predictor/output/.gitkeep
+# 模型与行业映射是任务运行必需的数据（不是每日产出），必须入库
+!case/_shared/limit_up_predictor/output/stacking_model_latest.pkl
+!case/_shared/limit_up_predictor/output/sw_l3_industry_map_v2.json
+case/_shared/limit_up_predictor/catboost_info/
+# 任务自己的历史报告与运行日志（每日新增，属本机数据）；
+# 只忽略目录内容 —— 任务目录里的 daily_reports 符号链接要入库
+case/*/daily_reports/*
+case/*/logs/
 
 # ===== 本地安装配置（不入库）=====
 # modules.json 是「这台机器怎么跑」的配置：含本机绝对路径、端口、要启用的模块，

@@ -1,0 +1,26 @@
+{
+  "key": "five_strategy",
+  "title": "五策略综合日报",
+  "desc": "XGBoost / TCN / TxDIF / 缠论 / LSTM+XGBoost 五算法对宽基与国债期货的涨跌共识，产出 five_strategy_*.json；22:20 由 task_tags 转录成带标签指标",
+  "section": "stock",
+  "visibility": "public",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "08:30",
+    "weekdays": [1, 2, 3, 4, 5]
+  },
+  "cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u daily_report.py",
+  "cwd": ".",
+  "timeout": 3900,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "requires": ["datahub"],
+  "entry": "daily_report.py",
+  "legacy_cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 python3 -u strategies/daily_report.py",
+  "imported_from": "modules.json（2026-11-26 迁入 case）",
+  "import_note": "发送内嵌（B 类一体式）；报告落本目录 daily_reports/，task_tags 已同步改为优先读这里"
+}
