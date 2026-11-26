@@ -1,0 +1,55 @@
+{
+  "key": "wide_t1",
+  "title": "宽基 T+1 双轨预测",
+  "desc": "五只宽基的缠论中枢状态 + AC 闸门 + 低波口径，给出下一交易日多空方向与历史校准信心度",
+  "section": "stock",
+  "section_domain": "",
+  "visibility": "public",
+  "metrics": [
+    {"key": "wd.t1.signal", "sec": "000300.SH", "name": "沪深300 T+1 方向", "dec": 0},
+    {"key": "wd.t1.ac_gate", "sec": "000300.SH", "name": "沪深300 AC 闸门", "dec": 0},
+    {"key": "wd.t1.conviction", "sec": "000300.SH", "name": "沪深300 T+1 信心度", "dec": 1},
+    {"key": "wd.t1.signal", "sec": "000905.SH", "name": "中证500 T+1 方向", "dec": 0},
+    {"key": "wd.t1.ac_gate", "sec": "000905.SH", "name": "中证500 AC 闸门", "dec": 0},
+    {"key": "wd.t1.conviction", "sec": "000905.SH", "name": "中证500 T+1 信心度", "dec": 1},
+    {"key": "wd.t1.signal", "sec": "000852.SH", "name": "中证1000 T+1 方向", "dec": 0},
+    {"key": "wd.t1.ac_gate", "sec": "000852.SH", "name": "中证1000 AC 闸门", "dec": 0},
+    {"key": "wd.t1.conviction", "sec": "000852.SH", "name": "中证1000 T+1 信心度", "dec": 1},
+    {"key": "wd.t1.signal", "sec": "000688.SH", "name": "科创50 T+1 方向", "dec": 0},
+    {"key": "wd.t1.ac_gate", "sec": "000688.SH", "name": "科创50 AC 闸门", "dec": 0},
+    {"key": "wd.t1.conviction", "sec": "000688.SH", "name": "科创50 T+1 信心度", "dec": 1},
+    {"key": "wd.t1.signal", "sec": "399006.SZ", "name": "创业板指 T+1 方向", "dec": 0},
+    {"key": "wd.t1.ac_gate", "sec": "399006.SZ", "name": "创业板指 AC 闸门", "dec": 0},
+    {"key": "wd.t1.conviction", "sec": "399006.SZ", "name": "创业板指 T+1 信心度", "dec": 1}
+  ],
+  "sched": {
+    "mode": "daily",
+    "at": "08:30",
+    "weekdays": [1, 2, 3, 4, 5]
+  },
+  "cmd": "python3 -u pipeline.py",
+  "cwd": ".",
+  "timeout": 3600,
+  "enabled": false,
+  "needs_llm": false,
+  "deliver": {"report": true, "email": false},
+  "pipeline": {
+    "on_fail": "stop",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.5,
+    "require_data": true,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "data": ["data/gate.json", "data/stage_*.json", "data/today_dual_raw.json"],
+      "report": ["out/report.md"]
+    },
+    "stages": [
+      {"name": "fetch", "hook": true, "timeout": 900},
+      {"name": "check", "builtin": "artifacts"},
+      {"name": "render", "hook": true, "timeout": 2400},
+      {"name": "emit", "hook": true, "builtin": "emit"},
+      {"name": "dispatch", "hook": true, "timeout": 900, "optional": true}
+    ]
+  }
+}
