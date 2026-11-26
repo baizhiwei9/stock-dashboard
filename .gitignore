@@ -71,3 +71,9 @@ case/*/sim_trade/output/
 # 任务运行期临时产物（截断日志、调试中间文件），含凭据片段，一律不入库
 case/*/.tmp/
 case/**/.tmp/
+
+# 运行态状态文件（换机器必须手工搬，绝不入库；丢了会重复推送）
+case/hurst_daily/hurst_state.db
+case/tugou_archive/archive_state.json
+case/tugou_archive/playwright_state.json
+case/tugou_archive/articles/
