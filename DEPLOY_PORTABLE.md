@@ -270,6 +270,18 @@ cd case/vol_surface_vix && python3 vol_surface_runner.py --no-send
 真要参考，用 `SD_MODULES_FROM=/旧机/modules.json ./start_all.sh up` 导进来，
 然后 `./start_all.sh doctor` 会把「绝对 cwd 在本机不存在」的模块列出来。
 
+**注意一个 git 坑**：`modules.json` 从「gitignore 的本地文件」变成了「入库文件」。
+老机器上那份是未跟踪的，直接 `git pull` 会报
+`error: Untracked working tree file 'modules.json' would be overwritten by merge`。
+先把本地那份挪开再拉：
+
+```bash
+mv modules.json modules.json.local
+git pull
+# 想沿用旧配置（不推荐，里面有旧机绝对路径）：
+SD_MODULES_FROM=modules.json.local ./start_all.sh up
+```
+
 ---
 
 ## 4. 调度：日更/周更走 scheduler，crontab 只留高频
