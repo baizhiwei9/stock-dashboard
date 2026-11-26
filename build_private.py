@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
+import re
 import shutil
 import sys
 from datetime import datetime
@@ -36,6 +38,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import build as B                                            # noqa: E402  复用 CSS / 卡片渲染 / 取数
+import feishu_card_dom as FCD                                # noqa: E402  飞书卡片 → DOM
 
 # task.json 没写 section / section_domain 的任务：不丢，单独归到「未分板块」
 UNSORTED = "unsorted"
@@ -72,6 +75,14 @@ PRIVATE_CSS = """
   margin-top:6px;font-size:11.5px;color:var(--tx3)}
 .shot figcaption b{font-weight:500;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
+
+.excerpt{margin:12px 0 20px;padding:12px 14px;border:1px solid var(--line);
+  border-radius:10px;background:var(--card)}
+.excerpt .ex-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;
+  font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px}
+.excerpt .ex-h span{font-weight:400;font-size:11px;color:var(--tx3)}
+.excerpt ul{margin:0;padding-left:16px}
+.excerpt li{font-size:12px;line-height:1.65;color:var(--tx2)}
 
 .lb{position:fixed;inset:0;z-index:99;background:rgba(4,7,11,.95);
   display:flex;flex-direction:column}
@@ -197,11 +208,51 @@ def _latest_for(ws: List[Dict]) -> Dict:
     return latest
 
 
+def _task_root(w: Dict) -> str:
+    """任务**真实产出目录**：task.json 的 `root`（`{WS}` 展开）优先，退回 case 目录。
+
+    私有仓把 `case/*/out/`、`case/*/data/` 都写进 .gitignore 了 → 仓库里的 case 目录永远没有产物，
+    真正的 out/、报告、配图都在任务运行目录（迁移过来的 `ses_*` 或原工程目录）。
+    只按 case 目录扫，页面上就只剩「暂无指标」和空图区。
+    """
+    d = w.get("dir") or ""
+    if not d or not os.path.isdir(d):
+        return d
+    try:
+        meta = json.load(open(os.path.join(d, "task.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        return d
+    raw = str(meta.get("root") or "")
+    if not raw:
+        return d
+    ws = os.environ.get("CASE_WS")
+    if not ws:                                                   # <WS>/projects/<repo>/case/<key>
+        repo = os.path.dirname(os.path.dirname(os.path.abspath(d)))
+        parent = os.path.dirname(repo)
+        ws = os.path.dirname(parent) if os.path.basename(parent) == "projects" else parent
+    cand = raw.replace("{WS}", ws)
+    return cand if os.path.isdir(cand) else d
+
+
 def _find_images(task_dir: str, limit: int) -> List[Tuple[float, int, str]]:
-    """按修改时间倒序取最近的图；只扫约定的产物目录，不进 __pycache__/thumb。"""
+    """按修改时间倒序取最近的图。
+
+    扫两处：① 约定的产物子目录（IMG_DIRS，递归）；② **任务根目录下的图**（不递归）——
+    不少任务（structural_factor 的太极图、mad_weekly/tda_spd/sector_rotation 的配图）
+    把图直接写在任务目录，只扫 out/ 这类子目录会一张都看不到。
+    不进 __pycache__/thumb。
+    """
     if not task_dir or not os.path.isdir(task_dir):
         return []
     found: List[Tuple[float, int, str]] = []
+    try:
+        for fn in os.listdir(task_dir):                      # ② 根目录这一层
+            fp = os.path.join(task_dir, fn)
+            if os.path.isfile(fp) and fn.lower().endswith(IMG_EXT):
+                stt = os.stat(fp)
+                found.append((stt.st_mtime, stt.st_size, fp))
+    except OSError:
+        pass
     for sub in IMG_DIRS:
         root = os.path.join(task_dir, sub)
         if not os.path.isdir(root):
@@ -284,8 +335,147 @@ def _mirror(key: str, src: str, assets_root: str, page_dir: str) -> Tuple[str, s
     return rel_full, rel_thumb, dim, size
 
 
+CARD_NAMES = ("card.json", "feishu_card.json", "card_payload.json")
+REPORT_NAMES = ("report.md", "latest.md", "summary.md")
+
+
+def _card_html(w: Dict) -> str:
+    """任务发飞书的那张交互式卡片 → 页面 DOM。
+
+    优先 `<root>/out/card.json`（任务侧 dump 的飞书卡片原样），其次 `out/card.md`
+    （卡片转的纯 Markdown 兜底）。同一份卡片，飞书看到的和页面上看到的一致，
+    展示层不用再去猜 report.md 的版式。
+    """
+    root = _task_root(w)
+    if not root:
+        return ""
+    for sub_dir in ("out", ""):
+        base = os.path.join(root, sub_dir) if sub_dir else root
+        if not os.path.isdir(base):
+            continue
+        for name in CARD_NAMES:
+            fp = os.path.join(base, name)
+            if not os.path.isfile(fp):
+                continue
+            try:
+                card = json.load(open(fp, encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            html_card = FCD.card_to_html(card)
+            if html_card:
+                return html_card
+        fp = os.path.join(base, "card.md")
+        if os.path.isfile(fp):
+            try:
+                md = open(fp, encoding="utf-8").read().strip()
+            except OSError:
+                md = ""
+            if md:
+                return '<div class="fc-card"><div class="fc-div">%s</div></div>' % FCD.md_to_html(md)
+    return 
+
+
+SKIP_MD = ("readme.md", "changelog.md", "contract.md", "deploy.md", "install.md",
+           "skill.md", "agents.md")
+REPORT_HINTS = ("report", "summary", "daily", "weekly", "日报", "周报", "晚报", "复盘")
+
+
+def _looks_like_report(low_name: str) -> bool:
+    """根目录的 md 只认约定名（out/ 下的 md 不设限，那里本来就是产物目录）。
+
+    用「名字命中」而不是「含 日报/周报」，否则 `RMT日报DataHub路径加固.md` 这类诊断记录
+    也会被当成报告摘上去（实测踩过）。
+    """
+    return low_name in REPORT_NAMES or low_name.endswith("_report.md") \
+        or low_name.endswith("_daily.md") or low_name.endswith("_weekly.md")
+
+
+def _report_md(w: Dict) -> str:
+    """找任务最近的一份 **报告** Markdown：优先 `out/`，其次任务根目录的约定名。
+
+    只排除 README / CHANGELOG / CONTRACT 这类工程文档，其余 md（含 `*_report.md`）都当报告。
+    """
+    root = _task_root(w)
+    if not root or not os.path.isdir(root):
+        return ""
+    cands: List[Tuple[float, str]] = []
+    for base, allowed in ((os.path.join(root, "out"), None), (root, "report")):
+        if not os.path.isdir(base):
+            continue
+        try:
+            names = os.listdir(base)
+        except OSError:
+            continue
+        for fn in names:
+            low = fn.lower()
+            if not low.endswith(".md") or low in SKIP_MD:
+                continue
+            if allowed == "report" and not _looks_like_report(low):
+                continue
+            fp = os.path.join(base, fn)
+            if not os.path.isfile(fp):
+                continue
+            try:
+                cands.append((os.path.getmtime(fp), fp))
+            except OSError:
+                continue
+    if not cands:
+        return ""
+    # 约定名的报告优先，其次按修改时间
+    cands.sort(key=lambda x: (os.path.basename(x[1]) in REPORT_NAMES, x[0]), reverse=True)
+    return cands[0][1]
+
+
+def _excerpt_items(md_path: str, limit: int = 8) -> List[str]:
+    """从 Markdown 报告里挑「带数字的关键行」：只摘原文，不改写、不补数。
+
+    跳过标题/引用/表格分隔/代码块/图片行；表格行取前几列；每条裁到 110 字，去重后最多 limit 条。
+    """
+    try:
+        text = open(md_path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return []
+    items, seen, in_code = [], set(), False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code or not line:
+            continue
+        if line.startswith(("#", ">", "![")) or set(line) <= set("-|: "):
+            continue
+        if line.startswith("|"):                            # 表格行：取前几列
+            line = " · ".join(c.strip() for c in line.strip("|").split("|")[:4] if c.strip())
+        line = line.lstrip("-*+ ").replace("**", "").replace("`", "")
+        if not re.search(r"\d", line):                      # 只认带数字的行（关键数据）
+            continue
+        if len(line) > 110:
+            line = line[:110].rstrip() + "…"
+        if line in seen:
+            continue
+        seen.add(line)
+        items.append(line)
+        if len(items) >= limit:
+            break
+    return [i for i in items if len(i) >= 4]
+
+
+def _excerpt_html(w: Dict, limit: int = 8) -> str:
+    md = _report_md(w)
+    if not md:
+        return ""
+    items = _excerpt_items(md, limit)
+    if not items:
+        return ""
+    lis = "".join("<li>%s</li>" % html.escape(x) for x in items)
+    return ('<div class="excerpt"><div class="ex-h">%s<span>%s</span></div>'
+            '<ul>%s</ul></div>'
+            % (html.escape("报告关键数据"), html.escape(os.path.basename(md)), lis))
+
+
 def _shots_html(w: Dict, assets_root: str, page_dir: str, limit: int) -> str:
-    imgs = _find_images(w.get("dir") or "", limit)
+    imgs = _find_images(_task_root(w), limit)
     if not imgs:
         return ""
     cells = []
@@ -326,7 +516,9 @@ def _lightbox_html() -> str:
 
 def build_private(out_path: str, with_images: bool = True,
                   max_images: int = 6,
-                  assets: Optional[str] = None) -> str:
+                  assets: Optional[str] = None,
+                  with_report: bool = True,
+                  with_card: bool = True) -> str:
     ws = _workers()
     if not ws:
         print("[build_private] 没有私有任务：确认 CASE_EXTRA_DIRS 指到私有仓的 case/ 这一层",
@@ -344,7 +536,7 @@ def build_private(out_path: str, with_images: bool = True,
     meta = {x["key"]: x for x in (cfg.get("sections") or [])}
     meta.update(EXTRA_SECTIONS)          # 未分板块等只在本页出现的板块
 
-    nav, blocks, n_img = [], [], 0
+    nav, blocks, n_img, n_rep, n_card = [], [], 0, 0, 0
     for sec in SECTION_ORDER:
         items = by_sec.get(sec) or []
         if not items:
@@ -360,6 +552,15 @@ def build_private(out_path: str, with_images: bool = True,
                     n_img += shots.count('class="shot"')
                     cards.append(shots)
             cards.append(B.render_registered_model(w, latest, {})[0])
+            chtml = _card_html(w) if with_card else ""
+            if chtml:
+                n_card += 1
+                cards.append(chtml)
+            if with_report:
+                ex = _excerpt_html(w)
+                if ex:
+                    n_rep += 1
+                    cards.append(ex)
         blocks.append(
             '<div class="sec-wrap" data-sec="p_%s" id="p_%s">'
             '<div class="sec-head"><span class="sec-num">%s</span>'
@@ -379,7 +580,7 @@ def build_private(out_path: str, with_images: bool = True,
         '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         '<title>Private Tasks · 私有任务展示区</title>\n<style>'
-        + B.CSS + PRIVATE_CSS +
+        + B.CSS + PRIVATE_CSS + FCD.CSS +
         '</style>\n</head>\n<body>\n<div class="wrap">\n\n'
         '<header class="top">\n'
         '  <h1>Private Tasks<small>私有任务展示区 · precious-task（与公开看板分开两套页面）</small></h1>\n'
@@ -388,6 +589,8 @@ def build_private(out_path: str, with_images: bool = True,
         '    <div><b>' + str(len(ws)) + '</b><span>私有任务</span></div>\n'
         '    <div><b>' + str(n_with) + '</b><span>带指标</span></div>\n'
         '    <div><b>' + str(n_img) + '</b><span>产出图</span></div>\n'
+        '    <div><b>' + str(n_card) + '</b><span>卡片</span></div>\n'
+        '    <div><b>' + str(n_rep) + '</b><span>报告摘录</span></div>\n'
         '    <div><b><a href="index.html">公开看板 →</a></b><span>另一套页面</span></div>\n'
         '  </div>\n</header>\n\n'
         '<nav class="jump">' +
