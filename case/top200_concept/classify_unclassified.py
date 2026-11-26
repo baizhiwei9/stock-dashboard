@@ -2,7 +2,7 @@
 """TOP200概念分类 - LLM批量分类待分类股票"""
 import json
 import sys
-sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+sys.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
 
 def classify_stocks():
     # 待分类股票列表

@@ -1932,7 +1932,7 @@ def main():
                     print("今天已推送，跳过飞书推送（幂等保护）")
                 else:
                     import sys as _sys
-                    _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+                    _sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
                     from feishu_card_utils import build_style_drift_card
                     from feishu_push import push_card_to_feishu
                     sd_warnings = detect_style_drift_data_missing(summary)
@@ -2058,7 +2058,7 @@ def main():
                     print("今天已推送，跳过飞书推送（幂等保护）")
                 else:
                     import sys as _sys
-                    _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+                    _sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
                     from feishu_card_utils import build_style_drift_card
                     from feishu_push import push_card_to_feishu
                     sd_warnings = detect_style_drift_data_missing(summary)

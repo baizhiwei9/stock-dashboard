@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-SWAP_DB = '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/data/market.db'
+SWAP_DB = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/data/market.db'
 SWAP_DB_ALT = '/opt/coze/.fuse_drive/蓁宝/所有对话/主对话/环流日报/data/market.db'
 
 FAST, SLOW = 5, 10

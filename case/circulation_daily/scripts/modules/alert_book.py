@@ -528,7 +528,7 @@ class AlertBook:
         if self._mailed:
             return True
         try:
-            sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+            sys.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
             from email_sender import send_email as _send
         except Exception as e:
             print(f"  [WARN] 告警邮件模块导入失败: {e}")

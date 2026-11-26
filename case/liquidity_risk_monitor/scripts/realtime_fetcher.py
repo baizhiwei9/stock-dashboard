@@ -2221,7 +2221,7 @@ def _calc_up50_fast_from_history(stock_df, index_name_list):
     # 也尝试绝对路径
     if not os.path.exists(hist_path):
         alt_paths = [
-            '/Coze/Drive/蓁宝/所有对话/主对话/CFC结构因子/historical_factors.json',
+            (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/CFC结构因子/historical_factors.json',
             os.path.join(ROOT_DIR, 'CFC结构因子', 'historical_factors.json'),
         ]
         for p in alt_paths:

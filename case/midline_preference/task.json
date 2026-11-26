@@ -18,7 +18,7 @@
   "cmd": "python3 -u midline_preference_monitor.py",
   "cwd": ".",
   "timeout": 1800,
-  "enabled": false,
+  "enabled": true,
   "deliver": {
     "report": true,
     "email": false

@@ -48,7 +48,7 @@ def _ensure_data_hub_on_path():
         os.environ.get('DATA_HUB_SCRIPTS_DIR', ''),
         os.path.join(SCRIPT_DIR, '..', '..', 'codeact', 'scripts'),
         os.path.join(os.getcwd(), 'codeact', 'scripts'),
-        '/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts',
+        (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/codeact/scripts',
     ]
     for _p in candidates:
         if not _p:

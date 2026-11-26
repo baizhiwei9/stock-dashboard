@@ -65,8 +65,8 @@ SID_TGT_LOW = 'US.FED.TARGET.LOWER'
 # ------------------------------------------------------------------ 取数
 
 # 日报自身累积的掉期历史（circulation_daily 每天写入，250 个观测）
-CACHE_FILE = '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/cache.json'
-DB_PATH = '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/data/market.db'
+CACHE_FILE = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts/cache.json'
+DB_PATH = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/data/market.db'
 
 
 def _e_series(limit: int = 300) -> List[Dict[str, Any]]:

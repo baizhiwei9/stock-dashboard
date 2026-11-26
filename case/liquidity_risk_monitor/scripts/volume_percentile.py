@@ -164,7 +164,7 @@ def main():
         formatted_date = f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:]}"
         
         import sys as _sys
-        _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+        _sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
         from feishu_card_utils import build_volume_percentile_card
         from feishu_push import push_card_to_feishu
         

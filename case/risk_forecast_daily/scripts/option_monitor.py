@@ -32,7 +32,7 @@ def _ensure_data_hub_on_path():
         os.environ.get('DATA_HUB_SCRIPTS_DIR', ''),
         os.path.join(_here, '..', '..', 'codeact', 'scripts'),
         os.path.join(os.getcwd(), 'codeact', 'scripts'),
-        '/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts',
+        (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/codeact/scripts',
     ]
     for _p in candidates:
         if not _p:
@@ -1354,7 +1354,7 @@ def main():
     
     # 飞书推送（交互式卡片）
     import sys as _sys
-    _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+    _sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
     from feishu_card_utils import build_option_monitor_card
     from feishu_push import push_card_to_feishu
     
