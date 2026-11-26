@@ -30,6 +30,25 @@ import hub_root  # noqa: E402
 
 CLOUD = "/opt/coze/.fuse_drive/dataHub_三级体系"
 
+
+def _probe_hub():
+    """本机实际能解析到的 DataHub 根（空串 = 没有）。
+
+    「prologue 能真跑起来」这条只能在**有 DataHub 的机器**上验：新机器没
+    clone datahub-multi-tier、也没设 DATA_HUB_PATH 时，脚本解析出空串是
+    **预期**（框架层已删云盘兜底），不该按 20 个脚本各自失败来报。
+    """
+    try:
+        r = hub_root.hub_root(HERE)
+    except Exception:                                         # noqa: BLE001
+        return ""
+    return r if (r and os.path.isdir(os.path.join(r, "data_hub"))) else ""
+
+
+LOCAL_HUB = _probe_hub()
+NO_HUB_WHY = ("本机没有可用 DataHub（设 DATA_HUB_PATH，或把 datahub-multi-tier "
+              "clone 到本仓库同级）—— 这条用例只在有 DataHub 的机器上有意义")
+
 #: 已收口的脚本。新增同类脚本时加到这里，用例自动覆盖。
 TARGETS = [
     "case/circulation_daily/scripts/circulation_daily.py",
@@ -113,6 +132,8 @@ def test_script_has_no_bare_cloud_literal(rel):
 @pytest.mark.parametrize("rel", TARGETS)
 def test_script_prologue_runs_and_resolves(rel):
     """把脚本里的 prologue 真跑一遍：不能崩，且解析结果不是云盘兜底。"""
+    if not LOCAL_HUB:
+        pytest.skip(NO_HUB_WHY)
     path = os.path.join(HERE, rel)
     src = open(path, encoding="utf-8").read()
     m = re.search(r"# DataHub 根（唯一口径.*?_HUB_ROOT = _hub_root_path\(\)\n", src, re.S)
