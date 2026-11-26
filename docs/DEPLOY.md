@@ -462,6 +462,24 @@ python3 scheduler.py run sector_screening_v4
 bash scripts/switch_crontab.sh --revert
 ```
 
+**`--apply` 自带前置检查，不过就 `exit 3` 中止、一行 crontab 都不动**：
+
+1. 切换清单的 20 个 key，在**当前目录**的 `case/<key>/task.json` 必须都存在。
+   在错的目录跑（比如只有十几个旧 case 的运行目录）会在这里被拦下 ——
+   否则 crontab 删了、scheduler 那边没任务，是**静默停摆**，不报错、不告警，第二天才发现没数据。
+2. 一个 key 对多条 cron 的（`risk_forecast_daily` → 12:30 + 20:50），
+   `task.json` 的 `sched.at` 必须覆盖全部时间点。少一个，切完那条就永远不跑。
+
+dry-run 跑同一套检查，但只警告不中止，方便先看清缺什么。
+所以正确姿势是：**先在目标目录 `bash scripts/switch_crontab.sh` 看 preflight 全绿，再 `--apply`**。
+
+> 上面用 `/srv/monitor/stock-dashboard` 举例，那是部署规范位置。
+> 实际执行前先确认自己就在 scheduler 的工作目录里：
+> ```bash
+> readlink /proc/$(pgrep -f 'scheduler.py' | head -1)/cwd
+> ```
+> 不在的话，preflight 会因为你这边缺 case 而中止 —— 这是保护，不是故障。
+
 `--revert` 做三件事（顺序固定）：
 
 1. 先把**当前** crontab 另存一份 `logs/crontab.<时间戳>.bak`（回滚动作本身也可再回滚）；
@@ -506,11 +524,13 @@ bash scripts/switch_crontab.sh --revert
 
 ### 12.5 切换后的自检清单
 
+- [ ] `--apply` 的 preflight 输出是「20 个 task.json 齐全，多槽任务时间点对齐」（不是被 exit 3 拦下）
 - [ ] `crontab -l | grep -c health_run` 比切换前少 21
 - [ ] `python3 scheduler.py status` 里切换清单的 20 个 key 全部 `enabled=true`（`bond_four_factor` 仍是 `false`），`next_run` 是预期时间
 - [ ] 抽 3 个任务 `scheduler.py run <key>`，`out/status.json` 全绿、指标有数
 - [ ] 观察 1 个完整交易日：`logs/<key>.log` 无重复执行记录，飞书/邮件无重复推送
 - [ ] 指标仓数值与切换前同一天的值一致（口径没跑偏）
+- [ ] 第二天回头确认 **12:30 的风险预测·午间** 有跑（它是唯一一个双时间点任务，最容易漏）
 
 ### 12.6 凭据：不要写死在脚本里
 
@@ -546,8 +566,27 @@ KEY = os.environ.get("DEEPSEEK_API_KEY") or app_secrets.get("deepseek.api_key", 
 **key 一旦进过 git 历史就必须轮换**，删 commit 不算修好——历史还在。
 另外 `.gitignore` 已加 `case/*/.tmp/`：任务跑挂了留下的截断日志里常有完整环境变量。
 
-### 12.7 还没进任何仓库的
+### 12.7 不在切换清单、但代码也还没入库的 6 条（`options/` 从未被跟踪）
 
-`杨康平顶底 v2`（`run_topbottom_v2.sh`）和 `缠论模拟盘·日终`（`sim_engine/run_daily_summary.sh`）
-目前只在源目录，不在 stock-dashboard / datahub-multi-tier / precious-task 任一仓库。
-前者一天一次但属盘中告警、后者同任务一天 4 次，按 §12.1 边界未纳入本次迁移，需要单独决策。
+`datahub-multi-tier/options/` 下有 6 条日更脚本：`pcr_macd.sh`、`skew10.sh`、`oi_daily.sh`、
+`basis_daily.sh`、`close.sh`、`midday.sh`。它们**不在 §12.1 的切换清单（20 key / 21 cron）里**，
+所以本次 `--apply` 不会动它们。
+
+但要知道一个事实：`git ls-files options/` = **0**，`git status` 是 `?? options/` ——
+这个目录从来没被 `datahub-multi-tier` 跟踪过，`sync_github.sh` 也没带上它。
+**所以别把这些任务当成「代码已经在库里了」。** 将来要把它们也纳入 scheduler 时，先做：
+
+```bash
+cd datahub-multi-tier
+git add options/ && git commit -m "chore(options): 期权日更脚本入库" && git push
+```
+
+否则 `--apply` 一跑，crontab 删了、scheduler 那边没有代码，就是停摆。
+
+### 12.8 三个仓库里都没有的 3 条
+
+`杨康平顶底·盘中`（`run_topbottom.sh`）、`杨康平顶底 v2`（`run_topbottom_v2.sh`）、
+`缠论模拟盘·日终`（`sim_engine/run_daily_summary.sh`）目前只在源目录，不在
+stock-dashboard / datahub-multi-tier / precious-task 任一仓库。
+
+三者都属盘中告警或一天多次（缠论日终一天 4 次），按 §12.1 边界未纳入本次迁移，需要单独决策。

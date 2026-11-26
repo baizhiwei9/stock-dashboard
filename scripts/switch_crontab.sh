@@ -11,7 +11,10 @@
 #   bash scripts/switch_crontab.sh --apply      # 真改：开 task.json + 重装 crontab
 #   bash scripts/switch_crontab.sh --revert     # 回滚：关 task.json + 恢复最近备份
 #
-# 安全：--apply / --revert 前都会把 crontab 备份到 logs/crontab.<时间戳>.bak
+# 安全 ①：--apply 先做前置检查——20 个 case 的 task.json 缺一个、或双时间点任务的
+#          sched.at 没覆盖全，直接 exit 3 中止，一行 crontab 都不动（避免静默停摆）。
+# 安全 ②：--apply / --revert 前都会把 crontab 备份到 logs/crontab.<时间戳>.bak
+# 安全 ③：crontab 重装失败时自动把 enabled 改回 false，避免 scheduler 与 crontab 双跑。
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 ROOT="$PWD"
@@ -37,6 +40,57 @@ NAMES=(
   "信用利差周报" "两融季节同比(周五)" "Hurst指数" "土狗归档" "自选股周报"
   "科技共识日报"
 )
+
+# 一个 key 对应多条 crontab 时，声明每条 cron 的时间点。
+# preflight 拿它和 task.json 的 sched.at 对账：少一个时间点，切完那条就静默停摆。
+multi_slot_of() {
+  case "$1" in
+    risk_forecast_daily) echo "12:30 20:50" ;;   # 风险预测·午间 + 风险预测·日终
+    *) echo "" ;;
+  esac
+}
+
+# 前置检查。soft = 只警告（dry-run 用）；hard = 有问题直接中止（apply 用）。
+preflight() {
+  local mode="${1:-hard}" miss=0 bad=0 k f slots
+  echo "-- 前置检查（$mode）：${#KEYS[@]} 个任务 --"
+  for k in "${KEYS[@]}"; do
+    f="$CASE_DIR/$k/task.json"
+    if [ ! -f "$f" ]; then
+      printf '  ❌ 缺 task.json: %s\n' "$f"
+      miss=$((miss + 1))
+      continue
+    fi
+    slots="$(multi_slot_of "$k")"
+    [ -z "$slots" ] && continue
+    if ! python3 - "$f" $slots <<'PYX'
+import json, sys
+p, want = sys.argv[1], sys.argv[2:]
+d = json.load(open(p, encoding="utf-8"))
+at = (d.get("sched") or {}).get("at")
+have = [at] if isinstance(at, str) else [str(x) for x in (at or [])]
+miss = [w for w in want if w not in have]
+if miss:
+    sys.stderr.write("    sched.at=%s 缺 %s\n" % (have, ",".join(miss)))
+    sys.exit(1)
+PYX
+    then
+      printf '  ❌ %s 的 sched.at 没覆盖全部 cron 时间点（%s）\n' "$k" "$slots"
+      bad=$((bad + 1))
+    fi
+  done
+  if [ "$miss" -gt 0 ] || [ "$bad" -gt 0 ]; then
+    echo
+    echo "  ⚠ $miss 个缺 task.json，$bad 个 sched.at 不完整"
+    echo "  现在切会让这些任务从 crontab 消失、scheduler 又不跑 → 静默停摆。"
+    if [ "$mode" = "hard" ]; then
+      echo "  中止。先把 case/ 同步到本目录并补齐 sched.at，再重试。"
+      exit 3
+    fi
+  else
+    echo "  ✅ ${#KEYS[@]} 个 task.json 齐全，多槽任务时间点对齐"
+  fi
+}
 
 MODE="dry"
 case "${1:-}" in
@@ -93,6 +147,7 @@ PYX
 
 case "$MODE" in
   dry)
+    preflight soft
     echo "-- crontab 侧：将被移除的行 --"
     build_crontab "${NAMES[@]}" > /tmp/_new_cron.$$ 2>/tmp/_cron_msg.$$
     cat /tmp/_cron_msg.$$
@@ -111,6 +166,7 @@ case "$MODE" in
     rm -f /tmp/_new_cron.$$ /tmp/_cron_msg.$$
     ;;
   apply)
+    preflight hard
     crontab -l > "$BAK_DIR/crontab.$STAMP.bak" 2>/dev/null && echo "  备份: $BAK_DIR/crontab.$STAMP.bak"
     set_enabled true
     build_crontab "${NAMES[@]}" > /tmp/_new_cron.$$ 2>/tmp/_cron_msg.$$
@@ -118,7 +174,10 @@ case "$MODE" in
     if crontab /tmp/_new_cron.$$; then
       echo "  ✅ crontab 已重装（现有 $(crontab -l | wc -l) 行）"
     else
-      echo "  ❌ crontab 重装失败，请从 $BAK_DIR/crontab.$STAMP.bak 恢复"
+      # 关键：crontab 没换成功，但 scheduler 任务已经开了 → 会双跑。立刻关回去。
+      echo "  ❌ crontab 重装失败，回滚 scheduler 侧 enabled=false（避免双跑）"
+      set_enabled false
+      echo "     请手工确认 crontab 未变: crontab -l | grep -c '\-\-name'"
     fi
     rm -f /tmp/_new_cron.$$ /tmp/_cron_msg.$$
     echo "  下一步：python3 scheduler.py health 确认 rc=0"
