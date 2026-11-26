@@ -1,0 +1,4185 @@
+{
+ "tag": "before",
+ "scripts_dir": "/Coze/Drive/蓁宝/所有对话/主对话/市场情绪监控/datahub_refactor/e2e_before/scripts",
+ "trade_date": "20261022",
+ "targets": {
+  "510050": {
+   "spot_chain": null,
+   "count": 50,
+   "rows": [
+    {
+     "ts_code": "510050C2610M02650",
+     "call_put": "C",
+     "exercise_price": 2.65,
+     "maturity_date": "20261028",
+     "close": 0.2127,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M02700",
+     "call_put": "C",
+     "exercise_price": 2.7,
+     "maturity_date": "20261028",
+     "close": 0.1612,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M02750",
+     "call_put": "C",
+     "exercise_price": 2.75,
+     "maturity_date": "20261028",
+     "close": 0.1105,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M02800",
+     "call_put": "C",
+     "exercise_price": 2.8,
+     "maturity_date": "20261028",
+     "close": 0.0652,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M02850",
+     "call_put": "C",
+     "exercise_price": 2.85,
+     "maturity_date": "20261028",
+     "close": 0.0282,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M02900",
+     "call_put": "C",
+     "exercise_price": 2.9,
+     "maturity_date": "20261028",
+     "close": 0.008,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M02950",
+     "call_put": "C",
+     "exercise_price": 2.95,
+     "maturity_date": "20261028",
+     "close": 0.0018,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M03000",
+     "call_put": "C",
+     "exercise_price": 3.0,
+     "maturity_date": "20261028",
+     "close": 0.0007,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M03100",
+     "call_put": "C",
+     "exercise_price": 3.1,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M03200",
+     "call_put": "C",
+     "exercise_price": 3.2,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M03300",
+     "call_put": "C",
+     "exercise_price": 3.3,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M03400",
+     "call_put": "C",
+     "exercise_price": 3.4,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2610M03500",
+     "call_put": "C",
+     "exercise_price": 3.5,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M02650",
+     "call_put": "C",
+     "exercise_price": 2.65,
+     "maturity_date": "20261125",
+     "close": 0.2127,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M02700",
+     "call_put": "C",
+     "exercise_price": 2.7,
+     "maturity_date": "20261125",
+     "close": 0.1612,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M02750",
+     "call_put": "C",
+     "exercise_price": 2.75,
+     "maturity_date": "20261125",
+     "close": 0.1157,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M02800",
+     "call_put": "C",
+     "exercise_price": 2.8,
+     "maturity_date": "20261125",
+     "close": 0.0785,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M02850",
+     "call_put": "C",
+     "exercise_price": 2.85,
+     "maturity_date": "20261125",
+     "close": 0.0502,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M02900",
+     "call_put": "C",
+     "exercise_price": 2.9,
+     "maturity_date": "20261125",
+     "close": 0.0297,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M02950",
+     "call_put": "C",
+     "exercise_price": 2.95,
+     "maturity_date": "20261125",
+     "close": 0.0167,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M03000",
+     "call_put": "C",
+     "exercise_price": 3.0,
+     "maturity_date": "20261125",
+     "close": 0.0089,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M03100",
+     "call_put": "C",
+     "exercise_price": 3.1,
+     "maturity_date": "20261125",
+     "close": 0.0029,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M03200",
+     "call_put": "C",
+     "exercise_price": 3.2,
+     "maturity_date": "20261125",
+     "close": 0.0019,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M03300",
+     "call_put": "C",
+     "exercise_price": 3.3,
+     "maturity_date": "20261125",
+     "close": 0.0015,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050C2611M03400",
+     "call_put": "C",
+     "exercise_price": 3.4,
+     "maturity_date": "20261125",
+     "close": 0.0014,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M02650",
+     "call_put": "P",
+     "exercise_price": 2.65,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M02700",
+     "call_put": "P",
+     "exercise_price": 2.7,
+     "maturity_date": "20261028",
+     "close": 0.0006,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M02750",
+     "call_put": "P",
+     "exercise_price": 2.75,
+     "maturity_date": "20261028",
+     "close": 0.0015,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M02800",
+     "call_put": "P",
+     "exercise_price": 2.8,
+     "maturity_date": "20261028",
+     "close": 0.0051,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M02850",
+     "call_put": "P",
+     "exercise_price": 2.85,
+     "maturity_date": "20261028",
+     "close": 0.0182,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M02900",
+     "call_put": "P",
+     "exercise_price": 2.9,
+     "maturity_date": "20261028",
+     "close": 0.048,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M02950",
+     "call_put": "P",
+     "exercise_price": 2.95,
+     "maturity_date": "20261028",
+     "close": 0.094,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M03000",
+     "call_put": "P",
+     "exercise_price": 3.0,
+     "maturity_date": "20261028",
+     "close": 0.144,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M03100",
+     "call_put": "P",
+     "exercise_price": 3.1,
+     "maturity_date": "20261028",
+     "close": 0.244,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M03200",
+     "call_put": "P",
+     "exercise_price": 3.2,
+     "maturity_date": "20261028",
+     "close": 0.344,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M03300",
+     "call_put": "P",
+     "exercise_price": 3.3,
+     "maturity_date": "20261028",
+     "close": 0.444,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M03400",
+     "call_put": "P",
+     "exercise_price": 3.4,
+     "maturity_date": "20261028",
+     "close": 0.544,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2610M03500",
+     "call_put": "P",
+     "exercise_price": 3.5,
+     "maturity_date": "20261028",
+     "close": 0.644,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M02650",
+     "call_put": "P",
+     "exercise_price": 2.65,
+     "maturity_date": "20261125",
+     "close": 0.0064,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M02700",
+     "call_put": "P",
+     "exercise_price": 2.7,
+     "maturity_date": "20261125",
+     "close": 0.0118,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M02750",
+     "call_put": "P",
+     "exercise_price": 2.75,
+     "maturity_date": "20261125",
+     "close": 0.0197,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M02800",
+     "call_put": "P",
+     "exercise_price": 2.8,
+     "maturity_date": "20261125",
+     "close": 0.0347,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M02850",
+     "call_put": "P",
+     "exercise_price": 2.85,
+     "maturity_date": "20261125",
+     "close": 0.0547,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M02900",
+     "call_put": "P",
+     "exercise_price": 2.9,
+     "maturity_date": "20261125",
+     "close": 0.0849,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M02950",
+     "call_put": "P",
+     "exercise_price": 2.95,
+     "maturity_date": "20261125",
+     "close": 0.1204,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M03000",
+     "call_put": "P",
+     "exercise_price": 3.0,
+     "maturity_date": "20261125",
+     "close": 0.1617,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M03100",
+     "call_put": "P",
+     "exercise_price": 3.1,
+     "maturity_date": "20261125",
+     "close": 0.2533,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M03200",
+     "call_put": "P",
+     "exercise_price": 3.2,
+     "maturity_date": "20261125",
+     "close": 0.3517,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M03300",
+     "call_put": "P",
+     "exercise_price": 3.3,
+     "maturity_date": "20261125",
+     "close": 0.4538,
+     "oi": 0
+    },
+    {
+     "ts_code": "510050P2611M03400",
+     "call_put": "P",
+     "exercise_price": 3.4,
+     "maturity_date": "20261125",
+     "close": 0.5533,
+     "oi": 0
+    }
+   ],
+   "skew": {
+    "spot_price": 2.836,
+    "atm_iv": 15.43,
+    "put_25d_iv": 7.39,
+    "call_25d_iv": 30.54,
+    "iv_skew": -23.15,
+    "cboe_skew": 84.37,
+    "vol_pcr": 0,
+    "oi_pcr": 0,
+    "amt_pcr": 0,
+    "support": null,
+    "resistance": null,
+    "direction": "🟢偏多",
+    "expiry": "20261028",
+    "dte": 6
+   },
+   "gex": {
+    "total_gex": 0.0,
+    "total_gex_yi": 0.0,
+    "flip_point": null,
+    "risk": "🟢低",
+    "risk_label": "🟢低",
+    "net_gex": 0.0,
+    "spot_price": null,
+    "details_count": 13,
+    "key_details": [
+     {
+      "strike": 2.8,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 2.85,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 2.9,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 2.95,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 3.0,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 3.1,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 3.2,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 3.3,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 3.4,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 3.5,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     }
+    ]
+   },
+   "rr": {
+    "rr": 7.5,
+    "weighted_rr": 7.5,
+    "direction": "🟢 偏多",
+    "nearest_expiry": "20261028",
+    "nearest_dte": 6,
+    "call_iv": 19.93,
+    "put_iv": 12.44,
+    "call_strike": 2.9,
+    "put_strike": 2.8,
+    "call_delta": 0.2001,
+    "put_delta": -0.2004,
+    "by_expiry": {
+     "20261028": {
+      "rr": 7.5,
+      "dte": 6,
+      "call_iv": 19.93,
+      "put_iv": 12.44
+     },
+     "20261125": {
+      "rr": -0.63,
+      "dte": 34,
+      "call_iv": 15.31,
+      "put_iv": 15.94
+     }
+    }
+   }
+  },
+  "510300": {
+   "spot_chain": null,
+   "count": 54,
+   "rows": [
+    {
+     "ts_code": "510300C2610M03800",
+     "call_put": "C",
+     "exercise_price": 3.8,
+     "maturity_date": "20261028",
+     "close": 0.3872,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M03900",
+     "call_put": "C",
+     "exercise_price": 3.9,
+     "maturity_date": "20261028",
+     "close": 0.2871,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04000",
+     "call_put": "C",
+     "exercise_price": 4.0,
+     "maturity_date": "20261028",
+     "close": 0.1891,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04100",
+     "call_put": "C",
+     "exercise_price": 4.1,
+     "maturity_date": "20261028",
+     "close": 0.0965,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04200",
+     "call_put": "C",
+     "exercise_price": 4.2,
+     "maturity_date": "20261028",
+     "close": 0.0317,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04300",
+     "call_put": "C",
+     "exercise_price": 4.3,
+     "maturity_date": "20261028",
+     "close": 0.0077,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04400",
+     "call_put": "C",
+     "exercise_price": 4.4,
+     "maturity_date": "20261028",
+     "close": 0.0016,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04500",
+     "call_put": "C",
+     "exercise_price": 4.5,
+     "maturity_date": "20261028",
+     "close": 0.0007,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04600",
+     "call_put": "C",
+     "exercise_price": 4.6,
+     "maturity_date": "20261028",
+     "close": 0.0004,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04700",
+     "call_put": "C",
+     "exercise_price": 4.7,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04800",
+     "call_put": "C",
+     "exercise_price": 4.8,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M04900",
+     "call_put": "C",
+     "exercise_price": 4.9,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M05000",
+     "call_put": "C",
+     "exercise_price": 5.0,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2610M05250",
+     "call_put": "C",
+     "exercise_price": 5.25,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M03800",
+     "call_put": "C",
+     "exercise_price": 3.8,
+     "maturity_date": "20261125",
+     "close": 0.3872,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M03900",
+     "call_put": "C",
+     "exercise_price": 3.9,
+     "maturity_date": "20261125",
+     "close": 0.2871,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04000",
+     "call_put": "C",
+     "exercise_price": 4.0,
+     "maturity_date": "20261125",
+     "close": 0.1961,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04100",
+     "call_put": "C",
+     "exercise_price": 4.1,
+     "maturity_date": "20261125",
+     "close": 0.1258,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04200",
+     "call_put": "C",
+     "exercise_price": 4.2,
+     "maturity_date": "20261125",
+     "close": 0.0742,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04300",
+     "call_put": "C",
+     "exercise_price": 4.3,
+     "maturity_date": "20261125",
+     "close": 0.039,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04400",
+     "call_put": "C",
+     "exercise_price": 4.4,
+     "maturity_date": "20261125",
+     "close": 0.0186,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04500",
+     "call_put": "C",
+     "exercise_price": 4.5,
+     "maturity_date": "20261125",
+     "close": 0.0088,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04600",
+     "call_put": "C",
+     "exercise_price": 4.6,
+     "maturity_date": "20261125",
+     "close": 0.0051,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04700",
+     "call_put": "C",
+     "exercise_price": 4.7,
+     "maturity_date": "20261125",
+     "close": 0.0027,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04800",
+     "call_put": "C",
+     "exercise_price": 4.8,
+     "maturity_date": "20261125",
+     "close": 0.0021,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M04900",
+     "call_put": "C",
+     "exercise_price": 4.9,
+     "maturity_date": "20261125",
+     "close": 0.0015,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300C2611M05000",
+     "call_put": "C",
+     "exercise_price": 5.0,
+     "maturity_date": "20261125",
+     "close": 0.0012,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M03800",
+     "call_put": "P",
+     "exercise_price": 3.8,
+     "maturity_date": "20261028",
+     "close": 0.0009,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M03900",
+     "call_put": "P",
+     "exercise_price": 3.9,
+     "maturity_date": "20261028",
+     "close": 0.002,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04000",
+     "call_put": "P",
+     "exercise_price": 4.0,
+     "maturity_date": "20261028",
+     "close": 0.0049,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04100",
+     "call_put": "P",
+     "exercise_price": 4.1,
+     "maturity_date": "20261028",
+     "close": 0.015,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04200",
+     "call_put": "P",
+     "exercise_price": 4.2,
+     "maturity_date": "20261028",
+     "close": 0.0487,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04300",
+     "call_put": "P",
+     "exercise_price": 4.3,
+     "maturity_date": "20261028",
+     "close": 0.1279,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04400",
+     "call_put": "P",
+     "exercise_price": 4.4,
+     "maturity_date": "20261028",
+     "close": 0.218,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04500",
+     "call_put": "P",
+     "exercise_price": 4.5,
+     "maturity_date": "20261028",
+     "close": 0.3189,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04600",
+     "call_put": "P",
+     "exercise_price": 4.6,
+     "maturity_date": "20261028",
+     "close": 0.415,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04700",
+     "call_put": "P",
+     "exercise_price": 4.7,
+     "maturity_date": "20261028",
+     "close": 0.515,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04800",
+     "call_put": "P",
+     "exercise_price": 4.8,
+     "maturity_date": "20261028",
+     "close": 0.615,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M04900",
+     "call_put": "P",
+     "exercise_price": 4.9,
+     "maturity_date": "20261028",
+     "close": 0.715,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M05000",
+     "call_put": "P",
+     "exercise_price": 5.0,
+     "maturity_date": "20261028",
+     "close": 0.8151,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2610M05250",
+     "call_put": "P",
+     "exercise_price": 5.25,
+     "maturity_date": "20261028",
+     "close": 1.065,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M03800",
+     "call_put": "P",
+     "exercise_price": 3.8,
+     "maturity_date": "20261125",
+     "close": 0.0115,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M03900",
+     "call_put": "P",
+     "exercise_price": 3.9,
+     "maturity_date": "20261125",
+     "close": 0.0207,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04000",
+     "call_put": "P",
+     "exercise_price": 4.0,
+     "maturity_date": "20261125",
+     "close": 0.0389,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04100",
+     "call_put": "P",
+     "exercise_price": 4.1,
+     "maturity_date": "20261125",
+     "close": 0.066,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04200",
+     "call_put": "P",
+     "exercise_price": 4.2,
+     "maturity_date": "20261125",
+     "close": 0.1155,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04300",
+     "call_put": "P",
+     "exercise_price": 4.3,
+     "maturity_date": "20261125",
+     "close": 0.1795,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04400",
+     "call_put": "P",
+     "exercise_price": 4.4,
+     "maturity_date": "20261125",
+     "close": 0.2598,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04500",
+     "call_put": "P",
+     "exercise_price": 4.5,
+     "maturity_date": "20261125",
+     "close": 0.3453,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04600",
+     "call_put": "P",
+     "exercise_price": 4.6,
+     "maturity_date": "20261125",
+     "close": 0.443,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04700",
+     "call_put": "P",
+     "exercise_price": 4.7,
+     "maturity_date": "20261125",
+     "close": 0.5396,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04800",
+     "call_put": "P",
+     "exercise_price": 4.8,
+     "maturity_date": "20261125",
+     "close": 0.6407,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M04900",
+     "call_put": "P",
+     "exercise_price": 4.9,
+     "maturity_date": "20261125",
+     "close": 0.7393,
+     "oi": 0
+    },
+    {
+     "ts_code": "510300P2611M05000",
+     "call_put": "P",
+     "exercise_price": 5.0,
+     "maturity_date": "20261125",
+     "close": 0.8391,
+     "oi": 0
+    }
+   ],
+   "skew": {
+    "spot_price": 4.107,
+    "atm_iv": 26.47,
+    "put_25d_iv": 0,
+    "call_25d_iv": 61.41,
+    "iv_skew": -61.41,
+    "cboe_skew": 100.0,
+    "vol_pcr": 0,
+    "oi_pcr": 0,
+    "amt_pcr": 0,
+    "support": null,
+    "resistance": null,
+    "direction": "⚪中性",
+    "expiry": "20261028",
+    "dte": 6
+   },
+   "gex": {
+    "total_gex": 0.0,
+    "total_gex_yi": 0.0,
+    "flip_point": null,
+    "risk": "🟢低",
+    "risk_label": "🟢低",
+    "net_gex": 0.0,
+    "spot_price": null,
+    "details_count": 14,
+    "key_details": [
+     {
+      "strike": 4.2,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 4.3,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 4.4,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 4.5,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 4.6,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 4.7,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 4.8,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 4.9,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 5.0,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 5.25,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     }
+    ]
+   },
+   "rr": {
+    "rr": 14.58,
+    "weighted_rr": 14.58,
+    "direction": "🟢 偏多",
+    "nearest_expiry": "20261028",
+    "nearest_dte": 6,
+    "call_iv": 31.86,
+    "put_iv": 17.28,
+    "call_strike": 4.2,
+    "put_strike": 4.0,
+    "call_delta": 0.3031,
+    "put_delta": -0.1104,
+    "by_expiry": {
+     "20261028": {
+      "rr": 14.58,
+      "dte": 6,
+      "call_iv": 31.86,
+      "put_iv": 17.28
+     },
+     "20261125": {
+      "rr": 3.4,
+      "dte": 34,
+      "call_iv": 20.7,
+      "put_iv": 17.3
+     }
+    }
+   }
+  },
+  "510500": {
+   "spot_chain": null,
+   "count": 54,
+   "rows": [
+    {
+     "ts_code": "510500C2610M05750",
+     "call_put": "C",
+     "exercise_price": 5.75,
+     "maturity_date": "20261028",
+     "close": 1.114,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M06000",
+     "call_put": "C",
+     "exercise_price": 6.0,
+     "maturity_date": "20261028",
+     "close": 0.8764,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M06250",
+     "call_put": "C",
+     "exercise_price": 6.25,
+     "maturity_date": "20261028",
+     "close": 0.6261,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M06500",
+     "call_put": "C",
+     "exercise_price": 6.5,
+     "maturity_date": "20261028",
+     "close": 0.382,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M06750",
+     "call_put": "C",
+     "exercise_price": 6.75,
+     "maturity_date": "20261028",
+     "close": 0.17,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M07000",
+     "call_put": "C",
+     "exercise_price": 7.0,
+     "maturity_date": "20261028",
+     "close": 0.0483,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M07250",
+     "call_put": "C",
+     "exercise_price": 7.25,
+     "maturity_date": "20261028",
+     "close": 0.0085,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M07500",
+     "call_put": "C",
+     "exercise_price": 7.5,
+     "maturity_date": "20261028",
+     "close": 0.0018,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M07750",
+     "call_put": "C",
+     "exercise_price": 7.75,
+     "maturity_date": "20261028",
+     "close": 0.0005,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M08000",
+     "call_put": "C",
+     "exercise_price": 8.0,
+     "maturity_date": "20261028",
+     "close": 0.0005,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M08250",
+     "call_put": "C",
+     "exercise_price": 8.25,
+     "maturity_date": "20261028",
+     "close": 0.0005,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M08500",
+     "call_put": "C",
+     "exercise_price": 8.5,
+     "maturity_date": "20261028",
+     "close": 0.0005,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M08750",
+     "call_put": "C",
+     "exercise_price": 8.75,
+     "maturity_date": "20261028",
+     "close": 0.0004,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2610M09000",
+     "call_put": "C",
+     "exercise_price": 9.0,
+     "maturity_date": "20261028",
+     "close": 0.0001,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M05750",
+     "call_put": "C",
+     "exercise_price": 5.75,
+     "maturity_date": "20261125",
+     "close": 1.114,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M06000",
+     "call_put": "C",
+     "exercise_price": 6.0,
+     "maturity_date": "20261125",
+     "close": 0.8764,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M06250",
+     "call_put": "C",
+     "exercise_price": 6.25,
+     "maturity_date": "20261125",
+     "close": 0.6423,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M06500",
+     "call_put": "C",
+     "exercise_price": 6.5,
+     "maturity_date": "20261125",
+     "close": 0.4347,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M06750",
+     "call_put": "C",
+     "exercise_price": 6.75,
+     "maturity_date": "20261125",
+     "close": 0.2651,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M07000",
+     "call_put": "C",
+     "exercise_price": 7.0,
+     "maturity_date": "20261125",
+     "close": 0.15,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M07250",
+     "call_put": "C",
+     "exercise_price": 7.25,
+     "maturity_date": "20261125",
+     "close": 0.075,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M07500",
+     "call_put": "C",
+     "exercise_price": 7.5,
+     "maturity_date": "20261125",
+     "close": 0.0363,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M07750",
+     "call_put": "C",
+     "exercise_price": 7.75,
+     "maturity_date": "20261125",
+     "close": 0.0171,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M08000",
+     "call_put": "C",
+     "exercise_price": 8.0,
+     "maturity_date": "20261125",
+     "close": 0.0093,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M08250",
+     "call_put": "C",
+     "exercise_price": 8.25,
+     "maturity_date": "20261125",
+     "close": 0.005,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M08500",
+     "call_put": "C",
+     "exercise_price": 8.5,
+     "maturity_date": "20261125",
+     "close": 0.0031,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500C2611M08750",
+     "call_put": "C",
+     "exercise_price": 8.75,
+     "maturity_date": "20261125",
+     "close": 0.002,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M05750",
+     "call_put": "P",
+     "exercise_price": 5.75,
+     "maturity_date": "20261028",
+     "close": 0.0008,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M06000",
+     "call_put": "P",
+     "exercise_price": 6.0,
+     "maturity_date": "20261028",
+     "close": 0.0017,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M06250",
+     "call_put": "P",
+     "exercise_price": 6.25,
+     "maturity_date": "20261028",
+     "close": 0.0054,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M06500",
+     "call_put": "P",
+     "exercise_price": 6.5,
+     "maturity_date": "20261028",
+     "close": 0.0135,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M06750",
+     "call_put": "P",
+     "exercise_price": 6.75,
+     "maturity_date": "20261028",
+     "close": 0.0555,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M07000",
+     "call_put": "P",
+     "exercise_price": 7.0,
+     "maturity_date": "20261028",
+     "close": 0.18,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M07250",
+     "call_put": "P",
+     "exercise_price": 7.25,
+     "maturity_date": "20261028",
+     "close": 0.393,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M07500",
+     "call_put": "P",
+     "exercise_price": 7.5,
+     "maturity_date": "20261028",
+     "close": 0.636,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M07750",
+     "call_put": "P",
+     "exercise_price": 7.75,
+     "maturity_date": "20261028",
+     "close": 0.886,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M08000",
+     "call_put": "P",
+     "exercise_price": 8.0,
+     "maturity_date": "20261028",
+     "close": 1.136,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M08250",
+     "call_put": "P",
+     "exercise_price": 8.25,
+     "maturity_date": "20261028",
+     "close": 1.386,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M08500",
+     "call_put": "P",
+     "exercise_price": 8.5,
+     "maturity_date": "20261028",
+     "close": 1.6376,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M08750",
+     "call_put": "P",
+     "exercise_price": 8.75,
+     "maturity_date": "20261028",
+     "close": 1.8868,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2610M09000",
+     "call_put": "P",
+     "exercise_price": 9.0,
+     "maturity_date": "20261028",
+     "close": 2.136,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M05750",
+     "call_put": "P",
+     "exercise_price": 5.75,
+     "maturity_date": "20261125",
+     "close": 0.0209,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M06000",
+     "call_put": "P",
+     "exercise_price": 6.0,
+     "maturity_date": "20261125",
+     "close": 0.0349,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M06250",
+     "call_put": "P",
+     "exercise_price": 6.25,
+     "maturity_date": "20261125",
+     "close": 0.0622,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M06500",
+     "call_put": "P",
+     "exercise_price": 6.5,
+     "maturity_date": "20261125",
+     "close": 0.1103,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M06750",
+     "call_put": "P",
+     "exercise_price": 6.75,
+     "maturity_date": "20261125",
+     "close": 0.1934,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M07000",
+     "call_put": "P",
+     "exercise_price": 7.0,
+     "maturity_date": "20261125",
+     "close": 0.32,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M07250",
+     "call_put": "P",
+     "exercise_price": 7.25,
+     "maturity_date": "20261125",
+     "close": 0.5013,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M07500",
+     "call_put": "P",
+     "exercise_price": 7.5,
+     "maturity_date": "20261125",
+     "close": 0.6991,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M07750",
+     "call_put": "P",
+     "exercise_price": 7.75,
+     "maturity_date": "20261125",
+     "close": 0.9299,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M08000",
+     "call_put": "P",
+     "exercise_price": 8.0,
+     "maturity_date": "20261125",
+     "close": 1.181,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M08250",
+     "call_put": "P",
+     "exercise_price": 8.25,
+     "maturity_date": "20261125",
+     "close": 1.4261,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M08500",
+     "call_put": "P",
+     "exercise_price": 8.5,
+     "maturity_date": "20261125",
+     "close": 1.6738,
+     "oi": 0
+    },
+    {
+     "ts_code": "510500P2611M08750",
+     "call_put": "P",
+     "exercise_price": 8.75,
+     "maturity_date": "20261125",
+     "close": 1.9215,
+     "oi": 0
+    }
+   ],
+   "skew": {
+    "spot_price": 6.684,
+    "atm_iv": 29.09,
+    "put_25d_iv": 0,
+    "call_25d_iv": 82.64,
+    "iv_skew": -82.64,
+    "cboe_skew": 100.0,
+    "vol_pcr": 0,
+    "oi_pcr": 0,
+    "amt_pcr": 0,
+    "support": null,
+    "resistance": null,
+    "direction": "⚪中性",
+    "expiry": "20261028",
+    "dte": 6
+   },
+   "gex": {
+    "total_gex": 0.0,
+    "total_gex_yi": 0.0,
+    "flip_point": null,
+    "risk": "🟢低",
+    "risk_label": "🟢低",
+    "net_gex": 0.0,
+    "spot_price": null,
+    "details_count": 14,
+    "key_details": [
+     {
+      "strike": 6.75,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 7.0,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 7.25,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 7.5,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 7.75,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 8.0,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 8.25,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 8.5,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 8.75,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 9.0,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     }
+    ]
+   },
+   "rr": {
+    "rr": 23.98,
+    "weighted_rr": 23.98,
+    "direction": "🟢 偏多",
+    "nearest_expiry": "20261028",
+    "nearest_dte": 6,
+    "call_iv": 45.09,
+    "put_iv": 21.11,
+    "call_strike": 7.0,
+    "put_strike": 6.5,
+    "call_delta": 0.2231,
+    "put_delta": -0.1438,
+    "by_expiry": {
+     "20261028": {
+      "rr": 23.98,
+      "dte": 6,
+      "call_iv": 45.09,
+      "put_iv": 21.11
+     },
+     "20261125": {
+      "rr": 3.35,
+      "dte": 34,
+      "call_iv": 31.0,
+      "put_iv": 27.65
+     }
+    }
+   }
+  },
+  "588000": {
+   "spot_chain": null,
+   "count": 66,
+   "rows": [
+    {
+     "ts_code": "588000C2610M01200",
+     "call_put": "C",
+     "exercise_price": 1.2,
+     "maturity_date": "20261028",
+     "close": 0.2217,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01250",
+     "call_put": "C",
+     "exercise_price": 1.25,
+     "maturity_date": "20261028",
+     "close": 0.1741,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01300",
+     "call_put": "C",
+     "exercise_price": 1.3,
+     "maturity_date": "20261028",
+     "close": 0.1249,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01350",
+     "call_put": "C",
+     "exercise_price": 1.35,
+     "maturity_date": "20261028",
+     "close": 0.0807,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01400",
+     "call_put": "C",
+     "exercise_price": 1.4,
+     "maturity_date": "20261028",
+     "close": 0.0426,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01450",
+     "call_put": "C",
+     "exercise_price": 1.45,
+     "maturity_date": "20261028",
+     "close": 0.0187,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01500",
+     "call_put": "C",
+     "exercise_price": 1.5,
+     "maturity_date": "20261028",
+     "close": 0.0068,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01550",
+     "call_put": "C",
+     "exercise_price": 1.55,
+     "maturity_date": "20261028",
+     "close": 0.0033,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01600",
+     "call_put": "C",
+     "exercise_price": 1.6,
+     "maturity_date": "20261028",
+     "close": 0.0015,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01650",
+     "call_put": "C",
+     "exercise_price": 1.65,
+     "maturity_date": "20261028",
+     "close": 0.0008,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01700",
+     "call_put": "C",
+     "exercise_price": 1.7,
+     "maturity_date": "20261028",
+     "close": 0.0007,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01750",
+     "call_put": "C",
+     "exercise_price": 1.75,
+     "maturity_date": "20261028",
+     "close": 0.0005,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01800",
+     "call_put": "C",
+     "exercise_price": 1.8,
+     "maturity_date": "20261028",
+     "close": 0.0003,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01850",
+     "call_put": "C",
+     "exercise_price": 1.85,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01900",
+     "call_put": "C",
+     "exercise_price": 1.9,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M01950",
+     "call_put": "C",
+     "exercise_price": 1.95,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2610M02000",
+     "call_put": "C",
+     "exercise_price": 2.0,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01200",
+     "call_put": "C",
+     "exercise_price": 1.2,
+     "maturity_date": "20261125",
+     "close": 0.2325,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01250",
+     "call_put": "C",
+     "exercise_price": 1.25,
+     "maturity_date": "20261125",
+     "close": 0.1888,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01300",
+     "call_put": "C",
+     "exercise_price": 1.3,
+     "maturity_date": "20261125",
+     "close": 0.1471,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01350",
+     "call_put": "C",
+     "exercise_price": 1.35,
+     "maturity_date": "20261125",
+     "close": 0.1128,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01400",
+     "call_put": "C",
+     "exercise_price": 1.4,
+     "maturity_date": "20261125",
+     "close": 0.0823,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01450",
+     "call_put": "C",
+     "exercise_price": 1.45,
+     "maturity_date": "20261125",
+     "close": 0.0574,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01500",
+     "call_put": "C",
+     "exercise_price": 1.5,
+     "maturity_date": "20261125",
+     "close": 0.0399,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01550",
+     "call_put": "C",
+     "exercise_price": 1.55,
+     "maturity_date": "20261125",
+     "close": 0.0265,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01600",
+     "call_put": "C",
+     "exercise_price": 1.6,
+     "maturity_date": "20261125",
+     "close": 0.0187,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01650",
+     "call_put": "C",
+     "exercise_price": 1.65,
+     "maturity_date": "20261125",
+     "close": 0.0127,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01700",
+     "call_put": "C",
+     "exercise_price": 1.7,
+     "maturity_date": "20261125",
+     "close": 0.0086,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01750",
+     "call_put": "C",
+     "exercise_price": 1.75,
+     "maturity_date": "20261125",
+     "close": 0.006,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01800",
+     "call_put": "C",
+     "exercise_price": 1.8,
+     "maturity_date": "20261125",
+     "close": 0.0047,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01850",
+     "call_put": "C",
+     "exercise_price": 1.85,
+     "maturity_date": "20261125",
+     "close": 0.0031,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01900",
+     "call_put": "C",
+     "exercise_price": 1.9,
+     "maturity_date": "20261125",
+     "close": 0.0024,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000C2611M01950",
+     "call_put": "C",
+     "exercise_price": 1.95,
+     "maturity_date": "20261125",
+     "close": 0.0021,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01200",
+     "call_put": "P",
+     "exercise_price": 1.2,
+     "maturity_date": "20261028",
+     "close": 0.0004,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01250",
+     "call_put": "P",
+     "exercise_price": 1.25,
+     "maturity_date": "20261028",
+     "close": 0.0013,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01300",
+     "call_put": "P",
+     "exercise_price": 1.3,
+     "maturity_date": "20261028",
+     "close": 0.0035,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01350",
+     "call_put": "P",
+     "exercise_price": 1.35,
+     "maturity_date": "20261028",
+     "close": 0.0093,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01400",
+     "call_put": "P",
+     "exercise_price": 1.4,
+     "maturity_date": "20261028",
+     "close": 0.0216,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01450",
+     "call_put": "P",
+     "exercise_price": 1.45,
+     "maturity_date": "20261028",
+     "close": 0.0475,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01500",
+     "call_put": "P",
+     "exercise_price": 1.5,
+     "maturity_date": "20261028",
+     "close": 0.0861,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01550",
+     "call_put": "P",
+     "exercise_price": 1.55,
+     "maturity_date": "20261028",
+     "close": 0.132,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01600",
+     "call_put": "P",
+     "exercise_price": 1.6,
+     "maturity_date": "20261028",
+     "close": 0.1847,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01650",
+     "call_put": "P",
+     "exercise_price": 1.65,
+     "maturity_date": "20261028",
+     "close": 0.232,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01700",
+     "call_put": "P",
+     "exercise_price": 1.7,
+     "maturity_date": "20261028",
+     "close": 0.282,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01750",
+     "call_put": "P",
+     "exercise_price": 1.75,
+     "maturity_date": "20261028",
+     "close": 0.332,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01800",
+     "call_put": "P",
+     "exercise_price": 1.8,
+     "maturity_date": "20261028",
+     "close": 0.382,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01850",
+     "call_put": "P",
+     "exercise_price": 1.85,
+     "maturity_date": "20261028",
+     "close": 0.432,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01900",
+     "call_put": "P",
+     "exercise_price": 1.9,
+     "maturity_date": "20261028",
+     "close": 0.482,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M01950",
+     "call_put": "P",
+     "exercise_price": 1.95,
+     "maturity_date": "20261028",
+     "close": 0.532,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2610M02000",
+     "call_put": "P",
+     "exercise_price": 2.0,
+     "maturity_date": "20261028",
+     "close": 0.582,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01200",
+     "call_put": "P",
+     "exercise_price": 1.2,
+     "maturity_date": "20261125",
+     "close": 0.0105,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01250",
+     "call_put": "P",
+     "exercise_price": 1.25,
+     "maturity_date": "20261125",
+     "close": 0.0176,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01300",
+     "call_put": "P",
+     "exercise_price": 1.3,
+     "maturity_date": "20261125",
+     "close": 0.0275,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01350",
+     "call_put": "P",
+     "exercise_price": 1.35,
+     "maturity_date": "20261125",
+     "close": 0.042,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01400",
+     "call_put": "P",
+     "exercise_price": 1.4,
+     "maturity_date": "20261125",
+     "close": 0.0623,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01450",
+     "call_put": "P",
+     "exercise_price": 1.45,
+     "maturity_date": "20261125",
+     "close": 0.0875,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01500",
+     "call_put": "P",
+     "exercise_price": 1.5,
+     "maturity_date": "20261125",
+     "close": 0.1189,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01550",
+     "call_put": "P",
+     "exercise_price": 1.55,
+     "maturity_date": "20261125",
+     "close": 0.155,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01600",
+     "call_put": "P",
+     "exercise_price": 1.6,
+     "maturity_date": "20261125",
+     "close": 0.196,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01650",
+     "call_put": "P",
+     "exercise_price": 1.65,
+     "maturity_date": "20261125",
+     "close": 0.2404,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01700",
+     "call_put": "P",
+     "exercise_price": 1.7,
+     "maturity_date": "20261125",
+     "close": 0.2898,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01750",
+     "call_put": "P",
+     "exercise_price": 1.75,
+     "maturity_date": "20261125",
+     "close": 0.332,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01800",
+     "call_put": "P",
+     "exercise_price": 1.8,
+     "maturity_date": "20261125",
+     "close": 0.383,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01850",
+     "call_put": "P",
+     "exercise_price": 1.85,
+     "maturity_date": "20261125",
+     "close": 0.432,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01900",
+     "call_put": "P",
+     "exercise_price": 1.9,
+     "maturity_date": "20261125",
+     "close": 0.482,
+     "oi": 0
+    },
+    {
+     "ts_code": "588000P2611M01950",
+     "call_put": "P",
+     "exercise_price": 1.95,
+     "maturity_date": "20261125",
+     "close": 0.532,
+     "oi": 0
+    }
+   ],
+   "skew": {
+    "spot_price": 1.377,
+    "atm_iv": 37.34,
+    "put_25d_iv": 0,
+    "call_25d_iv": 94.64,
+    "iv_skew": -94.64,
+    "cboe_skew": 100.0,
+    "vol_pcr": 0,
+    "oi_pcr": 0,
+    "amt_pcr": 0,
+    "support": null,
+    "resistance": null,
+    "direction": "⚪中性",
+    "expiry": "20261028",
+    "dte": 6
+   },
+   "gex": {
+    "total_gex": 0.0,
+    "total_gex_yi": 0.0,
+    "flip_point": null,
+    "risk": "🟢低",
+    "risk_label": "🟢低",
+    "net_gex": 0.0,
+    "spot_price": null,
+    "details_count": 17,
+    "key_details": [
+     {
+      "strike": 1.55,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.6,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.65,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.7,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.75,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.8,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.85,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.9,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 1.95,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     },
+     {
+      "strike": 2.0,
+      "call_oi": 0,
+      "put_oi": 0,
+      "net_gex": 0.0,
+      "cumulative_gex": 0.0
+     }
+    ]
+   },
+   "rr": {
+    "rr": 34.86,
+    "weighted_rr": 34.86,
+    "direction": "🟢 偏多",
+    "nearest_expiry": "20261028",
+    "nearest_dte": 6,
+    "call_iv": 63.82,
+    "put_iv": 28.96,
+    "call_strike": 1.45,
+    "put_strike": 1.35,
+    "call_delta": 0.2795,
+    "put_delta": -0.286,
+    "by_expiry": {
+     "20261028": {
+      "rr": 34.86,
+      "dte": 6,
+      "call_iv": 63.82,
+      "put_iv": 28.96
+     },
+     "20261125": {
+      "rr": 11.8,
+      "dte": 34,
+      "call_iv": 48.26,
+      "put_iv": 36.46
+     }
+    }
+   }
+  },
+  "159915": {
+   "spot_chain": null,
+   "count": 78,
+   "rows": [
+    {
+     "ts_code": "159915C2610M003000",
+     "call_put": "C",
+     "exercise_price": 3.0,
+     "maturity_date": "20261028",
+     "close": 0.0012,
+     "oi": 60533
+    },
+    {
+     "ts_code": "159915C2610M003100",
+     "call_put": "C",
+     "exercise_price": 3.1,
+     "maturity_date": "20261028",
+     "close": 0.0007,
+     "oi": 72340
+    },
+    {
+     "ts_code": "159915C2610M003200",
+     "call_put": "C",
+     "exercise_price": 3.2,
+     "maturity_date": "20261028",
+     "close": 0.0004,
+     "oi": 74865
+    },
+    {
+     "ts_code": "159915C2610M003300",
+     "call_put": "C",
+     "exercise_price": 3.3,
+     "maturity_date": "20261028",
+     "close": 0.0004,
+     "oi": 70593
+    },
+    {
+     "ts_code": "159915C2610M003400",
+     "call_put": "C",
+     "exercise_price": 3.4,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 84819
+    },
+    {
+     "ts_code": "159915C2610M003500",
+     "call_put": "C",
+     "exercise_price": 3.5,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 89109
+    },
+    {
+     "ts_code": "159915C2610M003600",
+     "call_put": "C",
+     "exercise_price": 3.6,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 37129
+    },
+    {
+     "ts_code": "159915C2610M003700",
+     "call_put": "C",
+     "exercise_price": 3.7,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 37564
+    },
+    {
+     "ts_code": "159915C2610M003800",
+     "call_put": "C",
+     "exercise_price": 3.8,
+     "maturity_date": "20261028",
+     "close": 0.0002,
+     "oi": 28569
+    },
+    {
+     "ts_code": "159915P2610M003000",
+     "call_put": "P",
+     "exercise_price": 3.0,
+     "maturity_date": "20261028",
+     "close": 0.2863,
+     "oi": 21004
+    },
+    {
+     "ts_code": "159915P2610M003100",
+     "call_put": "P",
+     "exercise_price": 3.1,
+     "maturity_date": "20261028",
+     "close": 0.3854,
+     "oi": 19496
+    },
+    {
+     "ts_code": "159915P2610M003200",
+     "call_put": "P",
+     "exercise_price": 3.2,
+     "maturity_date": "20261028",
+     "close": 0.4852,
+     "oi": 14379
+    },
+    {
+     "ts_code": "159915P2610M003300",
+     "call_put": "P",
+     "exercise_price": 3.3,
+     "maturity_date": "20261028",
+     "close": 0.5851,
+     "oi": 14261
+    },
+    {
+     "ts_code": "159915P2610M003400",
+     "call_put": "P",
+     "exercise_price": 3.4,
+     "maturity_date": "20261028",
+     "close": 0.6851,
+     "oi": 23821
+    },
+    {
+     "ts_code": "159915P2610M003500",
+     "call_put": "P",
+     "exercise_price": 3.5,
+     "maturity_date": "20261028",
+     "close": 0.785,
+     "oi": 13132
+    },
+    {
+     "ts_code": "159915P2610M003600",
+     "call_put": "P",
+     "exercise_price": 3.6,
+     "maturity_date": "20261028",
+     "close": 0.885,
+     "oi": 5570
+    },
+    {
+     "ts_code": "159915P2610M003700",
+     "call_put": "P",
+     "exercise_price": 3.7,
+     "maturity_date": "20261028",
+     "close": 0.9849,
+     "oi": 1730
+    },
+    {
+     "ts_code": "159915P2610M003800",
+     "call_put": "P",
+     "exercise_price": 3.8,
+     "maturity_date": "20261028",
+     "close": 1.0848,
+     "oi": 1065
+    },
+    {
+     "ts_code": "159915C2610M003900",
+     "call_put": "C",
+     "exercise_price": 3.9,
+     "maturity_date": "20261028",
+     "close": 0.0001,
+     "oi": 41519
+    },
+    {
+     "ts_code": "159915P2610M003900",
+     "call_put": "P",
+     "exercise_price": 3.9,
+     "maturity_date": "20261028",
+     "close": 1.1871,
+     "oi": 1736
+    },
+    {
+     "ts_code": "159915C2610M002950",
+     "call_put": "C",
+     "exercise_price": 2.95,
+     "maturity_date": "20261028",
+     "close": 0.0028,
+     "oi": 48632
+    },
+    {
+     "ts_code": "159915P2610M002950",
+     "call_put": "P",
+     "exercise_price": 2.95,
+     "maturity_date": "20261028",
+     "close": 0.241,
+     "oi": 16456
+    },
+    {
+     "ts_code": "159915C2611M003000",
+     "call_put": "C",
+     "exercise_price": 3.0,
+     "maturity_date": "20261125",
+     "close": 0.0309,
+     "oi": 23393
+    },
+    {
+     "ts_code": "159915C2611M003100",
+     "call_put": "C",
+     "exercise_price": 3.1,
+     "maturity_date": "20261125",
+     "close": 0.0188,
+     "oi": 20416
+    },
+    {
+     "ts_code": "159915C2611M003200",
+     "call_put": "C",
+     "exercise_price": 3.2,
+     "maturity_date": "20261125",
+     "close": 0.0118,
+     "oi": 24293
+    },
+    {
+     "ts_code": "159915C2611M003300",
+     "call_put": "C",
+     "exercise_price": 3.3,
+     "maturity_date": "20261125",
+     "close": 0.0073,
+     "oi": 17332
+    },
+    {
+     "ts_code": "159915C2611M003400",
+     "call_put": "C",
+     "exercise_price": 3.4,
+     "maturity_date": "20261125",
+     "close": 0.0052,
+     "oi": 12568
+    },
+    {
+     "ts_code": "159915C2611M003500",
+     "call_put": "C",
+     "exercise_price": 3.5,
+     "maturity_date": "20261125",
+     "close": 0.0035,
+     "oi": 10503
+    },
+    {
+     "ts_code": "159915C2611M003600",
+     "call_put": "C",
+     "exercise_price": 3.6,
+     "maturity_date": "20261125",
+     "close": 0.0023,
+     "oi": 7628
+    },
+    {
+     "ts_code": "159915C2611M003700",
+     "call_put": "C",
+     "exercise_price": 3.7,
+     "maturity_date": "20261125",
+     "close": 0.0019,
+     "oi": 5378
+    },
+    {
+     "ts_code": "159915C2611M003800",
+     "call_put": "C",
+     "exercise_price": 3.8,
+     "maturity_date": "20261125",
+     "close": 0.0017,
+     "oi": 10810
+    },
+    {
+     "ts_code": "159915P2611M003000",
+     "call_put": "P",
+     "exercise_price": 3.0,
+     "maturity_date": "20261125",
+     "close": 0.3162,
+     "oi": 8689
+    },
+    {
+     "ts_code": "159915P2611M003100",
+     "call_put": "P",
+     "exercise_price": 3.1,
+     "maturity_date": "20261125",
+     "close": 0.4032,
+     "oi": 5421
+    },
+    {
+     "ts_code": "159915P2611M003200",
+     "call_put": "P",
+     "exercise_price": 3.2,
+     "maturity_date": "20261125",
+     "close": 0.4958,
+     "oi": 4130
+    },
+    {
+     "ts_code": "159915P2611M003300",
+     "call_put": "P",
+     "exercise_price": 3.3,
+     "maturity_date": "20261125",
+     "close": 0.5937,
+     "oi": 2554
+    },
+    {
+     "ts_code": "159915P2611M003400",
+     "call_put": "P",
+     "exercise_price": 3.4,
+     "maturity_date": "20261125",
+     "close": 0.691,
+     "oi": 880
+    },
+    {
+     "ts_code": "159915P2611M003500",
+     "call_put": "P",
+     "exercise_price": 3.5,
+     "maturity_date": "20261125",
+     "close": 0.7871,
+     "oi": 599
+    },
+    {
+     "ts_code": "159915P2611M003600",
+     "call_put": "P",
+     "exercise_price": 3.6,
+     "maturity_date": "20261125",
+     "close": 0.888,
+     "oi": 348
+    },
+    {
+     "ts_code": "159915P2611M003700",
+     "call_put": "P",
+     "exercise_price": 3.7,
+     "maturity_date": "20261125",
+     "close": 0.9872,
+     "oi": 212
+    },
+    {
+     "ts_code": "159915P2611M003800",
+     "call_put": "P",
+     "exercise_price": 3.8,
+     "maturity_date": "20261125",
+     "close": 1.0865,
+     "oi": 232
+    },
+    {
+     "ts_code": "159915C2611M002950",
+     "call_put": "C",
+     "exercise_price": 2.95,
+     "maturity_date": "20261125",
+     "close": 0.0395,
+     "oi": 14194
+    },
+    {
+     "ts_code": "159915P2611M002950",
+     "call_put": "P",
+     "exercise_price": 2.95,
+     "maturity_date": "20261125",
+     "close": 0.274,
+     "oi": 7386
+    },
+    {
+     "ts_code": "159915C2610M002900",
+     "call_put": "C",
+     "exercise_price": 2.9,
+     "maturity_date": "20261028",
+     "close": 0.0052,
+     "oi": 55165
+    },
+    {
+     "ts_code": "159915P2610M002900",
+     "call_put": "P",
+     "exercise_price": 2.9,
+     "maturity_date": "20261028",
+     "close": 0.191,
+     "oi": 14277
+    },
+    {
+     "ts_code": "159915C2611M002900",
+     "call_put": "C",
+     "exercise_price": 2.9,
+     "maturity_date": "20261125",
+     "close": 0.0513,
+     "oi": 14760
+    },
+    {
+     "ts_code": "159915P2611M002900",
+     "call_put": "P",
+     "exercise_price": 2.9,
+     "maturity_date": "20261125",
+     "close": 0.2353,
+     "oi": 9407
+    },
+    {
+     "ts_code": "159915C2610M002850",
+     "call_put": "C",
+     "exercise_price": 2.85,
+     "maturity_date": "20261028",
+     "close": 0.01,
+     "oi": 62328
+    },
+    {
+     "ts_code": "159915P2610M002850",
+     "call_put": "P",
+     "exercise_price": 2.85,
+     "maturity_date": "20261028",
+     "close": 0.144,
+     "oi": 18870
+    },
+    {
+     "ts_code": "159915C2611M002850",
+     "call_put": "C",
+     "exercise_price": 2.85,
+     "maturity_date": "20261125",
+     "close": 0.0654,
+     "oi": 18157
+    },
+    {
+     "ts_code": "159915P2611M002850",
+     "call_put": "P",
+     "exercise_price": 2.85,
+     "maturity_date": "20261125",
+     "close": 0.1988,
+     "oi": 12703
+    },
+    {
+     "ts_code": "159915C2610M002800",
+     "call_put": "C",
+     "exercise_price": 2.8,
+     "maturity_date": "20261028",
+     "close": 0.0185,
+     "oi": 54961
+    },
+    {
+     "ts_code": "159915P2610M002800",
+     "call_put": "P",
+     "exercise_price": 2.8,
+     "maturity_date": "20261028",
+     "close": 0.107,
+     "oi": 29461
+    },
+    {
+     "ts_code": "159915C2611M002800",
+     "call_put": "C",
+     "exercise_price": 2.8,
+     "maturity_date": "20261125",
+     "close": 0.0826,
+     "oi": 26259
+    },
+    {
+     "ts_code": "159915P2611M002800",
+     "call_put": "P",
+     "exercise_price": 2.8,
+     "maturity_date": "20261125",
+     "close": 0.1675,
+     "oi": 19580
+    },
+    {
+     "ts_code": "159915C2610M002750",
+     "call_put": "C",
+     "exercise_price": 2.75,
+     "maturity_date": "20261028",
+     "close": 0.0358,
+     "oi": 38912
+    },
+    {
+     "ts_code": "159915P2610M002750",
+     "call_put": "P",
+     "exercise_price": 2.75,
+     "maturity_date": "20261028",
+     "close": 0.073,
+     "oi": 33358
+    },
+    {
+     "ts_code": "159915C2611M002750",
+     "call_put": "C",
+     "exercise_price": 2.75,
+     "maturity_date": "20261125",
+     "close": 0.103,
+     "oi": 13730
+    },
+    {
+     "ts_code": "159915P2611M002750",
+     "call_put": "P",
+     "exercise_price": 2.75,
+     "maturity_date": "20261125",
+     "close": 0.1395,
+     "oi": 16647
+    },
+    {
+     "ts_code": "159915C2610M002700",
+     "call_put": "C",
+     "exercise_price": 2.7,
+     "maturity_date": "20261028",
+     "close": 0.0604,
+     "oi": 17847
+    },
+    {
+     "ts_code": "159915P2610M002700",
+     "call_put": "P",
+     "exercise_price": 2.7,
+     "maturity_date": "20261028",
+     "close": 0.0476,
+     "oi": 35301
+    },
+    {
+     "ts_code": "159915C2611M002700",
+     "call_put": "C",
+     "exercise_price": 2.7,
+     "maturity_date": "20261125",
+     "close": 0.1296,
+     "oi": 4640
+    },
+    {
+     "ts_code": "159915P2611M002700",
+     "call_put": "P",
+     "exercise_price": 2.7,
+     "maturity_date": "20261125",
+     "close": 0.1137,
+     "oi": 14708
+    },
+    {
+     "ts_code": "159915C2610M002600",
+     "call_put": "C",
+     "exercise_price": 2.6,
+     "maturity_date": "20261028",
+     "close": 0.1314,
+     "oi": 5852
+    },
+    {
+     "ts_code": "159915C2610M002650",
+     "call_put": "C",
+     "exercise_price": 2.65,
+     "maturity_date": "20261028",
+     "close": 0.0923,
+     "oi": 5962
+    },
+    {
+     "ts_code": "159915P2610M002600",
+     "call_put": "P",
+     "exercise_price": 2.6,
+     "maturity_date": "20261028",
+     "close": 0.0167,
+     "oi": 28608
+    },
+    {
+     "ts_code": "159915P2610M002650",
+     "call_put": "P",
+     "exercise_price": 2.65,
+     "maturity_date": "20261028",
+     "close": 0.029,
+     "oi": 18859
+    },
+    {
+     "ts_code": "159915C2611M002600",
+     "call_put": "C",
+     "exercise_price": 2.6,
+     "maturity_date": "20261125",
+     "close": 0.188,
+     "oi": 2066
+    },
+    {
+     "ts_code": "159915C2611M002650",
+     "call_put": "C",
+     "exercise_price": 2.65,
+     "maturity_date": "20261125",
+     "close": 0.1571,
+     "oi": 1527
+    },
+    {
+     "ts_code": "159915P2611M002600",
+     "call_put": "P",
+     "exercise_price": 2.6,
+     "maturity_date": "20261125",
+     "close": 0.0735,
+     "oi": 11546
+    },
+    {
+     "ts_code": "159915P2611M002650",
+     "call_put": "P",
+     "exercise_price": 2.65,
+     "maturity_date": "20261125",
+     "close": 0.0927,
+     "oi": 8677
+    },
+    {
+     "ts_code": "159915C2610M002550",
+     "call_put": "C",
+     "exercise_price": 2.55,
+     "maturity_date": "20261028",
+     "close": 0.1758,
+     "oi": 1050
+    },
+    {
+     "ts_code": "159915P2610M002550",
+     "call_put": "P",
+     "exercise_price": 2.55,
+     "maturity_date": "20261028",
+     "close": 0.0088,
+     "oi": 22192
+    },
+    {
+     "ts_code": "159915C2611M002550",
+     "call_put": "C",
+     "exercise_price": 2.55,
+     "maturity_date": "20261125",
+     "close": 0.2236,
+     "oi": 417
+    },
+    {
+     "ts_code": "159915P2611M002550",
+     "call_put": "P",
+     "exercise_price": 2.55,
+     "maturity_date": "20261125",
+     "close": 0.0588,
+     "oi": 12716
+    },
+    {
+     "ts_code": "159915C2610M002500",
+     "call_put": "C",
+     "exercise_price": 2.5,
+     "maturity_date": "20261028",
+     "close": 0.22,
+     "oi": 0
+    },
+    {
+     "ts_code": "159915P2610M002500",
+     "call_put": "P",
+     "exercise_price": 2.5,
+     "maturity_date": "20261028",
+     "close": 0.004,
+     "oi": 0
+    },
+    {
+     "ts_code": "159915C2611M002500",
+     "call_put": "C",
+     "exercise_price": 2.5,
+     "maturity_date": "20261125",
+     "close": 0.2597,
+     "oi": 0
+    },
+    {
+     "ts_code": "159915P2611M002500",
+     "call_put": "P",
+     "exercise_price": 2.5,
+     "maturity_date": "20261125",
+     "close": 0.0445,
+     "oi": 0
+    }
+   ],
+   "skew": {
+    "spot_price": 2.592,
+    "atm_iv": 55.7,
+    "put_25d_iv": 0,
+    "call_25d_iv": 130.21,
+    "iv_skew": -130.21,
+    "cboe_skew": 100.0,
+    "vol_pcr": 0,
+    "oi_pcr": 0.42,
+    "amt_pcr": 0,
+    "support": 2.7,
+    "resistance": 3.5,
+    "direction": "⚪中性",
+    "expiry": "20261028",
+    "dte": 6
+   },
+   "gex": {
+    "total_gex": 148282190.452836,
+    "total_gex_yi": 1.48,
+    "flip_point": 2.55,
+    "risk": "🟢低",
+    "risk_label": "🟢低",
+    "net_gex": 1.48,
+    "spot_price": null,
+    "details_count": 20,
+    "key_details": [
+     {
+      "strike": 3.0,
+      "call_oi": 83926,
+      "put_oi": 29693,
+      "net_gex": 39317712.041689,
+      "cumulative_gex": 38343460.810126
+     },
+     {
+      "strike": 3.1,
+      "call_oi": 92756,
+      "put_oi": 24917,
+      "net_gex": 33564557.833035,
+      "cumulative_gex": 71908018.643161
+     },
+     {
+      "strike": 3.2,
+      "call_oi": 99158,
+      "put_oi": 18509,
+      "net_gex": 26668804.007688,
+      "cumulative_gex": 98576822.650849
+     },
+     {
+      "strike": 3.3,
+      "call_oi": 87925,
+      "put_oi": 16815,
+      "net_gex": 16999949.437605,
+      "cumulative_gex": 115576772.088454
+     },
+     {
+      "strike": 3.4,
+      "call_oi": 97387,
+      "put_oi": 24701,
+      "net_gex": 14067236.341463,
+      "cumulative_gex": 129644008.429917
+     },
+     {
+      "strike": 3.5,
+      "call_oi": 99612,
+      "put_oi": 13731,
+      "net_gex": 10439587.677377,
+      "cumulative_gex": 140083596.107295
+     },
+     {
+      "strike": 3.6,
+      "call_oi": 44757,
+      "put_oi": 5918,
+      "net_gex": 3337990.122403,
+      "cumulative_gex": 143421586.229697
+     },
+     {
+      "strike": 3.7,
+      "call_oi": 42942,
+      "put_oi": 1942,
+      "net_gex": 2568986.729402,
+      "cumulative_gex": 145990572.9591
+     },
+     {
+      "strike": 3.8,
+      "call_oi": 39379,
+      "put_oi": 1297,
+      "net_gex": 1989177.726834,
+      "cumulative_gex": 147979750.685934
+     },
+     {
+      "strike": 3.9,
+      "call_oi": 41519,
+      "put_oi": 1736,
+      "net_gex": 302439.766902,
+      "cumulative_gex": 148282190.452836
+     }
+    ]
+   },
+   "rr": {
+    "rr": 50.21,
+    "weighted_rr": 44.32,
+    "direction": "🟢 偏多",
+    "nearest_expiry": "20261028",
+    "nearest_dte": 6,
+    "call_iv": 68.94,
+    "put_iv": 18.72,
+    "call_strike": 2.75,
+    "put_strike": 2.55,
+    "call_delta": 0.2677,
+    "put_delta": -0.2379,
+    "by_expiry": {
+     "20261028": {
+      "rr": 50.21,
+      "dte": 6,
+      "call_iv": 68.94,
+      "put_iv": 18.72
+     },
+     "20261125": {
+      "rr": 19.95,
+      "dte": 34,
+      "call_iv": 47.41,
+      "put_iv": 27.46
+     }
+    }
+   }
+  },
+  "MO": {
+   "spot_chain": 6578.2722,
+   "count": 122,
+   "rows": [
+    {
+     "ts_code": "mo2611C6000",
+     "call_put": "C",
+     "exercise_price": 6000.0,
+     "maturity_date": "20261120",
+     "close": 618.0,
+     "oi": 573
+    },
+    {
+     "ts_code": "mo2611P6000",
+     "call_put": "P",
+     "exercise_price": 6000.0,
+     "maturity_date": "20261120",
+     "close": 74.0,
+     "oi": 7963
+    },
+    {
+     "ts_code": "mo2611C6100",
+     "call_put": "C",
+     "exercise_price": 6100.0,
+     "maturity_date": "20261120",
+     "close": 521.8,
+     "oi": 62
+    },
+    {
+     "ts_code": "mo2611P6100",
+     "call_put": "P",
+     "exercise_price": 6100.0,
+     "maturity_date": "20261120",
+     "close": 91.8,
+     "oi": 2195
+    },
+    {
+     "ts_code": "mo2611C6200",
+     "call_put": "C",
+     "exercise_price": 6200.0,
+     "maturity_date": "20261120",
+     "close": 447.6,
+     "oi": 361
+    },
+    {
+     "ts_code": "mo2611P6200",
+     "call_put": "P",
+     "exercise_price": 6200.0,
+     "maturity_date": "20261120",
+     "close": 115.0,
+     "oi": 3937
+    },
+    {
+     "ts_code": "mo2611C6300",
+     "call_put": "C",
+     "exercise_price": 6300.0,
+     "maturity_date": "20261120",
+     "close": 375.2,
+     "oi": 639
+    },
+    {
+     "ts_code": "mo2611P6300",
+     "call_put": "P",
+     "exercise_price": 6300.0,
+     "maturity_date": "20261120",
+     "close": 140.6,
+     "oi": 3593
+    },
+    {
+     "ts_code": "mo2611C6400",
+     "call_put": "C",
+     "exercise_price": 6400.0,
+     "maturity_date": "20261120",
+     "close": 309.6,
+     "oi": 993
+    },
+    {
+     "ts_code": "mo2611P6400",
+     "call_put": "P",
+     "exercise_price": 6400.0,
+     "maturity_date": "20261120",
+     "close": 175.8,
+     "oi": 4095
+    },
+    {
+     "ts_code": "mo2611C6500",
+     "call_put": "C",
+     "exercise_price": 6500.0,
+     "maturity_date": "20261120",
+     "close": 250.0,
+     "oi": 1276
+    },
+    {
+     "ts_code": "mo2611P6500",
+     "call_put": "P",
+     "exercise_price": 6500.0,
+     "maturity_date": "20261120",
+     "close": 219.0,
+     "oi": 4374
+    },
+    {
+     "ts_code": "mo2611C6600",
+     "call_put": "C",
+     "exercise_price": 6600.0,
+     "maturity_date": "20261120",
+     "close": 199.8,
+     "oi": 2528
+    },
+    {
+     "ts_code": "mo2611P6600",
+     "call_put": "P",
+     "exercise_price": 6600.0,
+     "maturity_date": "20261120",
+     "close": 266.2,
+     "oi": 5431
+    },
+    {
+     "ts_code": "mo2611C6700",
+     "call_put": "C",
+     "exercise_price": 6700.0,
+     "maturity_date": "20261120",
+     "close": 155.0,
+     "oi": 4415
+    },
+    {
+     "ts_code": "mo2611P6700",
+     "call_put": "P",
+     "exercise_price": 6700.0,
+     "maturity_date": "20261120",
+     "close": 321.6,
+     "oi": 4836
+    },
+    {
+     "ts_code": "mo2611C6800",
+     "call_put": "C",
+     "exercise_price": 6800.0,
+     "maturity_date": "20261120",
+     "close": 119.0,
+     "oi": 6834
+    },
+    {
+     "ts_code": "mo2611P6800",
+     "call_put": "P",
+     "exercise_price": 6800.0,
+     "maturity_date": "20261120",
+     "close": 386.4,
+     "oi": 4973
+    },
+    {
+     "ts_code": "mo2611C6900",
+     "call_put": "C",
+     "exercise_price": 6900.0,
+     "maturity_date": "20261120",
+     "close": 90.0,
+     "oi": 6399
+    },
+    {
+     "ts_code": "mo2611P6900",
+     "call_put": "P",
+     "exercise_price": 6900.0,
+     "maturity_date": "20261120",
+     "close": 455.6,
+     "oi": 2916
+    },
+    {
+     "ts_code": "mo2611C7000",
+     "call_put": "C",
+     "exercise_price": 7000.0,
+     "maturity_date": "20261120",
+     "close": 70.0,
+     "oi": 18190
+    },
+    {
+     "ts_code": "mo2611P7000",
+     "call_put": "P",
+     "exercise_price": 7000.0,
+     "maturity_date": "20261120",
+     "close": 530.0,
+     "oi": 5331
+    },
+    {
+     "ts_code": "mo2611C7100",
+     "call_put": "C",
+     "exercise_price": 7100.0,
+     "maturity_date": "20261120",
+     "close": 50.0,
+     "oi": 6629
+    },
+    {
+     "ts_code": "mo2611P7100",
+     "call_put": "P",
+     "exercise_price": 7100.0,
+     "maturity_date": "20261120",
+     "close": 599.6,
+     "oi": 2230
+    },
+    {
+     "ts_code": "mo2611C7200",
+     "call_put": "C",
+     "exercise_price": 7200.0,
+     "maturity_date": "20261120",
+     "close": 37.0,
+     "oi": 8832
+    },
+    {
+     "ts_code": "mo2611P7200",
+     "call_put": "P",
+     "exercise_price": 7200.0,
+     "maturity_date": "20261120",
+     "close": 664.6,
+     "oi": 2044
+    },
+    {
+     "ts_code": "mo2611C7300",
+     "call_put": "C",
+     "exercise_price": 7300.0,
+     "maturity_date": "20261120",
+     "close": 26.0,
+     "oi": 7325
+    },
+    {
+     "ts_code": "mo2611P7300",
+     "call_put": "P",
+     "exercise_price": 7300.0,
+     "maturity_date": "20261120",
+     "close": 787.8,
+     "oi": 1241
+    },
+    {
+     "ts_code": "mo2611C7400",
+     "call_put": "C",
+     "exercise_price": 7400.0,
+     "maturity_date": "20261120",
+     "close": 18.4,
+     "oi": 8038
+    },
+    {
+     "ts_code": "mo2611P7400",
+     "call_put": "P",
+     "exercise_price": 7400.0,
+     "maturity_date": "20261120",
+     "close": 887.8,
+     "oi": 1232
+    },
+    {
+     "ts_code": "mo2611C7500",
+     "call_put": "C",
+     "exercise_price": 7500.0,
+     "maturity_date": "20261120",
+     "close": 14.0,
+     "oi": 9583
+    },
+    {
+     "ts_code": "mo2611P7500",
+     "call_put": "P",
+     "exercise_price": 7500.0,
+     "maturity_date": "20261120",
+     "close": 977.8,
+     "oi": 1876
+    },
+    {
+     "ts_code": "mo2611C7600",
+     "call_put": "C",
+     "exercise_price": 7600.0,
+     "maturity_date": "20261120",
+     "close": 9.8,
+     "oi": 5665
+    },
+    {
+     "ts_code": "mo2611P7600",
+     "call_put": "P",
+     "exercise_price": 7600.0,
+     "maturity_date": "20261120",
+     "close": 1064.8,
+     "oi": 1241
+    },
+    {
+     "ts_code": "mo2611C7700",
+     "call_put": "C",
+     "exercise_price": 7700.0,
+     "maturity_date": "20261120",
+     "close": 7.4,
+     "oi": 3918
+    },
+    {
+     "ts_code": "mo2611P7700",
+     "call_put": "P",
+     "exercise_price": 7700.0,
+     "maturity_date": "20261120",
+     "close": 1131.4,
+     "oi": 645
+    },
+    {
+     "ts_code": "mo2611C7800",
+     "call_put": "C",
+     "exercise_price": 7800.0,
+     "maturity_date": "20261120",
+     "close": 5.4,
+     "oi": 3994
+    },
+    {
+     "ts_code": "mo2611P7800",
+     "call_put": "P",
+     "exercise_price": 7800.0,
+     "maturity_date": "20261120",
+     "close": 1233.0,
+     "oi": 540
+    },
+    {
+     "ts_code": "mo2611C7900",
+     "call_put": "C",
+     "exercise_price": 7900.0,
+     "maturity_date": "20261120",
+     "close": 4.0,
+     "oi": 2510
+    },
+    {
+     "ts_code": "mo2611P7900",
+     "call_put": "P",
+     "exercise_price": 7900.0,
+     "maturity_date": "20261120",
+     "close": 1256.0,
+     "oi": 259
+    },
+    {
+     "ts_code": "mo2611C8000",
+     "call_put": "C",
+     "exercise_price": 8000.0,
+     "maturity_date": "20261120",
+     "close": 3.8,
+     "oi": 6296
+    },
+    {
+     "ts_code": "mo2611P8000",
+     "call_put": "P",
+     "exercise_price": 8000.0,
+     "maturity_date": "20261120",
+     "close": 1431.4,
+     "oi": 614
+    },
+    {
+     "ts_code": "mo2611C8100",
+     "call_put": "C",
+     "exercise_price": 8100.0,
+     "maturity_date": "20261120",
+     "close": 3.0,
+     "oi": 1456
+    },
+    {
+     "ts_code": "mo2611P8100",
+     "call_put": "P",
+     "exercise_price": 8100.0,
+     "maturity_date": "20261120",
+     "close": 1457.2,
+     "oi": 142
+    },
+    {
+     "ts_code": "mo2611C8200",
+     "call_put": "C",
+     "exercise_price": 8200.0,
+     "maturity_date": "20261120",
+     "close": 2.8,
+     "oi": 1529
+    },
+    {
+     "ts_code": "mo2611P8200",
+     "call_put": "P",
+     "exercise_price": 8200.0,
+     "maturity_date": "20261120",
+     "close": 1552.2,
+     "oi": 196
+    },
+    {
+     "ts_code": "mo2611C8300",
+     "call_put": "C",
+     "exercise_price": 8300.0,
+     "maturity_date": "20261120",
+     "close": 2.4,
+     "oi": 1084
+    },
+    {
+     "ts_code": "mo2611P8300",
+     "call_put": "P",
+     "exercise_price": 8300.0,
+     "maturity_date": "20261120",
+     "close": 1701.2,
+     "oi": 188
+    },
+    {
+     "ts_code": "mo2611C8400",
+     "call_put": "C",
+     "exercise_price": 8400.0,
+     "maturity_date": "20261120",
+     "close": 2.2,
+     "oi": 1452
+    },
+    {
+     "ts_code": "mo2611P8400",
+     "call_put": "P",
+     "exercise_price": 8400.0,
+     "maturity_date": "20261120",
+     "close": 1753.0,
+     "oi": 150
+    },
+    {
+     "ts_code": "mo2611C8500",
+     "call_put": "C",
+     "exercise_price": 8500.0,
+     "maturity_date": "20261120",
+     "close": 2.0,
+     "oi": 928
+    },
+    {
+     "ts_code": "mo2611P8500",
+     "call_put": "P",
+     "exercise_price": 8500.0,
+     "maturity_date": "20261120",
+     "close": 1884.0,
+     "oi": 194
+    },
+    {
+     "ts_code": "mo2611C8600",
+     "call_put": "C",
+     "exercise_price": 8600.0,
+     "maturity_date": "20261120",
+     "close": 1.8,
+     "oi": 2737
+    },
+    {
+     "ts_code": "mo2611P8600",
+     "call_put": "P",
+     "exercise_price": 8600.0,
+     "maturity_date": "20261120",
+     "close": 1950.8,
+     "oi": 249
+    },
+    {
+     "ts_code": "mo2612C6000",
+     "call_put": "C",
+     "exercise_price": 6000.0,
+     "maturity_date": "20261218",
+     "close": 625.8,
+     "oi": 123
+    },
+    {
+     "ts_code": "mo2612P6000",
+     "call_put": "P",
+     "exercise_price": 6000.0,
+     "maturity_date": "20261218",
+     "close": 127.0,
+     "oi": 2416
+    },
+    {
+     "ts_code": "mo2612C6100",
+     "call_put": "C",
+     "exercise_price": 6100.0,
+     "maturity_date": "20261218",
+     "close": 607.0,
+     "oi": 35
+    },
+    {
+     "ts_code": "mo2612P6100",
+     "call_put": "P",
+     "exercise_price": 6100.0,
+     "maturity_date": "20261218",
+     "close": 155.2,
+     "oi": 545
+    },
+    {
+     "ts_code": "mo2612C6200",
+     "call_put": "C",
+     "exercise_price": 6200.0,
+     "maturity_date": "20261218",
+     "close": 474.0,
+     "oi": 324
+    },
+    {
+     "ts_code": "mo2612P6200",
+     "call_put": "P",
+     "exercise_price": 6200.0,
+     "maturity_date": "20261218",
+     "close": 184.8,
+     "oi": 6687
+    },
+    {
+     "ts_code": "mo2612C6300",
+     "call_put": "C",
+     "exercise_price": 6300.0,
+     "maturity_date": "20261218",
+     "close": 408.6,
+     "oi": 150
+    },
+    {
+     "ts_code": "mo2612P6300",
+     "call_put": "P",
+     "exercise_price": 6300.0,
+     "maturity_date": "20261218",
+     "close": 219.8,
+     "oi": 619
+    },
+    {
+     "ts_code": "mo2612C6400",
+     "call_put": "C",
+     "exercise_price": 6400.0,
+     "maturity_date": "20261218",
+     "close": 353.6,
+     "oi": 1142
+    },
+    {
+     "ts_code": "mo2612P6400",
+     "call_put": "P",
+     "exercise_price": 6400.0,
+     "maturity_date": "20261218",
+     "close": 259.4,
+     "oi": 3447
+    },
+    {
+     "ts_code": "mo2612C6500",
+     "call_put": "C",
+     "exercise_price": 6500.0,
+     "maturity_date": "20261218",
+     "close": 297.6,
+     "oi": 307
+    },
+    {
+     "ts_code": "mo2612P6500",
+     "call_put": "P",
+     "exercise_price": 6500.0,
+     "maturity_date": "20261218",
+     "close": 304.0,
+     "oi": 1215
+    },
+    {
+     "ts_code": "mo2612C6600",
+     "call_put": "C",
+     "exercise_price": 6600.0,
+     "maturity_date": "20261218",
+     "close": 248.8,
+     "oi": 1129
+    },
+    {
+     "ts_code": "mo2612P6600",
+     "call_put": "P",
+     "exercise_price": 6600.0,
+     "maturity_date": "20261218",
+     "close": 354.2,
+     "oi": 2737
+    },
+    {
+     "ts_code": "mo2612C6700",
+     "call_put": "C",
+     "exercise_price": 6700.0,
+     "maturity_date": "20261218",
+     "close": 206.8,
+     "oi": 967
+    },
+    {
+     "ts_code": "mo2612P6700",
+     "call_put": "P",
+     "exercise_price": 6700.0,
+     "maturity_date": "20261218",
+     "close": 413.8,
+     "oi": 1013
+    },
+    {
+     "ts_code": "mo2612C6800",
+     "call_put": "C",
+     "exercise_price": 6800.0,
+     "maturity_date": "20261218",
+     "close": 169.8,
+     "oi": 2488
+    },
+    {
+     "ts_code": "mo2612P6800",
+     "call_put": "P",
+     "exercise_price": 6800.0,
+     "maturity_date": "20261218",
+     "close": 479.0,
+     "oi": 2810
+    },
+    {
+     "ts_code": "mo2612C6900",
+     "call_put": "C",
+     "exercise_price": 6900.0,
+     "maturity_date": "20261218",
+     "close": 142.4,
+     "oi": 1078
+    },
+    {
+     "ts_code": "mo2612P6900",
+     "call_put": "P",
+     "exercise_price": 6900.0,
+     "maturity_date": "20261218",
+     "close": 534.2,
+     "oi": 631
+    },
+    {
+     "ts_code": "mo2612C7000",
+     "call_put": "C",
+     "exercise_price": 7000.0,
+     "maturity_date": "20261218",
+     "close": 115.0,
+     "oi": 3948
+    },
+    {
+     "ts_code": "mo2612P7000",
+     "call_put": "P",
+     "exercise_price": 7000.0,
+     "maturity_date": "20261218",
+     "close": 615.0,
+     "oi": 2336
+    },
+    {
+     "ts_code": "mo2612C7100",
+     "call_put": "C",
+     "exercise_price": 7100.0,
+     "maturity_date": "20261218",
+     "close": 92.0,
+     "oi": 905
+    },
+    {
+     "ts_code": "mo2612P7100",
+     "call_put": "P",
+     "exercise_price": 7100.0,
+     "maturity_date": "20261218",
+     "close": 683.2,
+     "oi": 313
+    },
+    {
+     "ts_code": "mo2612C7200",
+     "call_put": "C",
+     "exercise_price": 7200.0,
+     "maturity_date": "20261218",
+     "close": 73.0,
+     "oi": 3615
+    },
+    {
+     "ts_code": "mo2612P7200",
+     "call_put": "P",
+     "exercise_price": 7200.0,
+     "maturity_date": "20261218",
+     "close": 770.2,
+     "oi": 2065
+    },
+    {
+     "ts_code": "mo2612C7300",
+     "call_put": "C",
+     "exercise_price": 7300.0,
+     "maturity_date": "20261218",
+     "close": 58.8,
+     "oi": 897
+    },
+    {
+     "ts_code": "mo2612P7300",
+     "call_put": "P",
+     "exercise_price": 7300.0,
+     "maturity_date": "20261218",
+     "close": 867.2,
+     "oi": 195
+    },
+    {
+     "ts_code": "mo2612C7400",
+     "call_put": "C",
+     "exercise_price": 7400.0,
+     "maturity_date": "20261218",
+     "close": 45.6,
+     "oi": 3397
+    },
+    {
+     "ts_code": "mo2612P7400",
+     "call_put": "P",
+     "exercise_price": 7400.0,
+     "maturity_date": "20261218",
+     "close": 930.4,
+     "oi": 2320
+    },
+    {
+     "ts_code": "mo2612C7500",
+     "call_put": "C",
+     "exercise_price": 7500.0,
+     "maturity_date": "20261218",
+     "close": 37.0,
+     "oi": 1435
+    },
+    {
+     "ts_code": "mo2612P7500",
+     "call_put": "P",
+     "exercise_price": 7500.0,
+     "maturity_date": "20261218",
+     "close": 969.2,
+     "oi": 117
+    },
+    {
+     "ts_code": "mo2612C7600",
+     "call_put": "C",
+     "exercise_price": 7600.0,
+     "maturity_date": "20261218",
+     "close": 30.0,
+     "oi": 5541
+    },
+    {
+     "ts_code": "mo2612P7600",
+     "call_put": "P",
+     "exercise_price": 7600.0,
+     "maturity_date": "20261218",
+     "close": 1100.0,
+     "oi": 1861
+    },
+    {
+     "ts_code": "mo2612C7700",
+     "call_put": "C",
+     "exercise_price": 7700.0,
+     "maturity_date": "20261218",
+     "close": 24.6,
+     "oi": 922
+    },
+    {
+     "ts_code": "mo2612P7700",
+     "call_put": "P",
+     "exercise_price": 7700.0,
+     "maturity_date": "20261218",
+     "close": 1132.8,
+     "oi": 90
+    },
+    {
+     "ts_code": "mo2612C7800",
+     "call_put": "C",
+     "exercise_price": 7800.0,
+     "maturity_date": "20261218",
+     "close": 19.2,
+     "oi": 3947
+    },
+    {
+     "ts_code": "mo2612P7800",
+     "call_put": "P",
+     "exercise_price": 7800.0,
+     "maturity_date": "20261218",
+     "close": 1295.6,
+     "oi": 1622
+    },
+    {
+     "ts_code": "mo2612C7900",
+     "call_put": "C",
+     "exercise_price": 7900.0,
+     "maturity_date": "20261218",
+     "close": 15.8,
+     "oi": 435
+    },
+    {
+     "ts_code": "mo2612P7900",
+     "call_put": "P",
+     "exercise_price": 7900.0,
+     "maturity_date": "20261218",
+     "close": 1386.0,
+     "oi": 92
+    },
+    {
+     "ts_code": "mo2612C8000",
+     "call_put": "C",
+     "exercise_price": 8000.0,
+     "maturity_date": "20261218",
+     "close": 14.8,
+     "oi": 9389
+    },
+    {
+     "ts_code": "mo2612P8000",
+     "call_put": "P",
+     "exercise_price": 8000.0,
+     "maturity_date": "20261218",
+     "close": 1496.0,
+     "oi": 1860
+    },
+    {
+     "ts_code": "mo2612C8100",
+     "call_put": "C",
+     "exercise_price": 8100.0,
+     "maturity_date": "20261218",
+     "close": 11.4,
+     "oi": 345
+    },
+    {
+     "ts_code": "mo2612P8100",
+     "call_put": "P",
+     "exercise_price": 8100.0,
+     "maturity_date": "20261218",
+     "close": 1518.0,
+     "oi": 116
+    },
+    {
+     "ts_code": "mo2612C8200",
+     "call_put": "C",
+     "exercise_price": 8200.0,
+     "maturity_date": "20261218",
+     "close": 9.4,
+     "oi": 4007
+    },
+    {
+     "ts_code": "mo2612P8200",
+     "call_put": "P",
+     "exercise_price": 8200.0,
+     "maturity_date": "20261218",
+     "close": 1684.6,
+     "oi": 1795
+    },
+    {
+     "ts_code": "mo2612C8300",
+     "call_put": "C",
+     "exercise_price": 8300.0,
+     "maturity_date": "20261218",
+     "close": 8.2,
+     "oi": 305
+    },
+    {
+     "ts_code": "mo2612P8300",
+     "call_put": "P",
+     "exercise_price": 8300.0,
+     "maturity_date": "20261218",
+     "close": 1768.4,
+     "oi": 78
+    },
+    {
+     "ts_code": "mo2612C8400",
+     "call_put": "C",
+     "exercise_price": 8400.0,
+     "maturity_date": "20261218",
+     "close": 6.8,
+     "oi": 2638
+    },
+    {
+     "ts_code": "mo2612P8400",
+     "call_put": "P",
+     "exercise_price": 8400.0,
+     "maturity_date": "20261218",
+     "close": 1880.0,
+     "oi": 668
+    },
+    {
+     "ts_code": "mo2612C8500",
+     "call_put": "C",
+     "exercise_price": 8500.0,
+     "maturity_date": "20261218",
+     "close": 6.4,
+     "oi": 344
+    },
+    {
+     "ts_code": "mo2612P8500",
+     "call_put": "P",
+     "exercise_price": 8500.0,
+     "maturity_date": "20261218",
+     "close": 1919.4,
+     "oi": 55
+    },
+    {
+     "ts_code": "mo2612C8600",
+     "call_put": "C",
+     "exercise_price": 8600.0,
+     "maturity_date": "20261218",
+     "close": 5.8,
+     "oi": 3335
+    },
+    {
+     "ts_code": "mo2612P8600",
+     "call_put": "P",
+     "exercise_price": 8600.0,
+     "maturity_date": "20261218",
+     "close": 1989.2,
+     "oi": 1093
+    },
+    {
+     "ts_code": "mo2612C8800",
+     "call_put": "C",
+     "exercise_price": 8800.0,
+     "maturity_date": "20261218",
+     "close": 5.0,
+     "oi": 1864
+    },
+    {
+     "ts_code": "mo2612P8800",
+     "call_put": "P",
+     "exercise_price": 8800.0,
+     "maturity_date": "20261218",
+     "close": 2199.8,
+     "oi": 837
+    },
+    {
+     "ts_code": "mo2612C9000",
+     "call_put": "C",
+     "exercise_price": 9000.0,
+     "maturity_date": "20261218",
+     "close": 4.6,
+     "oi": 2624
+    },
+    {
+     "ts_code": "mo2612P9000",
+     "call_put": "P",
+     "exercise_price": 9000.0,
+     "maturity_date": "20261218",
+     "close": 2478.0,
+     "oi": 966
+    },
+    {
+     "ts_code": "mo2612C9200",
+     "call_put": "C",
+     "exercise_price": 9200.0,
+     "maturity_date": "20261218",
+     "close": 4.0,
+     "oi": 1482
+    },
+    {
+     "ts_code": "mo2612P9200",
+     "call_put": "P",
+     "exercise_price": 9200.0,
+     "maturity_date": "20261218",
+     "close": 2683.0,
+     "oi": 717
+    },
+    {
+     "ts_code": "mo2612C9400",
+     "call_put": "C",
+     "exercise_price": 9400.0,
+     "maturity_date": "20261218",
+     "close": 3.4,
+     "oi": 1330
+    },
+    {
+     "ts_code": "mo2612P9400",
+     "call_put": "P",
+     "exercise_price": 9400.0,
+     "maturity_date": "20261218",
+     "close": 2816.4,
+     "oi": 296
+    },
+    {
+     "ts_code": "mo2612C9600",
+     "call_put": "C",
+     "exercise_price": 9600.0,
+     "maturity_date": "20261218",
+     "close": 3.6,
+     "oi": 1916
+    },
+    {
+     "ts_code": "mo2612P9600",
+     "call_put": "P",
+     "exercise_price": 9600.0,
+     "maturity_date": "20261218",
+     "close": 3016.2,
+     "oi": 633
+    },
+    {
+     "ts_code": "mo2612C9800",
+     "call_put": "C",
+     "exercise_price": 9800.0,
+     "maturity_date": "20261218",
+     "close": 3.0,
+     "oi": 1047
+    },
+    {
+     "ts_code": "mo2612P9800",
+     "call_put": "P",
+     "exercise_price": 9800.0,
+     "maturity_date": "20261218",
+     "close": 3190.4,
+     "oi": 340
+    },
+    {
+     "ts_code": "mo2612C10000",
+     "call_put": "C",
+     "exercise_price": 10000.0,
+     "maturity_date": "20261218",
+     "close": 3.2,
+     "oi": 3323
+    },
+    {
+     "ts_code": "mo2612P10000",
+     "call_put": "P",
+     "exercise_price": 10000.0,
+     "maturity_date": "20261218",
+     "close": 3495.4,
+     "oi": 609
+    }
+   ],
+   "skew": {
+    "spot_price": 6578.2722,
+    "atm_iv": 31.49,
+    "put_25d_iv": 36.56,
+    "call_25d_iv": 26.46,
+    "iv_skew": 10.1,
+    "cboe_skew": 104.83,
+    "vol_pcr": 0,
+    "oi_pcr": 0.59,
+    "amt_pcr": 0,
+    "support": 6000.0,
+    "resistance": 7000.0,
+    "direction": "⚪中性",
+    "expiry": "20261120",
+    "dte": 29
+   },
+   "gex": {
+    "total_gex": 100523782628.14235,
+    "total_gex_yi": 1005.24,
+    "flip_point": null,
+    "risk": "🟢低",
+    "risk_label": "🟢低",
+    "net_gex": 1005.24,
+    "spot_price": null,
+    "details_count": 34,
+    "key_details": [
+     {
+      "strike": 8400.0,
+      "call_oi": 4090,
+      "put_oi": 818,
+      "net_gex": 701211347.160957,
+      "cumulative_gex": 97889413573.54195
+     },
+     {
+      "strike": 8500.0,
+      "call_oi": 1272,
+      "put_oi": 249,
+      "net_gex": 365983544.175505,
+      "cumulative_gex": 98255397117.71745
+     },
+     {
+      "strike": 8600.0,
+      "call_oi": 6072,
+      "put_oi": 1342,
+      "net_gex": 1558285111.888803,
+      "cumulative_gex": 99813682229.60626
+     },
+     {
+      "strike": 8800.0,
+      "call_oi": 1864,
+      "put_oi": 837,
+      "net_gex": 392433731.774496,
+      "cumulative_gex": 100206115961.38075
+     },
+     {
+      "strike": 9000.0,
+      "call_oi": 2624,
+      "put_oi": 966,
+      "net_gex": -73542877.549609,
+      "cumulative_gex": 100132573083.83115
+     },
+     {
+      "strike": 9200.0,
+      "call_oi": 1482,
+      "put_oi": 717,
+      "net_gex": -157762539.942442,
+      "cumulative_gex": 99974810543.8887
+     },
+     {
+      "strike": 9400.0,
+      "call_oi": 1330,
+      "put_oi": 296,
+      "net_gex": 166649809.988795,
+      "cumulative_gex": 100141460353.8775
+     },
+     {
+      "strike": 9600.0,
+      "call_oi": 1916,
+      "put_oi": 633,
+      "net_gex": 227401730.993387,
+      "cumulative_gex": 100368862084.8709
+     },
+     {
+      "strike": 9800.0,
+      "call_oi": 1047,
+      "put_oi": 340,
+      "net_gex": 103090265.420631,
+      "cumulative_gex": 100471952350.29152
+     },
+     {
+      "strike": 10000.0,
+      "call_oi": 3323,
+      "put_oi": 609,
+      "net_gex": 51830277.85083,
+      "cumulative_gex": 100523782628.14235
+     }
+    ]
+   },
+   "rr": {
+    "rr": -9.07,
+    "weighted_rr": -9.15,
+    "direction": "🔴 看空",
+    "nearest_expiry": "20261120",
+    "nearest_dte": 29,
+    "call_iv": 28.13,
+    "put_iv": 37.19,
+    "call_strike": 7000.0,
+    "put_strike": 6200.0,
+    "call_delta": 0.2376,
+    "put_delta": -0.2611,
+    "by_expiry": {
+     "20261120": {
+      "rr": -9.07,
+      "dte": 29,
+      "call_iv": 28.13,
+      "put_iv": 37.19
+     },
+     "20261218": {
+      "rr": -10.38,
+      "dte": 57,
+      "call_iv": 24.98,
+      "put_iv": 35.36
+     }
+    }
+   }
+  }
+ }
+}

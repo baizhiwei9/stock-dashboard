@@ -1,0 +1,29 @@
+{
+  "key": "midline_preference",
+  "title": "中线偏好监控",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "19:30",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u midline_preference_monitor.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/codeact/scripts/midline_preference_monitor.py",
+  "imported_from": "case/_seed/tasks.json"
+}
