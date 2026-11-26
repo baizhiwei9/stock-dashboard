@@ -1,0 +1,26 @@
+{
+  "key": "factor_daily",
+  "title": "资金面因子日报",
+  "desc": "场外资金 / 套牢盘稀少 / 筹码分散三项打分，产出 factor_*.json + 飞书/邮件",
+  "section": "stock",
+  "visibility": "public",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "08:30",
+    "weekdays": [1, 2, 3, 4, 5]
+  },
+  "cmd": "bash run.sh",
+  "cwd": ".",
+  "timeout": 2100,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": true
+  },
+  "requires": ["datahub"],
+  "entry": "run.sh",
+  "legacy_cmd": "PYTHONPATH=/opt/coze/.fuse_drive/dataHub_三级体系 bash strategies/run_daily_factor.sh",
+  "imported_from": "modules.json（2026-11-26 迁入 case）",
+  "import_note": "发送内嵌（B 类一体式）；run.sh 保留原脚本的周末/节假日闸门，日志落本目录 logs/"
+}

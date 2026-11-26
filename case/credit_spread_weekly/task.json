@@ -1,0 +1,25 @@
+{
+  "key": "credit_spread_weekly",
+  "title": "信用利差周报",
+  "desc": "",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "08:00",
+    "weekdays": [
+      1
+    ]
+  },
+  "cmd": "python3 -u scripts/panoramic_monitor.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/opt/coze/.fuse_drive/信用利差预警",
+  "original_entry": "/opt/coze/.fuse_drive/信用利差预警/scripts/panoramic_monitor.py",
+  "imported_from": "case/_seed/tasks.json"
+}

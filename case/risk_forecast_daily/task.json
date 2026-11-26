@@ -1,0 +1,29 @@
+{
+  "key": "risk_forecast_daily",
+  "title": "风险预测·日终",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "20:50",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u scripts/risk_forecast_daily.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/市场情绪监控",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/市场情绪监控/scripts/risk_forecast_daily.py",
+  "imported_from": "case/_seed/tasks.json"
+}

@@ -1,0 +1,181 @@
+{
+  "model_version": "1.0",
+  "generated_at": "2026-10-15T11:54:33.923135",
+  "target_week": "2026W42",
+  "target_dates": [
+    "20261008",
+    "20261009",
+    "20261012",
+    "20261013",
+    "20261014"
+  ],
+  "trading_days_count": 5,
+  "daily_scores": [
+    {
+      "date": "20261008",
+      "breadth_score": 34.4,
+      "fund_flow_score": 52.6,
+      "composite_score": 43.5,
+      "signal": "看多沪深300"
+    },
+    {
+      "date": "20261009",
+      "breadth_score": 47.9,
+      "fund_flow_score": 45.4,
+      "composite_score": 46.7,
+      "signal": "看多沪深300"
+    },
+    {
+      "date": "20261012",
+      "breadth_score": 35.3,
+      "fund_flow_score": 26.0,
+      "composite_score": 30.6,
+      "signal": "看多沪深300"
+    },
+    {
+      "date": "20261013",
+      "breadth_score": 34.9,
+      "fund_flow_score": 14.8,
+      "composite_score": 24.9,
+      "signal": "看多沪深300"
+    },
+    {
+      "date": "20261014",
+      "breadth_score": 25.0,
+      "fund_flow_score": 7.2,
+      "composite_score": 16.1,
+      "signal": "看多沪深300"
+    }
+  ],
+  "signal_continuity": {
+    "current_signal": "看多沪深300",
+    "consecutive_days": 8
+  },
+  "breadth_components": {
+    "this_week": {
+      "ma20_breadth": [
+        0.3,
+        0.3928,
+        0.3024,
+        0.3349,
+        0.2382
+      ],
+      "ma20_breadth_pct": [
+        29.2181,
+        41.5638,
+        29.6296,
+        34.1564,
+        17.284
+      ],
+      "weight_disp": [
+        0.0203,
+        0.0302,
+        0.0219,
+        0.0265,
+        0.0127
+      ],
+      "weight_disp_pct": [
+        58.8477,
+        68.3128,
+        60.9053,
+        64.6091,
+        51.8519
+      ],
+      "ind_disp": [
+        0.0333,
+        0.2333,
+        0.0333,
+        0.0,
+        0.0
+      ],
+      "ind_disp_pct": [
+        15.2263,
+        33.9506,
+        15.2263,
+        5.9671,
+        5.9671
+      ]
+    },
+    "prev_week": {
+      "ma20_breadth": [
+        0.3252
+      ],
+      "ma20_breadth_pct": [
+        32.9218
+      ],
+      "weight_disp": [
+        0.0267
+      ],
+      "weight_disp_pct": [
+        65.4321
+      ],
+      "ind_disp": [
+        0.0333
+      ],
+      "ind_disp_pct": [
+        15.2263
+      ]
+    }
+  },
+  "fund_flow_components": {
+    "this_week": {
+      "micro_intensity": [
+        -0.002177,
+        -0.002088,
+        -0.002425,
+        -0.002621,
+        -0.002819
+      ],
+      "micro_intensity_ema": [
+        -0.001528,
+        -0.00163,
+        -0.001774,
+        -0.001928,
+        -0.00209
+      ],
+      "micro_intensity_ema_pct": [
+        32.142857,
+        28.571429,
+        19.642857,
+        16.071429,
+        8.928571
+      ],
+      "rel_intensity_20d_chg": [
+        0.000794,
+        0.000291,
+        -0.000242,
+        -0.000661,
+        -0.000864
+      ],
+      "rel_intensity_20d_chg_pct": [
+        72.972973,
+        62.162162,
+        32.432432,
+        13.513514,
+        5.405405
+      ]
+    },
+    "prev_week": {
+      "micro_intensity": [
+        -0.001666
+      ],
+      "micro_intensity_ema": [
+        -0.001383
+      ],
+      "micro_intensity_ema_pct": [
+        37.5
+      ],
+      "rel_intensity_20d_chg": [
+        0.000966
+      ],
+      "rel_intensity_20d_chg_pct": [
+        78.378378
+      ]
+    }
+  },
+  "micro_structure": {
+    "micro_avg_turnover": 2.44,
+    "micro_avg_mv": 143641.0,
+    "margin_data_date": "20261014"
+  }
+}
