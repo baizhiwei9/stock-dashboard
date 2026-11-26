@@ -18,7 +18,7 @@
   "cmd": "python3 -u 板块筛选v4_fast.py",
   "cwd": ".",
   "timeout": 1800,
-  "enabled": false,
+  "enabled": true,
   "deliver": {
     "report": true,
     "email": false
