@@ -1,0 +1,55 @@
+{
+  "key": "market_momentum",
+  "title": "A股宽基动量日报",
+  "desc": "五只宽基的 20 日动量排名/动量分/拐头信号 + 申万一级行业动量参考",
+  "section": "stock",
+  "section_domain": "",
+  "visibility": "public",
+  "metrics": [
+    {"key": "momentum.rank", "sec": "000300.SH", "name": "沪深300 动量排名", "dec": 0},
+    {"key": "momentum.score", "sec": "000300.SH", "name": "沪深300 动量分", "dec": 1},
+    {"key": "momentum.turn", "sec": "000300.SH", "name": "沪深300 拐头信号", "dec": 0},
+    {"key": "momentum.rank", "sec": "000905.SH", "name": "中证500 动量排名", "dec": 0},
+    {"key": "momentum.score", "sec": "000905.SH", "name": "中证500 动量分", "dec": 1},
+    {"key": "momentum.turn", "sec": "000905.SH", "name": "中证500 拐头信号", "dec": 0},
+    {"key": "momentum.rank", "sec": "000852.SH", "name": "中证1000 动量排名", "dec": 0},
+    {"key": "momentum.score", "sec": "000852.SH", "name": "中证1000 动量分", "dec": 1},
+    {"key": "momentum.turn", "sec": "000852.SH", "name": "中证1000 拐头信号", "dec": 0},
+    {"key": "momentum.rank", "sec": "000016.SH", "name": "上证50 动量排名", "dec": 0},
+    {"key": "momentum.score", "sec": "000016.SH", "name": "上证50 动量分", "dec": 1},
+    {"key": "momentum.turn", "sec": "000016.SH", "name": "上证50 拐头信号", "dec": 0},
+    {"key": "momentum.rank", "sec": "399006.SZ", "name": "创业板指 动量排名", "dec": 0},
+    {"key": "momentum.score", "sec": "399006.SZ", "name": "创业板指 动量分", "dec": 1},
+    {"key": "momentum.turn", "sec": "399006.SZ", "name": "创业板指 拐头信号", "dec": 0}
+  ],
+  "sched": {
+    "mode": "daily",
+    "at": "20:35",
+    "weekdays": [1, 2, 3, 4, 5]
+  },
+  "cmd": "python3 -u run_daily.py",
+  "cwd": ".",
+  "timeout": 1200,
+  "enabled": false,
+  "needs_llm": false,
+  "deliver": {"report": true, "email": false},
+  "pipeline": {
+    "on_fail": "stop",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.5,
+    "require_data": true,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "data": ["data/raw_*.json", "data/stage_*.json"],
+      "report": ["out/report.md", "out/*.png"]
+    },
+    "stages": [
+      {"name": "fetch", "hook": true, "timeout": 600},
+      {"name": "check", "builtin": "artifacts"},
+      {"name": "render", "hook": true, "timeout": 600},
+      {"name": "emit", "hook": true, "builtin": "emit"},
+      {"name": "dispatch", "hook": true, "timeout": 300, "optional": true}
+    ]
+  }
+}
