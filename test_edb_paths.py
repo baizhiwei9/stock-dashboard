@@ -162,6 +162,23 @@ def test_unified_empty_edb_points_falls_back(tmp_path, monkeypatch, clean_env, c
     assert len(msgs) == 1
 
 
+def test_unified_unreadable_warns_and_falls_back(tmp_path, monkeypatch, clean_env, caplog):
+    """库损坏/被独占锁住（state=error）也要告警，不能静默回退旧库。"""
+    unified = tmp_path / "broken.db"
+    unified.write_bytes(b"not a sqlite file" * 64)     # 不是 SQLite
+    old = _legacy_edb(tmp_path)
+    monkeypatch.setenv("DB_PATH", str(unified))
+    monkeypatch.setenv("EDB_REPO", str(tmp_path / "repo"))
+
+    assert edb_paths.edb_points_state(str(unified)) == "error"
+    with caplog.at_level(logging.WARNING):
+        assert edb_paths.edb_db_path() == old
+        assert edb_paths.edb_db_path() == old          # 告警仍然只打一次
+    msgs = [r.getMessage() for r in caplog.records
+            if r.name.endswith("edb_paths") and "读不了" in r.getMessage()]
+    assert len(msgs) == 1
+
+
 def test_edb_points_state_missing_and_ok(tmp_path, clean_env):
     assert edb_paths.edb_points_state(str(tmp_path / "nope.db")) == "missing"
     assert edb_paths.edb_points_state("") == "missing"
