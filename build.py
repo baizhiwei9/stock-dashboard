@@ -649,7 +649,7 @@ def render_side_panel(latest: Dict, st: Optional[Dict] = None,
               '<h3>指标仓概览</h3>'
               '<div class="kvs">%s</div>'
               '<p class="note">活库 <code>%s</code><br>'
-              '云盘快照 <code>output/tech_metrics.db.gz</code></p>'
+              '云盘快照 <code>output/datahub.db.gz</code></p>'
               '</section>'
               % ("".join([
                   kv("指标点位数", "%s" % st.get("total_points")),
