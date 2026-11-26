@@ -26,6 +26,7 @@ HTTP 服务，让管理页面能查状态、启停模块、立刻跑一次、改
   depends: ["macro", ...]  这些模块在跑时先等它们跑完
 """
 
+import copy
 import json
 import os
 import random
@@ -289,12 +290,87 @@ def _write_json(path, obj):
             f.write(data)
 
 
-def load_cfg():
+# ── 配置缓存 ────────────────────────────────────────────────────────
+# 云盘（FUSE）上 `listdir case/` + 15 个子目录实测 4~10 秒，而 all_modules()
+# 每个 tick（15s）和每次 /api/state 都要调一遍 —— 不缓存时 tick 实际周期被
+# 拖到 26s，调度精度整体退化（提前拉取、依赖链、队列空档都建立在这个频率上），
+# 控制台首屏也要 10s+。
+#
+# 口径：TTL 缓存，默认 30s —— tick 15s 至少命中一次，/api/state 连续刷新全命中。
+# modules.json / registry.json 另带 mtime 指纹，改了就立刻失效；case/*/task.json
+# 不加指纹（拿指纹本身就要扫一遍目录，省不掉那笔 IO），新增/改动最多延迟 30s。
+# · 本进程自己写配置（save_cfg / save_registry）立即失效，读回一定是最新的
+# · 管理动作（run_all / register / 模块启停）与「读-改-写」路径传 force=True
+# · 缓存里存的是快照，取出来一律 deepcopy：调用方改字段（run_all 会打 _manual）
+#   不会污染缓存，也不会把改过的值带给下一个调用者
+MODULES_TTL_SEC = 30
+_MOD_CACHE = {}            # name -> (expire_at, stamp, value)
+_MOD_CACHE_LOCK = threading.Lock()
+# 单飞：缓存过期的那一刻，tick 线程和几个 HTTP 线程可能同时进来。不串行化的话
+# 它们会各扫一遍盘（云盘上每次 4~10s），反而比不缓存更慢。RLock 是因为
+# _case_modules_scan 里会走到同样持锁的 _config_alert。
+_MOD_LOAD_LOCK = threading.RLock()
+
+
+def _cache_get(name, ttl, loader, force=False, stamp=None):
+    """取缓存；force=True / 已过期 / stamp 变了就重算并回填。
+
+    stamp 用于「单个小文件的 mtime+size」这种一次 stat 就能拿到的便宜指纹：
+    别的进程（manager.py、手工编辑）改了 modules.json / registry.json 时立刻失效，
+    不用等满 TTL。case/ 目录那种贵指纹不做 —— 见 _case_modules() 的说明。
+    loader 抛异常时不写缓存（下次照样重试，不会把空结果钉住 30 秒）。
+    """
+    if not force:
+        with _MOD_CACHE_LOCK:
+            hit = _MOD_CACHE.get(name)
+        if hit is not None and hit[0] > time.time():
+            if stamp is None or hit[1] == stamp():
+                return copy.deepcopy(hit[2])
+    with _MOD_LOAD_LOCK:
+        if not force:                    # 等锁期间别人可能已经填好了
+            with _MOD_CACHE_LOCK:
+                hit = _MOD_CACHE.get(name)
+            if hit is not None and hit[0] > time.time():
+                if stamp is None or hit[1] == stamp():
+                    return copy.deepcopy(hit[2])
+        val = loader()
+        cur = stamp() if stamp is not None else None
+        with _MOD_CACHE_LOCK:
+            _MOD_CACHE[name] = (time.time() + ttl, cur, val)
+        return copy.deepcopy(val)
+
+
+def _file_stamp(path):
+    """(mtime_ns, size)；文件不存在返回 None。一次 stat，云盘上也便宜。"""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _cache_drop(*names):
+    """主动失效。不给名字就全清。"""
+    with _MOD_CACHE_LOCK:
+        if not names:
+            _MOD_CACHE.clear()
+            return
+        for n in names:
+            _MOD_CACHE.pop(n, None)
+
+
+def _load_cfg_raw():
     return _read_json(CFG_PATH, {"modules": []})
+
+
+def load_cfg(force=False):
+    return _cache_get("cfg", MODULES_TTL_SEC, _load_cfg_raw, force,
+                      stamp=lambda: _file_stamp(CFG_PATH))
 
 
 def save_cfg(cfg):
     _write_json(CFG_PATH, cfg)
+    _cache_drop("cfg")
 
 
 def load_state():
@@ -338,23 +414,37 @@ def _secrets_conf():
     return app_secrets.section("scheduler")
 
 
-def load_registry():
+def _load_registry_raw():
     r = _read_json(REG_PATH, {})
     r.setdefault("workers", [])
     return r
 
 
+def load_registry(force=False):
+    return _cache_get("registry", MODULES_TTL_SEC, _load_registry_raw, force,
+                      stamp=lambda: _file_stamp(REG_PATH))
+
+
 def save_registry(r):
     _write_json(REG_PATH, r)
+    _cache_drop("registry")
 
 
-def _case_modules():
+def _case_modules(force=False):
     """case/*/task.json 的任务（dumate 分支的任务壳）。
 
     坏配置**不丢弃**：改成 enabled=False 留在清单里，并在调度台/看板标「配置错误」。
     任务失败可以静默（连败 5 天才说话），但任务从调度里悄悄消失不行 —— 那是
     「任务没了」不是「任务失败」，必须响。
+
+    这里缓存结果（TTL 见 MODULES_TTL_SEC）：真开销是 case_registry.load_tasks()
+    在云盘上 `listdir case/` + 15 个子目录（实测 4~10s），跟 task.json 内容无关，
+    所以按 mtime 做指纹并不能省下这笔 IO —— 只有「根本不扫」才省得掉。
     """
+    return _cache_get("case", MODULES_TTL_SEC, _case_modules_scan, force)
+
+
+def _case_modules_scan():
     try:
         if CASE_LIB not in sys.path:
             sys.path.insert(0, CASE_LIB)
@@ -441,23 +531,26 @@ def _save_cfg_alerts():
         log("配置错误告警去重表写入失败: %s: %s" % (type(e).__name__, e))
 
 
-def all_modules():
+def all_modules(force=False):
     """内置 modules.json + 外部注册 registry.json + case 任务。key 唯一，内置优先。
 
     cwd/cmd 里的 {{DATAHUB_ROOT}} 在这里展开：modules.example.json 用占位而不是
     本机绝对路径，任务 cmd 里的 PYTHONPATH 与 sd_watchdog.sh / 各入口用的是同一个
     DataHub 根，不会出现「看门狗认为 datahub 在、子进程 import 失败」。
+
+    force=True 绕过 TTL 缓存 —— 注册/批准/手动跑这类管理动作要看到刚写下去的东西，
+    不能等 30s。返回的始终是副本，调用方随便改。
     """
     mods = []
     seen = set()
     root = datahub_root()
-    for m in (load_cfg().get("modules") or []):
+    for m in (load_cfg(force).get("modules") or []):
         if m.get("key") and m["key"] not in seen:
             m = expand_module(m, root)
             m["source"] = "builtin"
             mods.append(m)
             seen.add(m["key"])
-    for w in (load_registry().get("workers") or []):
+    for w in (load_registry(force).get("workers") or []):
         k = w.get("key")
         if w.get("status") != "approved":
             continue
@@ -466,7 +559,7 @@ def all_modules():
             w["source"] = "registered"
             mods.append(w)
             seen.add(k)
-    for m in _case_modules():
+    for m in _case_modules(force):
         k = m.get("key")
         if k and k not in seen:
             m = expand_module(m, root)
@@ -502,7 +595,7 @@ def migrate_legacy_api_secrets(verbose=True):
     返回 (迁走的字段列表, 说明)。没有可迁的就返回 ([], "")。
     """
     # 必须直接读 modules.json 原始值 —— api_conf() 只从凭据文件取，看不到旧字段
-    raw_api = load_cfg().get("api") or {}
+    raw_api = load_cfg(force=True).get("api") or {}
     legacy = {k: raw_api[k] for k in ("password", "registry_key")
               if isinstance(raw_api.get(k), str) and raw_api.get(k)}
     if not legacy:
@@ -533,7 +626,7 @@ def migrate_legacy_api_secrets(verbose=True):
         shutil.copy2(CFG_PATH, CFG_PATH + ".bak_" + _t.strftime("%Y%m%d_%H%M%S"))
     except OSError:
         pass
-    cfg = load_cfg()
+    cfg = load_cfg(force=True)
     api = cfg.get("api") or {}
     for k in legacy:
         api.pop(k, None)
@@ -551,7 +644,8 @@ def migrate_legacy_api_secrets(verbose=True):
 
 
 def find_worker(app_id=None, key=None):
-    reg = load_registry()
+    # 读-改-写路径：必须拿磁盘最新值，否则会用 30s 前的缓存覆盖掉别人的改动
+    reg = load_registry(force=True)
     for w in (reg.get("workers") or []):
         if app_id and w.get("app_id") == app_id:
             return w, reg
@@ -567,7 +661,7 @@ def register_worker(body):
         return None, "key 必须字母开头，只能字母/数字/下划线，2-32 位"
     if not str(body.get("cmd") or "").strip():
         return None, "cmd 必填（这个 Worker 到点要执行的命令）"
-    if any(m.get("key") == key for m in (load_cfg().get("modules") or [])):
+    if any(m.get("key") == key for m in (load_cfg(force=True).get("modules") or [])):
         return None, "key 与内置模块重名，换一个"
 
     old, reg = find_worker(key=key)
@@ -688,14 +782,17 @@ def _ensure_section(w):
 
 
 def set_enabled(key, on):
-    """改启用状态，写回它所在的那个文件。"""
-    cfg = load_cfg()
+    """改启用状态，写回它所在的那个文件。
+
+    读-改-写：force=True 保证基于磁盘最新值，不会把缓存里的旧配置写回去。
+    """
+    cfg = load_cfg(force=True)
     for m in (cfg.get("modules") or []):
         if m.get("key") == key:
             m["enabled"] = bool(on)
             save_cfg(cfg)
             return True
-    reg = load_registry()
+    reg = load_registry(force=True)
     for w in (reg.get("workers") or []):
         if w.get("key") == key:
             w["enabled"] = bool(on)
@@ -1249,7 +1346,7 @@ def _json_write(h, body, code):
 def _kick_build():
     """Worker 批准后触发一次重建发布，让新板块上线。"""
     try:
-        b = next((m for m in all_modules() if m.get("key") == "build"), None)
+        b = next((m for m in all_modules(force=True) if m.get("key") == "build"), None)
         if not b or not b.get("enabled", True):
             return False
         if "build" in PROCS:
@@ -1331,7 +1428,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/registry":
                 if not self._pw_ok():
                     return _json_resp(self, {"error": "密码不对"}, 401)
-                r = load_registry()
+                r = load_registry(force=True)
                 pend = [w for w in r.get("workers", []) if w.get("status") == "pending"]
                 return _json_resp(self, {
                     "ok": True,
@@ -1433,7 +1530,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/run_all":
                 st = load_state()
                 n = 0
-                for mod in all_modules():
+                for mod in all_modules(force=True):
                     k = mod.get("key")
                     if k in PROCS or not mod.get("enabled", True):
                         continue
@@ -1447,7 +1544,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _module_action(self, key, act, body):
         st = load_state()
-        mod = next((m for m in all_modules() if m.get("key") == key), None)
+        mod = next((m for m in all_modules(force=True) if m.get("key") == key), None)
         if not mod:
             return _json_resp(self, {"error": "模块不存在: %s" % key}, 404)
         if act == "toggle":
