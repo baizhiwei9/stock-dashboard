@@ -20,7 +20,7 @@
   "cmd": "bash run_daily.sh",
   "cwd": ".",
   "timeout": 1800,
-  "enabled": false,
+  "enabled": true,
   "deliver": {
     "report": true,
     "email": false

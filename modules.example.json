@@ -388,7 +388,7 @@
         "task_tags_notify",
         "tech_snapshot"
       ],
-      "cwd": "/Coze/Drive/股市监控画布/stock-dashboard",
+      "cwd": "{{REPO_ROOT}}",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"看板构建发布\" --timeout 1800 -- bash -c \"python3 build.py && ./publish.sh\"",
       "timeout": 1800,
       "enabled": false

@@ -18,7 +18,7 @@
   "cmd": "python3 -u run_daily.py --mail",
   "cwd": ".",
   "timeout": 1800,
-  "enabled": false,
+  "enabled": true,
   "deliver": {
     "report": true,
     "email": true
