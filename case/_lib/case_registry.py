@@ -170,8 +170,19 @@ def validate_task(t: Dict, dir_key: Optional[str] = None) -> List[str]:
     else:
         if s.get("mode") not in ("daily", "weekly", "monthly"):
             errs.append("sched.mode 非法：%r" % s.get("mode"))
-        if not AT_RE.match(str(s.get("at") or "")):
-            errs.append("sched.at 必须是 HH:MM")
+        at = s.get("at")
+        if isinstance(at, list):
+            if not at:
+                errs.append('sched.at 数组不能为空：要么写 "07:50"，要么写 ["07:50","19:55"]')
+            elif len(at) > 6:
+                errs.append("sched.at 数组最多 6 个时间点（实际 %d 个）" % len(at))
+            else:
+                for i, x in enumerate(at):
+                    if not isinstance(x, str) or not AT_RE.match(x):
+                        errs.append('sched.at[%d] 必须是 HH:MM（如 "07:50"），实际 %r' % (i, x))
+        elif not AT_RE.match(str(at or "")):
+            errs.append('sched.at 必须是 HH:MM（如 "19:55"），'
+                        '或一天多个时间点的数组（如 ["07:50","19:55"]）')
         if s.get("mode") == "monthly":
             ds = s.get("days")
             if not (isinstance(ds, list) and ds and all(isinstance(x, int) and 1 <= x <= 31 for x in ds)):
