@@ -1,24 +1,31 @@
 {
-  "key": "options_pcr_macd",
-  "title": "PCR-MACD",
-  "desc": "PCR-MACD 信号；算法在 options_utility 仓，本任务只做薄包装",
-  "section": "option",
-  "visibility": "public",
-  "metrics": [],
-  "sched": {
-    "mode": "daily",
-    "at": "15:50",
-    "weekdays": [1, 2, 3, 4, 5]
-  },
-  "cmd": "python3 -u run.py",
-  "cwd": ".",
-  "timeout": 900,
-  "enabled": true,
-  "deliver": {
-    "report": false,
-    "email": false
-  },
-  "source_repo": "baizhiwei9/options_utility",
-  "source_entry": "alert/tasks/pcr_macd_task.py",
-  "original_cron_name": "PCR-MACD"
+ "key": "options_pcr_macd",
+ "title": "PCR-MACD",
+ "desc": "PCR-MACD 信号；算法在 options_utility 仓，本任务只做薄包装",
+ "section": "",
+ "visibility": "private",
+ "metrics": [],
+ "sched": {
+  "mode": "daily",
+  "at": "15:50",
+  "weekdays": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ "cmd": "python3 -u run.py",
+ "cwd": ".",
+ "timeout": 900,
+ "enabled": true,
+ "deliver": {
+  "report": false,
+  "email": false
+ },
+ "source_repo": "baizhiwei9/options_utility",
+ "source_entry": "alert/tasks/pcr_macd_task.py",
+ "original_cron_name": "PCR-MACD",
+ "section_domain": "option"
 }

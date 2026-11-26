@@ -1,24 +1,31 @@
 {
-  "key": "options_basis_daily",
-  "title": "期货基差日报",
-  "desc": "期货基差日频计算 + MA20 报告；算法在 options_utility 仓，本任务只做薄包装",
-  "section": "futures",
-  "visibility": "public",
-  "metrics": [],
-  "sched": {
-    "mode": "daily",
-    "at": "16:30",
-    "weekdays": [1, 2, 3, 4, 5]
-  },
-  "cmd": "python3 -u run.py",
-  "cwd": ".",
-  "timeout": 900,
-  "enabled": true,
-  "deliver": {
-    "report": false,
-    "email": false
-  },
-  "source_repo": "baizhiwei9/options_utility",
-  "source_entry": "calc/basis_daily.py + alert/tasks/basis_ma20.py",
-  "original_cron_name": "期货基差日报"
+ "key": "options_basis_daily",
+ "title": "期货基差日报",
+ "desc": "期货基差日频计算 + MA20 报告；算法在 options_utility 仓，本任务只做薄包装",
+ "section": "",
+ "visibility": "private",
+ "metrics": [],
+ "sched": {
+  "mode": "daily",
+  "at": "16:30",
+  "weekdays": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ "cmd": "python3 -u run.py",
+ "cwd": ".",
+ "timeout": 900,
+ "enabled": true,
+ "deliver": {
+  "report": false,
+  "email": false
+ },
+ "source_repo": "baizhiwei9/options_utility",
+ "source_entry": "calc/basis_daily.py + alert/tasks/basis_ma20.py",
+ "original_cron_name": "期货基差日报",
+ "section_domain": "futures"
 }
