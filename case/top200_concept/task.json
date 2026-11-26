@@ -1,0 +1,26 @@
+{
+  "key": "top200_concept",
+  "title": "涨幅Top200概念",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "20:00",
+    "weekdays": [
+      2,
+      4
+    ]
+  },
+  "cmd": "python3 -u top200_concept_report.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/outputs/涨幅分析",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/outputs/涨幅分析/top200_concept_report.py",
+  "imported_from": "case/_seed/tasks.json"
+}

@@ -1,0 +1,25 @@
+{
+  "key": "cycle_monitor",
+  "title": "库存信贷周期",
+  "desc": "",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "monthly",
+    "at": "20:00",
+    "days": [
+      28
+    ]
+  },
+  "cmd": "python3 -u scripts/cycle_monitor.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/库存信贷周期",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/库存信贷周期/scripts/cycle_monitor.py",
+  "imported_from": "case/_seed/tasks.json"
+}

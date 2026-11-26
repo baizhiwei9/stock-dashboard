@@ -1,0 +1,29 @@
+{
+  "key": "tech_consensus_daily",
+  "title": "科技共识日报",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "19:00",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u run_daily.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": true
+  },
+  "original_cwd": "/root/tech-consensus-daily/tech_consensus_daily",
+  "original_entry": "/root/tech-consensus-daily/tech_consensus_daily/run_daily.py",
+  "imported_from": "case/_seed/tasks.json"
+}

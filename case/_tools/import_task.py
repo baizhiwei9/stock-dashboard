@@ -223,7 +223,7 @@ def pick_entry(task: Dict, roots: List[str], extra: List[str], ws: str,
         return s
 
     pys = [p for p in (_abs_py(x, ws, idx) for x in (task.get("py") or [])) if p]
-    pys = sorted([p for p in pys if p.endswith(".py")], key=lambda p: -_score(p))
+    pys = sorted([p for p in pys if p.endswith((".py", ".sh"))], key=lambda p: -_score(p))
     for p in pys:
         for c in roots:
             if p.startswith(c + os.sep):
@@ -237,7 +237,7 @@ def pick_entry(task: Dict, roots: List[str], extra: List[str], ws: str,
         except OSError:
             continue
         for fn in names:
-            if fn.endswith(".py") and re.match(r"(run|daily|main|weekly)", fn):
+            if fn.endswith((".py", ".sh")) and re.match(r"(run|daily|main|weekly)", fn):
                 return fn
     return None
 
@@ -292,7 +292,10 @@ def import_one(task: Dict, ws: str, dry: bool, idx: Optional[Dict[str, List[str]
 
     tj_path = os.path.join(dest, "task.json")
     old = _read_json(tj_path, {}) or {}
-    cmd = ("python3 -u %s" % entry) if entry else "python3 -u main.py"
+    if entry and entry.endswith(".sh"):
+        cmd = "bash %s" % entry
+    else:
+        cmd = ("python3 -u %s" % entry) if entry else "python3 -u main.py"
     cwd = "."
     if old.get("cmd_manual"):
         # 手工改过的入口（多脚本串联、-m 模块、带环境变量）重跑导入时不能被覆盖

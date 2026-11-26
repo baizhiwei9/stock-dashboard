@@ -1,0 +1,29 @@
+{
+  "key": "unified_screener",
+  "title": "多头排列选股",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "daily",
+    "at": "15:30",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u src/unified_screener.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/长期计划/缠论主升浪",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/长期计划/缠论主升浪/src/unified_screener.py",
+  "imported_from": "case/_seed/tasks.json"
+}
