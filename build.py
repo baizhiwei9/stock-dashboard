@@ -1018,6 +1018,15 @@ JS_ADMIN = r"""
   var regBox = document.getElementById("regBox");
   function esc(t){ return String(t==null?"":t).replace(/[&<>"]/g, function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  // sched.at 可能是字符串，也可能是数组（一天多个时间点）
+  function atTxt(a){
+    if (a == null) return "—";
+    if (Object.prototype.toString.call(a) === "[object Array]"){
+      var xs = []; for (var i=0;i<a.length;i++){ if (a[i]) xs.push(String(a[i])); }
+      return xs.length ? xs.join(" / ") : "—";
+    }
+    return String(a) || "—";
+  }
 
   function renderReg(d){
     var ws = d.workers || [];
@@ -1041,7 +1050,7 @@ JS_ADMIN = r"""
         x += '<tr><td><code>'+esc(w.app_id)+'</code></td>'
            + '<td>'+esc(w.title||w.key)+'<br><span class="sm">'+esc(w.key)+'</span></td>'
            + '<td>'+esc(w.tab||"—")+'</td>'
-           + '<td>'+esc((w.sched&&w.sched.at)||"—")+'</td>'
+           + '<td>'+esc(atTxt(w.sched&&w.sched.at))+'</td>'
            + '<td class="nw">'+b+'</td></tr>';
       }
       return x + '</tbody></table>';
@@ -2525,11 +2534,22 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
     return head + ch_html, charts
 
 
+def _at_txt(v) -> str:
+    """sched.at 的展示：字符串照旧，数组用 " / " 连接（07:50 / 19:55）。"""
+    if isinstance(v, (list, tuple)):
+        xs = [str(x).strip() for x in v if str(x or "").strip()]
+        return " / ".join(xs) if xs else "—"
+    return str(v or "").strip() or "—"
+
+
 def _sched_txt(sched: Optional[Dict]) -> str:
-    """{"at":"21:00","weekdays":[1..5]} → 工作日 21:00；monthly 用 days。"""
+    """{"at":"21:00","weekdays":[1..5]} → 工作日 21:00；monthly 用 days。
+
+    at 为数组（一天多个时间点）时显示成 "工作日 07:50 / 19:55"。
+    """
     if not sched:
         return "—"
-    at = str(sched.get("at") or "").strip() or "—"
+    at = _at_txt(sched.get("at"))
     if sched.get("mode") == "monthly":
         days = sorted(int(x) for x in (sched.get("days") or []) if str(x).isdigit())
         return "每月 %s 日 %s" % ("/".join(str(x) for x in days) or "?", at)
@@ -3206,7 +3226,8 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
         <tr><td><code>title</code></td><td>显示名，如「我的指标」</td></tr>
         <tr><td><code>desc</code></td><td>一句话说明</td></tr>
         <tr><td><code>metrics</code></td><td>它写进库的指标：<code>[{{"key":"macro.m2_yoy","sec":"CN.MACRO","name":"M2同比","unit":"%","dec":1}}]</code></td></tr>
-        <tr><td><code>sched</code></td><td>定时：<code>{{"at":"21:30","weekdays":[1,2,3,4,5]}}</code></td></tr>
+        <tr><td><code>sched</code></td><td>定时：<code>{{"at":"21:30","weekdays":[1,2,3,4,5]}}</code>；
+        一天多个时间点就写数组：<code>{{"at":["07:50","19:55"],"weekdays":[1,2,3,4,5]}}</code>（最多 6 个）</td></tr>
         <tr><td><code>cmd</code></td><td>到点执行的命令</td></tr>
         <tr><td><code>cwd</code></td><td>执行目录（可选）</td></tr>
         <tr><td><code>timeout</code></td><td>超时秒数（可选，默认 1800）</td></tr>
