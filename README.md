@@ -52,8 +52,8 @@ python3 manager.py list     # 命令行运维：清单 / status / run / enable /
 
 `manager.py` 是**命令行工具**，不监听端口；HTTP 控制台和注册接口都由 `scheduler.py`
 提供（端口读 `modules.json` 的 `api.port`，默认 `8767`；没写 `api.host` 时只听
-`127.0.0.1`）。本仓 `modules.json` 目前显式写的是 `0.0.0.0`（局域网可访问管理 API），
-只在本机用建议改回 `127.0.0.1`。这个端口只服务管理页面/API（看状态、手动跑、
+`127.0.0.1`）。本仓 `modules.json` 显式写的是 `127.0.0.1`（只本机可访问管理 API）；
+确实要局域网访问再改成 `0.0.0.0`（`up` 会打警告）。这个端口只服务管理页面/API（看状态、手动跑、
 批准 worker、容器里的优雅停止），**调度本身不依赖它**：到点起任务和心跳都走本地文件。
 不需要管理页时用 `api.enabled=false` 或 `./start_all.sh up --no-api`，进程完全不绑定端口。
 

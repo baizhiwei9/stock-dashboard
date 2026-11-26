@@ -215,8 +215,8 @@ python3 scheduler.py health        # 0=健康 / 1=未运行 / 2=僵死
 ```
 
 - 控制台：`http://127.0.0.1:8767`（端口读 `modules.json` 的 `api.port`；
-  没写 `api.host` 时只听回环。**本仓 `modules.json` 目前显式写 `0.0.0.0`**，
-  只在本机用时建议改成 `127.0.0.1`；`up` 检测到 `0.0.0.0` 会打警告）。
+  没写 `api.host` 时只听回环。**本仓 `modules.json` 显式写 `127.0.0.1`**，
+  只本机可访问；确实要局域网访问再改成 `0.0.0.0`（`up` 检测到会打警告）。
 - 不需要任何端口：`api.enabled=false` 或 `./start_all.sh up --no-api`。调度本身
   不依赖端口（到点起任务、心跳都是本地文件）；但容器里若跨命名空间看不到 pid，
   别关——health/stop 靠 HTTP 兜底。
