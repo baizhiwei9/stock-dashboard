@@ -208,7 +208,6 @@ python3 -c "import json;d=json.load(open('case/tugou_archive/archive_state.json'
 > 换机器后第一次跑，务必看日志确认是「增量」而不是「全量」：
 > 土狗日志里出现大量「已归档，跳过」才对；Hurst 卡片应该只有当天数据。
 
-
 ---
 
 ## 6. 迁机自检清单
