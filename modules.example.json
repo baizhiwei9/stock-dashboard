@@ -336,6 +336,30 @@
       "note": "2026-11-25 从 crontab（16:30）迁入 scheduler，单独一条便于排障；上线时删掉 crontab 那条避免双跑。⚠️ 暂挂：datahub 侧 data_hub/tech/producers/basis_daily.py 尚不存在（仓里只有 collectors/futures/futures_basis.py 的 get_futures_basis() 取数函数，不是 producer、不写 metric_points），现在置 enabled=true 会在 16:40 每次 ModuleNotFoundError → spawn 失败 → health 连败 → 5 次后刷邮件。等 producer 落地后只改这一行 enabled=true 即可，build.depends 已经排好序。"
     },
     {
+      "key": "tech_snapshot",
+      "title": "指标仓云盘快照",
+      "desc": "把 tech 指标仓（活库 ~/.local/share/cozedb/tech_metrics.db）压成云盘 gzip 快照，供换机/换会话恢复；落点由 data_hub.tech.store.cloud_dir() 决定（默认 <DataHub>/output/tech_metrics.db.gz）。放在 23:20：所有 producer 跑完、build 之前，页面上看到的快照大小/时间才是当天的。",
+      "domains": [],
+      "sched": {
+        "mode": "daily",
+        "at": "23:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{REPO_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"指标仓云盘快照\" --timeout 900 -- /usr/bin/python3 case/_tools/push_snapshot.py",
+      "timeout": 900,
+      "enabled": true,
+      "not_before": "22:30",
+      "depends": [],
+      "note": "快照失败必须能看见：push_snapshot.py 在 store.snapshot() 返回空时 exit 1（`python -m data_hub.tech.store --snapshot` 只打印 None 就 exit 0，health 记不到失败）。"
+    },
+    {
       "key": "build",
       "title": "看板构建与发布",
       "desc": "读指标仓 → 生成 index.html → 发布 Pages（23:40：等 23:10 的 nowcast 日更把美东 10:00 版落库）",
@@ -360,7 +384,8 @@
         "risk",
         "basis_daily",
         "task_tags",
-        "task_tags_notify"
+        "task_tags_notify",
+        "tech_snapshot"
       ],
       "cwd": "/Coze/Drive/股市监控画布/stock-dashboard",
       "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"看板构建发布\" --timeout 1800 -- bash -c \"python3 build.py && ./publish.sh\"",
@@ -394,7 +419,7 @@
   ],
   "_placeholders": {
     "{{DATAHUB_ROOT}}": "datahub-multi-tier 仓库在本机的绝对路径",
-    "{{REPO_ROOT}}": "stock-dashboard 仓库在本机的绝对路径（cleanup 等框架自带模块用）",
+    "{{REPO_ROOT}}": "stock-dashboard 仓库在本机的绝对路径（cleanup / tech_snapshot 等框架自带模块用）",
     "{{WORKSPACE_A}}": "运行 risk_v52 / vol_surface_vix 的工作目录",
     "{{WORKSPACE_B}}": "运行 five_strategy / factor_daily / limit_up_* 的工作目录",
     "{{FEISHU_CLI_DIR}}": "lark-cli 配置目录（含凭据，勿入库）",

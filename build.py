@@ -598,6 +598,44 @@ def _domain_cov(items) -> List[Tuple[str, str, int, int, Optional[str]]]:
     return out
 
 
+def _cloud_snapshot_path() -> str:
+    """云盘快照的真实路径。
+
+    文件名由 ``data_hub.tech.store.DB_NAME`` 决定（``localdb.snapshot_path`` 就是
+    ``<cloud_dir>/<basename(DB_NAME)>.gz``），目录由 ``store.cloud_dir()`` 决定
+    （默认 ``<DataHub>/output``，可用 TECH_METRICS_CLOUD_DIR 覆盖）。
+    这里一律**问库要**，不写死文件名/目录 —— 上一版写死 ``output/tech_metrics.db.gz``
+    与 ``datahub.db.gz`` 都各错过一次。
+    """
+    try:
+        from data_hub.tech import store as _store
+        cloud = _store.cloud_dir()
+        name = _store.DB_NAME
+    except Exception:                                         # noqa: BLE001
+        return ""
+    try:
+        from data_hub.core.localdb import snapshot_path as _snap_path
+        return _snap_path(name, cloud)
+    except Exception:                                         # noqa: BLE001
+        return os.path.join(cloud, os.path.basename(name) + ".gz")
+
+
+def _snapshot_note() -> str:
+    """云盘快照那一行的文案：路径 + 真实状态（存在给大小/时间，不存在如实说未生成）。"""
+    p = _cloud_snapshot_path()
+    if not p:
+        return '云盘快照 <b class="todo">路径解析失败</b>'
+    esc = html.escape(p)
+    try:
+        stt = os.stat(p)
+    except OSError:
+        return ('云盘快照 <code>%s</code>（<b class="todo">未生成</b>，'
+                '由 tech_snapshot 任务推送）' % esc)
+    mt = datetime.fromtimestamp(stt.st_mtime).strftime("%Y-%m-%d %H:%M")
+    return ('云盘快照 <code>%s</code>（%.1f MB，%s）'
+            % (esc, stt.st_size / 1048576.0, mt))
+
+
 def render_side_panel(latest: Dict, st: Optional[Dict] = None,
                       obs: Optional[str] = None) -> str:
     # ── 关键指标快照：有就显示真值，没有就 NA ──
@@ -645,11 +683,13 @@ def render_side_panel(latest: Dict, st: Optional[Dict] = None,
 
     ov = ""
     if st:
+        # 快照文案单独拼：路径里可能带 % 之类的字符，不能混进 % 格式串
+        note = '活库 <code>%s</code><br>%s' % (
+            html.escape(str(st.get("db_path") or "")), _snapshot_note())
         ov = ('<section class="side-card">'
               '<h3>指标仓概览</h3>'
               '<div class="kvs">%s</div>'
-              '<p class="note">活库 <code>%s</code><br>'
-              '云盘快照 <code>output/datahub.db.gz</code></p>'
+              '<p class="note">%s</p>'
               '</section>'
               % ("".join([
                   kv("指标点位数", "%s" % st.get("total_points")),
@@ -657,7 +697,7 @@ def render_side_panel(latest: Dict, st: Optional[Dict] = None,
                   kv("证券数", "%s" % st.get("n_securities")),
                   kv("日期范围", "%s ~ %s" % (st.get("date_min") or "—",
                                              st.get("date_max") or "—")),
-              ]), html.escape(str(st.get("db_path") or ""))))
+              ]), note))
 
     return ('<section class="side-card">'
             '<h3>关键指标快照 <em>%s</em></h3>'

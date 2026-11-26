@@ -57,21 +57,38 @@ def datahub_root(project=None):
     return DEFAULT_ROOT
 
 
-def expand_root(value, root=None):
-    """把 modules.json 的 cwd/cmd 里的 {{DATAHUB_ROOT}} 换成解析结果。"""
-    if not isinstance(value, str) or "{{DATAHUB_ROOT}}" not in value:
+def repo_root(project=None):
+    """本仓库（stock-dashboard）根：{{REPO_ROOT}} 的展开值。"""
+    return _project_dir() if project is None else os.path.abspath(project)
+
+
+def expand_root(value, root=None, repo=None):
+    """把 modules.json 的 cwd/cmd 里的占位换成解析结果。
+
+    支持两个占位：
+      {{DATAHUB_ROOT}}  → datahub_root()（DataHub 仓库根）
+      {{REPO_ROOT}}     → 本仓库根（cleanup / tech_snapshot 这类框架自带模块用）
+    """
+    if not isinstance(value, str):
         return value
-    return value.replace("{{DATAHUB_ROOT}}", root if root is not None else datahub_root())
+    if "{{DATAHUB_ROOT}}" in value:
+        value = value.replace("{{DATAHUB_ROOT}}",
+                              root if root is not None else datahub_root())
+    if "{{REPO_ROOT}}" in value:
+        value = value.replace("{{REPO_ROOT}}",
+                              repo if repo is not None else repo_root())
+    return value
 
 
-def expand_module(module, root=None):
-    """返回副本：把模块 cwd/cmd 里的 {{DATAHUB_ROOT}} 展开，其余字段原样保留。"""
+def expand_module(module, root=None, repo=None):
+    """返回副本：把模块 cwd/cmd 里的 {{DATAHUB_ROOT}} / {{REPO_ROOT}} 展开，其余字段原样保留。"""
     root = root if root is not None else datahub_root()
+    repo = repo if repo is not None else repo_root()
     out = dict(module)
     for field in ("cwd", "cmd"):
         value = out.get(field)
         if isinstance(value, str):
-            out[field] = expand_root(value, root)
+            out[field] = expand_root(value, root, repo)
     return out
 
 
