@@ -85,21 +85,40 @@ def unified_db_path() -> str:
     return _default_db_file()
 
 
-def has_edb_points(path: str) -> bool:
-    """统一库 ``path`` 是否可用作 EDB 源（存在 + 有 ``edb_points`` 表）。"""
-    if not (path and os.path.exists(path)):
-        return False
+def edb_points_state(path: str) -> str:
+    """统一库 ``path`` 作为 EDB 源的可用性。
+
+    Returns:
+        ``ok`` / ``no_table`` / ``empty`` / ``missing`` / ``error``。
+
+    2026-11-26（#92 复核）：原来只判表在不在。可 ``edb.store`` 一连库就会
+    把 ``edb_points`` 建出来，于是「迁移没跑 / 还没采」的统一库是**有表没行**
+    —— 只判表会选中一个空库、静默读空，旧库里的数据反而够不着。
+    所以这里把「表在但 0 行」与「没表」分开报，调用方据此决定回退与告警。
+    """
+    if not path:
+        return "missing"
+    if not os.path.exists(path):
+        return "missing"
     try:
         conn = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=10)
         try:
             row = conn.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='edb_points'"
             ).fetchone()
+            if row is None:
+                return "no_table"
+            has_row = conn.execute("SELECT 1 FROM edb_points LIMIT 1").fetchone()
+            return "ok" if has_row is not None else "empty"
         finally:
             conn.close()
-        return row is not None
     except Exception:                                    # noqa: BLE001
-        return False
+        return "error"
+
+
+def has_edb_points(path: str) -> bool:
+    """统一库 ``path`` 是否可用作 EDB 源（存在 + 有 ``edb_points`` 表 + 至少一行）。"""
+    return edb_points_state(path) == "ok"
 
 
 def _datahub_root() -> str:
@@ -145,11 +164,16 @@ def edb_db_path() -> Optional[str]:
         库绝对路径；两边都没有时返回 ``None``（调用方按「无 EDB」处理）。
     """
     unified = unified_db_path()
-    if has_edb_points(unified):
+    state = edb_points_state(unified)
+    if state == "ok":
         return unified
-    if os.path.exists(unified):
+    if state == "no_table":
         _warn_once(
             "[edb_paths] 统一库 %s 里没有 edb_points 表（迁移没跑？），"
+            "回退旧 edb.sqlite3", unified)
+    elif state == "empty":
+        _warn_once(
+            "[edb_paths] 统一库 %s 的 edb_points 是空表（迁移没跑或还没采？），"
             "回退旧 edb.sqlite3", unified)
     for repo in legacy_candidates():
         p = os.path.join(repo, LEGACY_DB_REL)
