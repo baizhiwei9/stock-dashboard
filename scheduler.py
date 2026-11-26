@@ -1085,6 +1085,13 @@ def tick():
         # compute_slot 会回看若干天：今天的点还没到时会返回「昨天」那个点。
         # 昨天的点既不该补跑、也不该天天刷「超宽限」提醒 —— 直接当作没有待跑点。
         if slot is not None and (now - slot).total_seconds() > GRACE_SEC:
+            # 这个点今天已经跑过了（last_slot 记着它）：宽限到期后 compute_slot 还会
+            # 把它回看回来，原来在这里补写「超过宽限未执行」，于是**成功**任务的看板
+            # 从宽限（6h）之后开始自相矛盾 —— last_status=ok、finished=08:34，note 却
+            # 说「超过宽限未执行」，一直挂到次日 spawn 才被清掉（_finish 不碰 note）。
+            # 调度行为不变（这里本来也是 continue），只是不再覆盖 note、不再记 missed_slot。
+            if ms.get("last_slot") == slot.strftime("%Y-%m-%d %H:%M"):
+                continue
             if slot.date() == now.date():
                 slotkey = slot.strftime("%Y-%m-%d %H:%M")
                 if ms.get("missed_slot") != slotkey:   # 今天到点却超宽限：只记一次
