@@ -57,7 +57,7 @@ export CASE_EXTRA_DIRS=/srv/private-tasks/case:/srv/another/case
 |---|---|---|
 | `key` | string | `^[a-z0-9_]{2,40}$`，必须等于目录名 |
 | `title` | string | 牌面标题 |
-| `sched` | object | `{"mode":"daily\|weekly\|monthly","at":"HH:MM","weekdays":[1..7],"days":[1..31]}` |
+| `sched` | object | `{"mode":"daily\|weekly\|monthly","at":"HH:MM","weekdays":[1..7],"days":[1..31]}`；`at` 也可写数组表示一天多个时间点：`"at":["07:50","19:55"]`（早报+晚报，1-6 个） |
 | `metrics` | array | 要展示的指标声明，可为空数组；首跑后由 publish 回填 |
 
 ### 必填（二选一）
