@@ -424,8 +424,9 @@ python3 scheduler.py status                     # 确认模块还在
 - `risk_forecast_daily` **一个 key 对两条 cron**：`风险预测·午间` 12:30 + `风险预测·日终` 20:50，
   **必须一起切** —— 只删一条会让同一脚本一条走 scheduler、一条走 crontab，两套入口并存。
 
-> **重要：这 21 个 `task.json` 的 `enabled` 全部是 `false`。**
+> **重要：这 21 个 `task.json` 的 `enabled` 现在全部是 `false`。**
 > 代码进库不等于接管。不切 crontab 就永远不会双跑，也不会停摆。
+> `--apply` 只把切换清单里的 **20 个**置 `true`，`bond_four_factor` 全程保持 `false`。
 
 ### 12.2 为什么不能「开着 enabled 又留着 crontab」
 
@@ -446,11 +447,11 @@ cd /srv/monitor/stock-dashboard
 # ① 预演：只打印会删哪些 crontab 行、会把哪些任务设为 enabled=true
 bash scripts/switch_crontab.sh
 
-# ② 确认预演输出里是预期的 21 条，再真正执行
-#    会自动备份 crontab 到 /tmp/crontab.bak.<时间戳>
+# ② 确认预演输出里是预期的 21 条（20 个 key，`风险预测·午间`+`风险预测·日终` 算两条），再真正执行
+#    会自动备份 crontab 到 logs/crontab.<时间戳>.bak（仓库内 logs/，不是 /tmp）
 bash scripts/switch_crontab.sh --apply
 
-# ③ 验证：crontab 少 21 行、scheduler status 里这 21 个 enabled=true
+# ③ 验证：crontab 少 21 行、scheduler status 里切换清单的 20 个 key enabled=true
 crontab -l | grep -c health_run
 python3 scheduler.py status | grep -E 'midline_preference|sector_screening_v4'
 
@@ -461,12 +462,18 @@ python3 scheduler.py run sector_screening_v4
 bash scripts/switch_crontab.sh --revert
 ```
 
-`--revert` 做两件事：把 21 个 `task.json` 的 `enabled` 改回 `false`，
-并提示用 `/tmp/crontab.bak.*` 恢复 crontab（`crontab /tmp/crontab.bak.<时间戳>`）。
+`--revert` 做三件事（顺序固定）：
+
+1. 先把**当前** crontab 另存一份 `logs/crontab.<时间戳>.bak`（回滚动作本身也可再回滚）；
+2. 把切换清单里的 **20 个** `task.json` 的 `enabled` 改回 `false`；
+3. 自动 `crontab <上一次 --apply 留下的备份>` —— **不需要手工恢复**。
+
+只有在 `logs/` 里找不到更早的备份（`--apply` 从没跑过、或 `logs/` 被清过）时，
+脚本才打印「找不到更早的备份，请手工恢复」，这时才需要自己 `crontab <某个 .bak>`。
 
 ### 12.4 切换前的环境前提
 
-这 21 个任务原先在别的目录、别的工作副本里跑，迁进来后有两处必须对上：
+这 21 个任务原先在别的目录、别的工作副本里跑，迁进来后有三处必须对上：
 
 1. **`PYTHONPATH` 要能 import 到 `data_hub`**
    ```bash
@@ -476,7 +483,20 @@ bash scripts/switch_crontab.sh --revert
    命中云盘旧副本（`/opt/coze/.fuse_drive/dataHub_三级体系`）不会报错，
    只会读到另一套库 —— 属于**静默连错库**，数字不对但没有任何告警。
 
-2. **`DATAHUB_ROOT` / 数据根**
+2. **数据根：让 `python3 datahub_path.py` 落在本机 `datahub-multi-tier`**
+   ```bash
+   python3 datahub_path.py                    # 打印实际生效的 DataHub 根，换机器只看这一条
+   ```
+   解析顺序：`DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO` → 同级 `../datahub-multi-tier`
+   → 兜底 `/opt/coze/.fuse_drive/dataHub_三级体系`。前三个只有「目录存在且含 `data_hub/`」
+   才会被采用，否则直接跳过（跳过是对的：选错了后面 import 也必然失败）。
+   `DATAHUB_ROOT` **不是**主路径变量 —— 它只在 `modules.json` 的 `cwd` / `cmd` 里当
+   `{{DATAHUB_ROOT}}` 占位符用，另外 `option_risk_cn_us` / `rate_board` 两个老脚本会直接
+   `os.environ` 读它。别指望设了 `DATAHUB_ROOT` 就能改数据根。
+   打印结果若是兜底路径 `/opt/coze/.fuse_drive/dataHub_三级体系`，说明前几条一个都没命中
+   （这条兜底路径可能压根不存在）—— 这时**先别切**，把 `DATA_HUB_PATH` 指到本机副本再验一次。
+
+3. **依赖闭包与凭据**
    ```bash
    python3 case/_tools/check_imports.py       # 依赖闭包是否完整
    python3 case/_tools/check_secrets.py       # 凭据是否齐全（飞书 / tushare / email）
@@ -487,7 +507,7 @@ bash scripts/switch_crontab.sh --revert
 ### 12.5 切换后的自检清单
 
 - [ ] `crontab -l | grep -c health_run` 比切换前少 21
-- [ ] `python3 scheduler.py status` 里 21 个 key 全部 `enabled=true`，`next_run` 是预期时间
+- [ ] `python3 scheduler.py status` 里切换清单的 20 个 key 全部 `enabled=true`（`bond_four_factor` 仍是 `false`），`next_run` 是预期时间
 - [ ] 抽 3 个任务 `scheduler.py run <key>`，`out/status.json` 全绿、指标有数
 - [ ] 观察 1 个完整交易日：`logs/<key>.log` 无重复执行记录，飞书/邮件无重复推送
 - [ ] 指标仓数值与切换前同一天的值一致（口径没跑偏）
@@ -498,10 +518,23 @@ bash scripts/switch_crontab.sh --revert
 并随代码进了 git 历史。现在的口径是——
 
 ```bash
-# 统一走 app_secrets 的 5 级查找链，脚本里只写 get()，不写值
-python3 case/_lib/app_secrets.py set deepseek.api_key <新key>
-python3 case/_lib/app_secrets.py check            # 只报有无与来源，不打印值
+# 落盘统一走 app_secrets.set_value（原子写 + 0600），脚本里只写 get()，不写值
+PYTHONPATH=case/_lib python3 -c "import app_secrets; print(app_secrets.set_value('deepseek.api_key', '<新key>'))"
+
+# 确认读得到：只打印「已配置 / 未配置」，不回显值
+PYTHONPATH=case/_lib python3 -c "import app_secrets; print('已配置' if app_secrets.get('deepseek.api_key','') else '未配置')"
+
+# 配置文件在哪、权限对不对；门禁键（api.password / 飞书 / tushare …）齐不齐
+python3 case/_tools/check_secrets.py --paths
+python3 case/_lib/app_secrets.py --check
 ```
+
+> 两个坑：`app_secrets.py` 的命令行只有 `--check` / `--paths` / `--init` / `--env`，
+> **没有** `set` / `check` 这样的子命令（写错会直接 `未知参数` 退出 2）。
+> `deepseek.api_key` 也不在门禁清单（`REQUIRED_KEYS` / `OPTIONAL_KEYS`）里，
+> 所以 `--check` / `--init` 都不会提到它 —— 只能像上面那样用 `set_value()` 写、用 `get()` 验。
+> 另外值若是 `<新key>` / `{xxx}` 这类尖括号大括号包着的占位写法，`get()` 会当成**未配置**，
+> 写完记得跑第二条确认打印的是「已配置」。
 
 脚本侧读法（`DEEPSEEK_API_KEY` 环境变量优先，回退 secrets.json）：
 

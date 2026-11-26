@@ -122,8 +122,15 @@ bash scripts/switch_crontab.sh --revert     # 回滚：置 enabled=false + 恢�
 `deepseek.api_key`（走 `case/_lib/app_secrets` 统一解析）；无 key 时打印一行提示并跳过
 LLM，只出规则结果，不再带着空 Bearer 去打接口。
 
-> ⚠️ 该 key 已经进过 git 历史，**必须去 DeepSeek 后台轮换**，
-> 然后用 `python3 case/_lib/app_secrets.py set deepseek.api_key <新key>` 写入本机。
+> ⚠️ 该 key 已经进过 git 历史，**必须去 DeepSeek 后台轮换**，然后写入本机：
+>
+> ```bash
+> PYTHONPATH=case/_lib python3 -c "import app_secrets; print(app_secrets.set_value('deepseek.api_key', '<新key>'))"
+> PYTHONPATH=case/_lib python3 -c "import app_secrets; print('已配置' if app_secrets.get('deepseek.api_key','') else '未配置')"
+> ```
+>
+> `app_secrets.py` 命令行只有 `--check` / `--paths` / `--init` / `--env`，没有 `set` 子命令；
+> `deepseek.api_key` 也不在门禁清单里，`--check` 不会提到它。
 
 另外 `case/hurst_daily/.tmp/trunc/` 里曾误带一份含同一 key 的调试日志入库，
 已删除并在 `.gitignore` 补 `case/*/.tmp/`。
