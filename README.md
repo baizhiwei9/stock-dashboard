@@ -11,8 +11,9 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 | 文件 | 作用 |
 |---|---|
 | `build.py` | 生成 `index.html`（唯一渲染入口，纯 Python，无前端框架） |
-| `scheduler.py` | 任务调度器 + HTTP 控制台：按 `modules.json` + `case/*/task.json` 里每个 task 的启停时间跑；**业务任务不写 crontab**，只用一条 cron 巡检本进程存活（见「调度与守护」） |
-| `sd_watchdog.sh` | scheduler 看门狗：cron 每分钟调一次，按心跳判定存活，未运行/僵死则拉起、重启，连续失败才告警 |
+| `scheduler.py` | 任务调度器（TaskManager）+ HTTP 控制台：按 `modules.json` + `case/*/task.json` 里每个 task 的启停时间跑；**业务任务与守护都不写 crontab**（见「调度与守护」） |
+| `sd_watchdog.sh` | scheduler 看门狗：`start_all.sh up` 以 `--loop` 常驻（老部署也可 cron 每分钟调一次），按心跳判定存活，未运行/僵死则拉起、重启，连续失败才告警 |
+| `start_all.sh` | **新机器唯一入口**：一条命令起 TaskManager + 看门狗；公有任务在 `case/`，私有任务在 `../precious-task/case` |
 | `manager.py` | 命令行运维：模块清单 / 体检 / 手动跑 / 启停 / 板块显隐 |
 | `modules.json` | 模块与调度配置（**不含任何口令**；口令/密钥见 `config/secrets.json`） |
 | `sections.json` | Tab 与子类结构 |
@@ -31,6 +32,9 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 ```bash
 ./install.sh                # 首次安装：强制输入 api.password / api.registry_key 等敏感项，缺项不能继续
 
+./start_all.sh up           # 一条命令起全部任务（公有 + 私有 + 看门狗），不需要 crontab
+# 接管旧机的 build/macro 等 modules.json 模块：
+# SD_MODULES_FROM=/旧机/modules.json ./start_all.sh up
 python3 scheduler.py fg     # 前台跑调度（同时起 HTTP 控制台，端口见 modules.json）
 python3 build.py            # 或单次生成 index.html
 python3 manager.py list     # 命令行运维：清单 / status / run / enable / disable
@@ -109,7 +113,7 @@ python3 manager.py list                      # 清单里 case 任务标 case
 
 ## 调度
 
-弃用 crontab。`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。默认排程：
+弃用 crontab。`scheduler.py` 读 `modules.json` + `case/*/task.json`，每个 task 有自己的启停时间和 enabled 开关，管理页能看到、能点。私有任务由 `start_all.sh` 通过 `CASE_EXTRA_DIRS` 挂进同一个进程。默认排程：
 
 | 模块 | 时间 | 说明 |
 |---|---|---|
