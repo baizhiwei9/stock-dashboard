@@ -649,7 +649,14 @@ stock-dashboard / datahub-multi-tier / precious-task 任一仓库。
    git clone https://github.com/baizhiwei9/options_utility.git
    git clone https://github.com/baizhiwei9/datahub-multi-tier.git
    ```
-2. 放好 `~/.config/stock-dashboard/secrets.json`（600），跑 `python3 -m data_hub.tech.check_secrets` 自检。
+2. 放好四处凭据（缺一处就有一类任务跑不了，详见 `DEPLOY_PORTABLE.md` §2）：
+   - `~/.config/stock-dashboard/secrets.json`（600）—— 飞书/调度器/Tushare/SMTP，
+     跑 `python3 setup.py --check` 自检
+   - `datahub-multi-tier/options/config/private.py` —— data_hub 与期权算法
+   - `options_utility/config/private.py` —— 期权仓自己那份
+   - `~/.config/ima/{api_key,client_id}` —— 土狗归档上传 IMA 知识库（不搬 = 全挂）
+   另外 `LARKSUITE_CLI_CONFIG_DIR`（原机 `/app/data/所有对话/主对话/.feishu_cli`）
+   里的飞书 CLI 登录态也要搬，土狗归档的预检会用到。
 3. 直接跑 scheduler 即可，不需要 crontab。路径可用环境变量覆盖：
    - `OPTIONS_UTILITY_ROOT`：options_utility 仓根（默认找同级目录，最后兜底老云盘路径）
    - `DATA_HUB_PATH` / `DATAHUB_DIR`：datahub 仓根（默认同级 `datahub-multi-tier`）

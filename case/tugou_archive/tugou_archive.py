@@ -262,7 +262,14 @@ def fetch_article_content(url, title):
 # IMA 知识库上传
 # ============================================================
 def ima_api_call(api_path, body_json, retries=3):
-    """调用 IMA API，返回解析后的 JSON。失败自动重试3次，指数退避。"""
+    """调用 IMA API，返回解析后的 JSON。失败自动重试3次，指数退避。
+
+    2026-11-26：ima_api.cjs 每天第一次调用会先做 skill 版本检查，发现有新版就把
+    「更新提示」JSON 打到 stdout 并退出 —— 那个对象里**没有 code 字段**，早先版本
+    会把它当成业务错误，日志里天天出现 `[RETRY] IMA API 第1次失败（code=None
+    msg=None）`。这里识别出来：把提示里的 latest_version 塞进 IMA_SKILL_VERSION
+    立刻重跑一次（不是失败，不 sleep、不记 RETRY）。
+    """
     cmd = ["node", str(IMA_API_SCRIPT), api_path, json.dumps(body_json, ensure_ascii=False)]
     last_err = None
     for attempt in range(retries):
@@ -278,6 +285,13 @@ def ima_api_call(api_path, body_json, retries=3):
                 # code==0 成功，直接返回
                 if resp.get("code") == 0:
                     return resp
+                # 版本检查提示（无 code 字段，带 latest_version）：带上版本号立刻重跑
+                if "code" not in resp and resp.get("latest_version"):
+                    latest = str(resp["latest_version"])
+                    if latest != os.environ.get("IMA_SKILL_VERSION"):
+                        os.environ["IMA_SKILL_VERSION"] = latest
+                        print(f"  [INFO] IMA skill 有新版本 {latest}，按该版本重跑（已设 IMA_SKILL_VERSION）")
+                        continue
                 # 有明确业务错误码，重试（IMA偶发限流/抖动）
                 last_err = f"code={resp.get('code')} msg={resp.get('msg')}"
 
