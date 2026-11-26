@@ -11,10 +11,12 @@
    → **回退旧 edb.sqlite3**，不能静默读空；
 3. ``DB_PATH`` 指一个还没创建的库时 → 不许掉到默认库（那会读到另一个库）；
 4. ``DATAHUB_HOME`` 参与默认路径；
-5. 目录 / 相对路径 / ``EDB_REPO`` 兜底。
+5. 目录 / 相对路径 / ``EDB_REPO`` 兜底；
+6. 统一库**有表但 0 行**（迁移没跑/还没采）同样回退，且告警每进程一次。
 """
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 import sys
@@ -54,6 +56,14 @@ def _make_db(path: str, *, edb_points: bool = True) -> str:
 def clean_env(monkeypatch):
     for key in ("DB_PATH", "DB_Path", "DATAHUB_DB_PATH", "DATAHUB_HOME", "EDB_REPO"):
         monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_warn_cache():
+    """每条用例前清掉 _warn_once 的去重缓存，保证告警计数可断言。"""
+    edb_paths._WARNED.clear()
+    yield
+    edb_paths._WARNED.clear()
 
 
 def _legacy_edb(tmp_path) -> str:
@@ -117,7 +127,43 @@ def test_alias_env_and_legacy_repo(tmp_path, monkeypatch, clean_env):
 
 
 def test_no_db_anywhere_returns_none(tmp_path, monkeypatch, clean_env):
+    """两边都没有 → None。
+
+    2026-11-26（#92 复核）：原来只把 EDB_REPO / DATA_HUB_PATH 指到空 tmp，
+    但 ``legacy_candidates()`` 末尾还会追加 ``datahub_path.DEFAULT_ROOT``
+    （``/opt/coze/.fuse_drive/dataHub_三级体系``）。在真跑生产的机器上那里
+    有旧库，这条用例会**误失败**。所以把仓库兜底也堵掉，只测「两边都没有」。
+    """
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("EDB_REPO", str(tmp_path / "nowhere"))
-    monkeypatch.setenv("DATA_HUB_PATH", str(tmp_path / "nowhere"))
+    monkeypatch.setattr(edb_paths, "_datahub_root", lambda: "")
+    monkeypatch.setattr(edb_paths, "legacy_candidates", lambda: [])
     assert edb_paths.edb_db_path() is None
+
+
+def test_unified_empty_edb_points_falls_back(tmp_path, monkeypatch, clean_env, caplog):
+    """表在但 0 行 = 不可用：回退旧库，且同一条告警每进程只打一次。"""
+    unified = _make_db(str(tmp_path / "main.db"), edb_points=False)
+    conn = sqlite3.connect(unified)
+    conn.execute("CREATE TABLE edb_points(series_id TEXT, date TEXT, value REAL)")
+    conn.commit()
+    conn.close()
+    old = _legacy_edb(tmp_path)
+    monkeypatch.setenv("DB_PATH", unified)
+    monkeypatch.setenv("EDB_REPO", str(tmp_path / "repo"))
+
+    assert edb_paths.edb_points_state(unified) == "empty"
+    assert edb_paths.has_edb_points(unified) is False
+    with caplog.at_level(logging.WARNING):
+        assert edb_paths.edb_db_path() == old
+        assert edb_paths.edb_db_path() == old          # 第二次调用不再重复告警
+    msgs = [r.getMessage() for r in caplog.records
+            if r.name.endswith("edb_paths") and "空表" in r.getMessage()]
+    assert len(msgs) == 1
+
+
+def test_edb_points_state_missing_and_ok(tmp_path, clean_env):
+    assert edb_paths.edb_points_state(str(tmp_path / "nope.db")) == "missing"
+    assert edb_paths.edb_points_state("") == "missing"
+    ok = _make_db(str(tmp_path / "ok.db"))
+    assert edb_paths.edb_points_state(ok) == "ok"
