@@ -945,7 +945,7 @@ def send_margin_alert_email(alerts, margin_data):
     """发送两融余额告警邮件"""
     try:
         import sys
-        sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+        sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
         from send_email import send_email_default
         
         if not alerts:
@@ -2524,7 +2524,7 @@ def main():
         
         # 飞书推送（交互式卡片）
         import sys as _sys
-        _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+        _sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
         from feishu_card_utils import build_market_monitor_card
         from feishu_push import push_card_to_feishu
 

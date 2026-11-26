@@ -15,7 +15,7 @@
 用法
 ----
     import sys
-    sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+    sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
     from email_sender import send_email
 
     ok = send_email(

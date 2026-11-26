@@ -67,7 +67,7 @@ _HUB_ROOT = _hub_root_path()
 
 
 # ===================== 路径配置 =====================
-BASE = '/Coze/Drive/蓁宝/所有对话/主对话'
+BASE = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
 def _latest_trade_date():
     """最近交易日（YYYY-MM-DD）。优先 tushare trade_cal，失败则退化为跳过周末。"""
     from datetime import timedelta

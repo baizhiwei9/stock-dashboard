@@ -23,12 +23,15 @@ case/*/ 下的脚本是从另一个 agent 的沙箱整体迁过来的，里面�
     fonts_dir()        workspace/.fonts          出图字体
     feishu_router()    workspace/feishu_router   飞书卡片路由
     pylibs()           workspace/pylibs          少量手装库（vmdpy/pywt 等）
+    legacy_workspace() 老「蓁宝/所有对话/主对话」目录（飞书模块原家）
+    feishu_dirs()      飞书卡片/推送模块候选目录（仓库内优先，云盘兜底）
 
 环境变量覆盖
 ────────────
     DATA_HUB_PATH / DATAHUB_DIR / EDB_REPO   → datahub_root()（交给 datahub_path.py）
     CASE_WORKSPACE                           → workspace_root() 及其所有下游
     CASE_PY_DEPS / CASE_FONTS / CASE_SHARED / CASE_FEISHU_ROUTER  → 单项覆盖
+    CASE_FEISHU_LIB                          → feishu_dirs() 最高优先级
 
 排障
 ────
@@ -239,6 +242,64 @@ def font_path(name="NotoSansSC-Regular.ttf"):
     return ""
 
 
+# ── 7. 老「主对话」目录 + 飞书模块目录 ───────────────────────────────────
+# case/*/ 里 20 余处脚本仍在 sys.path.insert 云盘上的
+# 「蓁宝/所有对话/主对话」，目的几乎只有一个：import 飞书卡片/推送模块。
+# 这些模块仓库里已有完全相同的副本（feishu_card_utils.py 207955B 与云盘 md5 一致、
+# feishu_push.py 是薄壳、pboc_liquidity_reader / usd_fingerprint 在
+# case/circulation_daily/scripts/modules 下），所以迁机后不该再依赖云盘。
+_LEGACY_MAIN = "/Coze/Drive/蓁宝/所有对话/主对话"
+_LEGACY_MAIN_ALT = "/opt/coze/.fuse_drive/蓁宝/所有对话/主对话"
+
+
+def legacy_workspace():
+    """老「主对话」目录。迁机后由 CASE_WORKSPACE 指到新位置。
+
+    注意与 workspace_root() 的区别：workspace_root() 是「stock-dashboard 的
+    父目录」（本机 /root/work），而这里指的是云盘上另一套 workspace
+    （蓁宝/所有对话/主对话），两者不是一回事，不要合并。
+    """
+    env = _env("CASE_WORKSPACE")
+    if env:
+        return env
+    return _first_dir(_LEGACY_MAIN, _LEGACY_MAIN_ALT) or _LEGACY_MAIN
+
+
+def feishu_dirs():
+    """飞书卡片/推送模块的候选目录（按优先级，只返回真实存在的）。
+
+    1. CASE_FEISHU_LIB 环境变量
+    2. 仓库内 case/sector_screening_v4 —— feishu_card_utils.py + feishu_push.py 壳
+    3. 仓库内 case/circulation_daily/scripts/modules —— pboc_liquidity_reader 等
+    4. 老「主对话」目录（原机兜底，迁机后通常不存在）
+    """
+    cands = []
+    env = _env("CASE_FEISHU_LIB")
+    if env:
+        cands.append(env)
+    cands.append(os.path.join(_CASE_DIR, "sector_screening_v4"))
+    cands.append(os.path.join(_CASE_DIR, "circulation_daily", "scripts", "modules"))
+    cands.append(legacy_workspace())
+    out = []
+    for p in cands:
+        if p and os.path.isdir(p) and p not in out:
+            out.append(p)
+    return out
+
+
+def ensure_feishu_on_path():
+    """把所有可用的飞书模块目录前置进 sys.path，返回优先级最高的那个。
+
+    与 ensure_hub_on_path() 同性质：显式改 sys.path，调用点一眼可见。
+    """
+    import sys
+    dirs = feishu_dirs()
+    for p in reversed(dirs):          # reversed + insert(0) 保证 dirs[0] 在最前
+        if p not in sys.path:
+            sys.path.insert(0, p)
+    return dirs[0] if dirs else ""
+
+
 # ── 自检 ─────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     rows = [
@@ -249,6 +310,8 @@ if __name__ == "__main__":
         ("fonts_dir", fonts_dir()),
         ("feishu_router", feishu_router()),
         ("pylibs", pylibs()),
+        ("legacy_workspace", legacy_workspace()),
+        ("feishu_dirs[0]", (feishu_dirs() or [""])[0]),
     ]
     for name, path in rows:
         mark = "存在" if path and os.path.isdir(path) else "缺失"

@@ -1161,8 +1161,8 @@ def build_circulation_daily_card(date_str, score, rating, risks, positives, key_
         elements.append(build_hr())
         try:
             import sys as _sys
-            if '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules' not in _sys.path:
-                _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules')
+            if (__import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts/modules' not in _sys.path:
+                _sys.path.insert(0, (__import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts/modules')
             from pboc_liquidity_reader import render_card_lines
             elements.append(build_markdown("\n".join(render_card_lines(liq_data))))
         except Exception as _e:
@@ -1173,8 +1173,8 @@ def build_circulation_daily_card(date_str, score, rating, risks, positives, key_
         elements.append(build_hr())
         try:
             import sys as _sys
-            if '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules' not in _sys.path:
-                _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules')
+            if (__import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts/modules' not in _sys.path:
+                _sys.path.insert(0, (__import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts/modules')
             from usd_fingerprint import render_card_lines as _fp_cards
             elements.append(build_markdown("\n".join(_fp_cards(fp_data))))
         except Exception as _e:

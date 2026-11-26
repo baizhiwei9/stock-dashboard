@@ -43,7 +43,7 @@ _HUB_ROOT = _hub_root_path()
 DATA_HUB_PATH = _HUB_ROOT
 sys.path.insert(0, DATA_HUB_PATH)
 
-BASE = '/Coze/Drive/蓁宝/所有对话/主对话'
+BASE = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
 sys.path.insert(0, BASE)
 OUTPUT_DIR = os.path.join(BASE, '长期计划/缠论主升浪/outputs/股票筛选')
 PROJ_DIR = '/Coze/Drive/选股/四策略综合选股_20261102'

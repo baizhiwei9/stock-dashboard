@@ -402,7 +402,7 @@ def main():
     print("=" * 60)
 
     # 推送飞书
-    sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+    sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
     from feishu_push import push_to_feishu
     push_to_feishu(file_path=output_file)
 

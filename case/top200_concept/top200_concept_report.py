@@ -2000,7 +2000,7 @@ def main():
     if not already_pushed:
         try:
             import sys as _sys
-            _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+            _sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
             from feishu_card_utils import build_top200_concept_card
             from feishu_push import push_card_to_feishu
             

@@ -368,7 +368,7 @@ def safe_submit_result(**kwargs):
         print(f"  ⚠️  submit_result失败(非CodeAct环境正常): {e}")
 
 # ============ 路径配置 ============
-BASE_DIR = '/Coze/Drive/蓁宝/所有对话/主对话'
+BASE_DIR = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
 CFC_DIR = os.path.join(BASE_DIR, 'CFC结构因子')
 OPTION_DIR = os.path.join(BASE_DIR, '市场情绪监控', 'scripts')
 FEISHU_DIR = BASE_DIR

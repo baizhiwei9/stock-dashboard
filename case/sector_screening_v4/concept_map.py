@@ -40,7 +40,7 @@ _HUB_ROOT = _hub_root_path()
 DATA_HUB_PATH = _HUB_ROOT
 sys.path.insert(0, DATA_HUB_PATH)
 
-BASE = '/Coze/Drive/蓁宝/所有对话/主对话'
+BASE = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
 CACHE_DIR = os.path.join(BASE, 'cache')
 os.makedirs(CACHE_DIR, exist_ok=True)
 

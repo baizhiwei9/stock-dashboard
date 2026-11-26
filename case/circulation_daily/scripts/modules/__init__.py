@@ -20,7 +20,7 @@
 --------
 把本目录加入 ``sys.path`` 后即可按扁平模块名导入，与原调用代码一致：
 
-    sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules')
+    sys.path.insert(0, (__import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts/modules')
     from cd_liquidity_monitor import run_monitor, render_report
 """
 

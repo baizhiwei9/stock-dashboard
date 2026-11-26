@@ -252,7 +252,7 @@ class _AKProxy:
 
 
 # 1Y AAA同业存单流动性监控模块
-_LOCAL_MODULES = '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules'
+_LOCAL_MODULES = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts/modules'
 if _LOCAL_MODULES not in sys.path:
     sys.path.insert(0, _LOCAL_MODULES)
 try:
@@ -4711,7 +4711,7 @@ def generate_report():
         
         # 同时写入SQLite（项目共享目录）
         try:
-            _db_path = '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/data/market.db'
+            _db_path = (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/data/market.db'
             _conn = sqlite3.connect(_db_path)
             _conn.execute("PRAGMA journal_mode=WAL")
             _conn.execute(
@@ -4870,7 +4870,7 @@ def generate_report():
             ax.grid(color='#0f3460', alpha=0.5)
             
             # 输出目录
-            out_dir = f'/Coze/Drive/蓁宝/所有对话/主对话/环流日报/outputs/charts'
+            out_dir = f(os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/outputs/charts'
             os.makedirs(out_dir, exist_ok=True)
             chart_fname = f'{today_str}_1y_swap_weekly.png'
             swap_chart_path = os.path.join(out_dir, chart_fname)
@@ -4900,7 +4900,7 @@ def generate_report():
             print(f"  ⚠️ 掉期点异动: {last_chg_bp:+.0f}BP")
             try:
                 import sys
-                sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts')
+                sys.path.insert(0, (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts')
                 from send_email import send_email_default
                 subject = f"⚠️ 1Y掉期点异动 {last_chg_bp:+.0f}BP - {today_str}"
                 body = f"""
@@ -4932,7 +4932,7 @@ def generate_report():
                 print(f"  ⚠️ 掉期点连续3日下行趋势，累计{total_3d:.0f}BP")
                 try:
                     import sys
-                    sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts')
+                    sys.path.insert(0, (os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话') + '/环流日报/scripts')
                     from send_email import send_email_default
                     subject = f"📉 掉期点连续下行趋势 - {today_str}"
                     body = f"""
@@ -5558,7 +5558,7 @@ def generate_report():
         print(f"  ℹ️  今日({date_display})已推送过，跳过重复推送")
     else:
         import sys as _sys
-        _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+        _sys.path.insert(0, os.environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
         from feishu_card_utils import build_circulation_daily_card
         from feishu_push import push_card_to_feishu
         

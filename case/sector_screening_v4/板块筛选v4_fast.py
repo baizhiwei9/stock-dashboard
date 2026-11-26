@@ -265,7 +265,7 @@ def main():
     # 1. 优先推送交互式卡片
     try:
         import sys as _sys
-        _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+        _sys.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
         from feishu_card_utils import build_sector_screening_card
         from feishu_push import push_card_to_feishu
         from datetime import datetime as _dt
@@ -307,7 +307,7 @@ def main():
     if not push_success and os.path.exists(OUTPUT):
         try:
             import sys as _sys2
-            _sys2.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+            _sys2.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
             from feishu_push import push_to_feishu
             push_success = push_to_feishu(file_path=OUTPUT)
             if push_success:
@@ -319,7 +319,7 @@ def main():
     if not push_success:
         try:
             import sys as _sys3
-            _sys3.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+            _sys3.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or '/Coze/Drive/蓁宝/所有对话/主对话')
             from feishu_push import push_to_feishu
             err_msg = f"[主人](at://owner) ⚠️ 板块筛选日报推送失败\n错误: {push_error or '未知原因'}\n本地文件: {OUTPUT}"
             push_to_feishu(text=err_msg)
