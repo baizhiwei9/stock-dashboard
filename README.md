@@ -33,19 +33,29 @@ A 股三级监控看板。**Tab（大类）→ 子类（model）→ task（可�
 ./install.sh                # 首次安装：强制输入 api.password / api.registry_key 等敏感项，缺项不能继续
 
 ./start_all.sh up           # 一条命令起全部任务（公有 + 私有 + 看门狗），不需要 crontab
+./start_all.sh up --only rmt_daily,risk_daily   # 本次只跑这几个，其余自动当停用
+./start_all.sh up --no-api  # 纯后台调度：不监听任何端口
 # 接管旧机的 build/macro 等 modules.json 模块：
 # SD_MODULES_FROM=/旧机/modules.json ./start_all.sh up
-python3 scheduler.py fg     # 前台跑调度（同时起 HTTP 控制台，端口见 modules.json）
+python3 scheduler.py fg     # 前台跑调度（默认只监听 127.0.0.1 的控制台）
 python3 build.py            # 或单次生成 index.html
 python3 manager.py list     # 命令行运维：清单 / status / run / enable / disable
 ```
+
+`--only` / `--no-api` 都是**本次进程**的运行期开关：只改环境变量
+（`SD_ONLY` / `SD_NO_API`），不写 `modules.json` 或 `task.json`。已在跑但过滤条件
+不同时 `up` 会先停再起；不带 `--only` 再 `up` 一次即恢复全部。key 拼错会拒绝启动。
 
 敏感配置**只放 `config/secrets.json`**（已 `.gitignore`，权限 0600），字段清单见
 [`config/README.md`](config/README.md)。仓库里只有占位模板 `config/secrets.example.json`；
 `./install.sh` 与 `scheduler.py` 启动前都会校验，缺必填项直接拒绝启动。
 
 `manager.py` 是**命令行工具**，不监听端口；HTTP 控制台和注册接口都由 `scheduler.py`
-提供（默认端口 `modules.json` 的 `api.port`，现为 `8767`）。
+提供（端口读 `modules.json` 的 `api.port`，默认 `8767`；没写 `api.host` 时只听
+`127.0.0.1`）。本仓 `modules.json` 显式写的是 `127.0.0.1`（只本机可访问管理 API）；
+确实要局域网访问再改成 `0.0.0.0`（`up` 会打警告）。这个端口只服务管理页面/API（看状态、手动跑、
+批准 worker、容器里的优雅停止），**调度本身不依赖它**：到点起任务和心跳都走本地文件。
+不需要管理页时用 `api.enabled=false` 或 `./start_all.sh up --no-api`，进程完全不绑定端口。
 
 `build.py` 依赖 `data_hub`：用 `DATA_HUB_PATH` / `DATAHUB_DIR` / `EDB_REPO` 指定根目录，未指定时按同级 `../datahub-multi-tier` 查找（见 `datahub_path.py`）。
 

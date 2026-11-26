@@ -57,6 +57,11 @@ if c == "start":
     os.makedirs(os.path.join(HERE, "logs"), exist_ok=True)
     with open(ENVF, "w") as f:
         json.dump(dict(os.environ), f)
+    # 与真 scheduler 一致：把本次运行期过滤写进 state.json（start_all 靠它判断
+    # 「已在运行的过滤条件」要不要先停再起）
+    only = [k for k in os.environ.get("SD_ONLY", "").split(",") if k]
+    with open(os.path.join(HERE, "state.json"), "w") as f:
+        json.dump({"scheduler": {"only": only}, "modules": {}}, f)
     log = open(os.path.join(HERE, "logs", "scheduler.log"), "ab")
     q = subprocess.Popen([sys.executable, "-c", "import time;time.sleep(3600)"],
                          stdout=log, stderr=log, start_new_session=True)
@@ -101,6 +106,8 @@ def _run(root, *args, **env_extra):
     env.pop("CASE_EXTRA_DIRS", None)
     env.pop("DATA_HUB_PATH", None)
     env.pop("EDB_REPO", None)
+    env.pop("SD_ONLY", None)
+    env.pop("SD_NO_API", None)
     env["SD_PYTHON"] = sys.executable
     env.update(env_extra)
     return subprocess.run(["bash", str(root / "start_all.sh"), *args],
@@ -248,3 +255,77 @@ def test_modules_from_rejects_bad_json(tmp_path):
     assert r.returncode != 0
     assert "SD_MODULES_FROM" in r.stderr
     assert not (root / "modules.json").exists()
+
+
+def test_up_only_sets_runtime_filter(tmp_path):
+    """up --only：只传运行期白名单，写进子进程环境与 state，不碰任何配置文件。"""
+    root = _fake_deploy(tmp_path)
+    env = {"SD_WATCHDOG_INTERVAL": "1",
+           "SD_PRECIOUS_DIR": str(tmp_path / "precious-task")}
+    mods_before = None
+
+    up = _run(root, "up", "--only", " dummy_priv , dummy_priv,", **env)
+    assert up.returncode == 0, up.stdout + up.stderr
+    assert "本次只调度 dummy_priv" in up.stdout
+    assert "运行期过滤，未改配置文件" in up.stdout
+
+    start_env = json.loads((root / "start_env.json").read_text())
+    assert start_env.get("SD_ONLY") == "dummy_priv"       # 去重、去空格、去空项
+    st = json.loads((root / "state.json").read_text())
+    assert st["scheduler"]["only"] == ["dummy_priv"]
+
+    # 只影响调度，不动配置：modules.json 内容不变
+    if mods_before is not None:
+        assert json.loads((root / "modules.json").read_text()) == mods_before
+    _run(root, "down", **env)
+
+
+def test_up_only_restart_when_filter_changes(tmp_path):
+    """已在跑但过滤条件不同 → up 先停再起；不带 --only 再 up 恢复全部。"""
+    root = _fake_deploy(tmp_path)
+    env = {"SD_WATCHDOG_INTERVAL": "1",
+           "SD_PRECIOUS_DIR": str(tmp_path / "precious-task")}
+
+    a = _run(root, "up", **env)
+    assert a.returncode == 0, a.stdout + a.stderr
+    pid_all = _read_pid(root)
+    assert _alive(pid_all)
+
+    b = _run(root, "up", "--only", "dummy_priv", **env)
+    assert b.returncode == 0, b.stdout + b.stderr
+    assert "过滤条件变化" in b.stdout
+    pid_one = _read_pid(root)
+    assert _alive(pid_one) and pid_one != pid_all
+    assert json.loads((root / "start_env.json").read_text()).get("SD_ONLY") == "dummy_priv"
+
+    c = _run(root, "up", **env)
+    assert c.returncode == 0, c.stdout + c.stderr
+    assert "过滤条件变化" in c.stdout
+    pid_restored = _read_pid(root)
+    assert _alive(pid_restored) and pid_restored != pid_one
+    assert not json.loads((root / "start_env.json").read_text()).get("SD_ONLY")
+    assert json.loads((root / "state.json").read_text())["scheduler"]["only"] == []
+
+    _run(root, "down", **env)
+
+
+def test_up_only_equals_form_and_no_api(tmp_path):
+    root = _fake_deploy(tmp_path)
+    env = {"SD_WATCHDOG_INTERVAL": "1",
+           "SD_PRECIOUS_DIR": str(tmp_path / "precious-task")}
+    up = _run(root, "up", "--only=dummy_priv", "--no-api", **env)
+    assert up.returncode == 0, up.stdout + up.stderr
+    assert "HTTP 控制台     = 关闭" in up.stdout
+    assert "控制台  已关闭（纯后台调度" in up.stdout
+    e = json.loads((root / "start_env.json").read_text())
+    assert e.get("SD_ONLY") == "dummy_priv"
+    assert e.get("SD_NO_API") == "1"
+    _run(root, "down", **env)
+
+
+def test_up_rejects_unknown_flag(tmp_path):
+    root = _fake_deploy(tmp_path)
+    r = _run(root, "up", "--bogus",
+             SD_PRECIOUS_DIR=str(tmp_path / "precious-task"))
+    assert r.returncode != 0
+    assert "未知参数" in r.stderr

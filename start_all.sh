@@ -17,12 +17,18 @@
 #
 # 用法：
 #   ./start_all.sh up            启动 TaskManager + 常驻看门狗（幂等）
+#   ./start_all.sh up --only k1,k2   本次只跑这几个任务，其余自动当停用（不改配置）
+#   ./start_all.sh up --no-api   不监听任何端口，纯后台调度（等价 SD_NO_API=1）
 #   ./start_all.sh down          停止看门狗 + TaskManager
-#   ./start_all.sh restart       重启
-#   ./start_all.sh status        调度状态（公有+私有一起）+ 看门狗/心跳
+#   ./start_all.sh restart [--only k1,k2] [--no-api]
+#   ./start_all.sh status        调度状态（公有+私有一起）+ 看门狗/心跳 + 本次过滤
 #   ./start_all.sh doctor        只体检不启动；加 --json 输出机器可读结果
-#   ./start_all.sh fg            前台跑（调试，Ctrl-C 退出）
+#   ./start_all.sh fg [--only k1,k2] [--no-api]   前台跑（调试，Ctrl-C 退出）
 #   ./start_all.sh --help
+#
+# --only 是运行期白名单：只在本次进程内生效，绝不改 modules.json / task.json。
+# 已经在跑但过滤条件不同时，up 会先停再起（会打断当时正在跑的任务）；不带 --only
+# 再 up 一次即恢复全部。key 写错会直接拒绝启动并列出未知 key。
 #
 # 可选环境变量：
 #   SD_PYTHON=python3           解释器
@@ -30,6 +36,8 @@
 #   OPTIONS_UTILITY_ROOT=...    期权算法仓根（默认同级 ../options_utility 或 ../options-utility）
 #   DATA_HUB_PATH=...           DataHub 根（默认同级 ../datahub-multi-tier；都没有时 up 直接报错）
 #   SD_MODULES_FROM=...         首次启动时从旧机 modules.json 导入本机模块清单（build/macro 等）
+#   SD_ONLY=k1,k2               同 up --only（直接 export 也可以）
+#   SD_NO_API=1                 同 up --no-api：不监听端口
 #   SD_SKIP_LIVE=1              凭据校验跳过联网（离线装机）
 #   SD_ALLOW_NO_PRECIOUS=1      私有仓缺失也允许启动（默认拒绝，避免私有任务静默消失）
 #   SD_DRY_RUN=1                up 只打印解析结果与计划，不拉起任何进程
@@ -47,6 +55,80 @@ warn() { printf '[warn] %s\n' "$*" >&2; }
 die()  { printf '[error] %s\n' "$*" >&2; exit 1; }
 
 usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "${BASH_SOURCE[0]}"; }
+
+# ---------------------------------------------------------------- 运行参数
+# --only / --no-api 都是「本次进程」的开关：只 export 环境变量，不写任何配置文件。
+# 写法：--only a,b   --only=a,b   也接受空格/中文逗号分隔。
+parse_run_flags() {
+  local raw=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --only)
+        [ $# -ge 2 ] || die "--only 后面要跟任务 key（逗号分隔）"
+        raw="$2"; shift 2 ;;
+      --only=*)
+        raw="${1#--only=}"; shift ;;
+      --no-api)
+        export SD_NO_API=1; shift ;;
+      *)
+        die "未知参数：$1（./start_all.sh --help）" ;;
+    esac
+  done
+  if [ -n "$raw" ]; then
+    SD_ONLY="$(printf '%s' "$raw" \
+      | sed 's/，/ /g; s/,/ /g; s/[[:space:]]\{1,\}/\n/g' \
+      | awk 'NF && !seen[$0]++ {printf "%s%s", (n++ ? "," : ""), $0}')"
+    [ -n "$SD_ONLY" ] || die "--only 没解析出任务 key"
+    export SD_ONLY
+  fi
+}
+
+# 当前进程实际在跑的过滤条件（由 scheduler loop 启动时写入 state.json）。
+current_only() {
+  "$PY" - "$HERE/state.json" <<'PYEOF'
+import json, sys
+try:
+    st = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError):
+    st = {}
+print(",".join((st.get("scheduler") or {}).get("only") or []))
+PYEOF
+}
+
+sched_running() { "$PY" "$HERE/scheduler.py" health >/dev/null 2>&1; }
+
+# 控制台实际形态：关闭 / host:port。只读 modules.json，不启动任何东西。
+api_desc() {
+  "$PY" - "$HERE/modules.json" "${SD_NO_API:-0}" <<'PYEOF'
+import json, sys
+if sys.argv[2] == "1":
+    print("关闭"); raise SystemExit
+try:
+    c = json.load(open(sys.argv[1], encoding="utf-8")).get("api") or {}
+except (OSError, ValueError):
+    c = {}
+if c.get("enabled") is False:
+    print("关闭"); raise SystemExit
+print("%s:%s" % (c.get("host") or "127.0.0.1", c.get("port") or 8767))
+PYEOF
+}
+
+# up 的核心语义：启动脚本决定「这一轮跑哪些」。已经在跑且过滤条件不同 → 先停再起，
+# 否则 scheduler.py start 只会打印「已在运行」，--only 被静默忽略。
+ensure_only_filter() {
+  local cur
+  cur="$(current_only 2>/dev/null || true)"
+  [ "${SD_ONLY:-}" = "$cur" ] && return 0
+  if sched_running; then
+    say "过滤条件变化：运行中=${cur:-全部} → 本次=${SD_ONLY:-全部}，重启 TaskManager 生效"
+    if [ "${SD_DRY_RUN:-0}" = 1 ]; then
+      say "dry-run：不重启；正式启动会先 down 再 up"
+      return 0
+    fi
+    cmd_down
+    sleep 1
+  fi
+}
 
 # ---------------------------------------------------------------- 路径解析
 prepend_path() {  # $1=目录  $2=变量名
@@ -159,7 +241,7 @@ cfg = {
     "version": 2,
     "note": "由 start_all.sh 生成：任务全部来自 case/ + CASE_EXTRA_DIRS；"
             "本文件只放本机 api/queue 配置，不入库。",
-    "api": {"host": "0.0.0.0", "port": 8767},
+    "api": {"host": "127.0.0.1", "port": 8767},
     "queue": {"max_parallel": 1, "pull_forward": True,
               "pull_forward_from": "16:00", "pull_ahead_min": 240},
     "modules": [],
@@ -404,6 +486,7 @@ stop_watchdog() {
 }
 
 cmd_up() {
+  local API_DESC
   resolve_env
   say "== 任务管理器（公有 dashboard + 私有 precious 同一调度进程）"
   [ "$DATAHUB_OK" = 1 ] || die "找不到 DataHub（需要含 data_hub/ 的仓库）；设 DATA_HUB_PATH 或同级 clone datahub-multi-tier"
@@ -430,11 +513,20 @@ cmd_up() {
   say "  CASE_EXTRA_DIRS = ${CASE_EXTRA_DIRS:-（空）}"
   say "  DATA_HUB_PATH   = ${DATA_HUB_PATH:-（空）}"
   say "  OPTIONS_ROOT    = ${OPTIONS_UTILITY_ROOT:-（空）}"
+  say "  本次任务        = ${SD_ONLY:-全部（按各自 sched）}"
+  API_DESC="$(api_desc)"
+  say "  HTTP 控制台     = $API_DESC"
+  case "$API_DESC" in
+    0.0.0.0:*)
+      warn "控制台监听 0.0.0.0，局域网可访问管理 API；只需本机用请把 modules.json 的 api.host 改成 127.0.0.1" ;;
+  esac
+
+  ensure_only_filter
 
   if [ "${SD_DRY_RUN:-0}" = 1 ]; then
     say ""
     say "dry-run：不拉起进程。正式启动会执行："
-    say "  $PY scheduler.py start"
+    say "  SD_ONLY=${SD_ONLY:-<空>} $PY scheduler.py start"
     say "  setsid nohup bash sd_watchdog.sh --loop"
     cmd_doctor
     return 0
@@ -445,8 +537,17 @@ cmd_up() {
   start_watchdog || warn "TaskManager 已起，但看门狗没起来；挂掉后不会自动恢复"
 
   say ""
-  say "已启动。公有 + 私有任务按各自 task.json 的 sched 时间跑，不需要 crontab。"
-  say "  控制台  http://127.0.0.1:8767"
+  if [ -n "${SD_ONLY:-}" ]; then
+    say "已启动：本次只调度 ${SD_ONLY}，其余任务一律当停用（运行期过滤，未改配置文件）。"
+    say "恢复全部：./start_all.sh up（不带 --only）"
+  else
+    say "已启动。公有 + 私有任务按各自 task.json 的 sched 时间跑，不需要 crontab。"
+  fi
+  if [ "$API_DESC" = "关闭" ]; then
+    say "  控制台  已关闭（纯后台调度，不监听任何端口）"
+  else
+    say "  控制台  http://127.0.0.1:${API_DESC##*:}（监听 $API_DESC）"
+  fi
   say "  状态    ./start_all.sh status"
   say "  日志    $LOG_DIR/scheduler.log"
 }
@@ -482,12 +583,12 @@ cmd_status() {
 }
 
 case "${1:-}" in
-  up)      cmd_up ;;
+  up)      shift; parse_run_flags "$@"; cmd_up ;;
   down)    cmd_down ;;
-  restart) cmd_restart ;;
+  restart) shift; parse_run_flags "$@"; cmd_restart ;;
   status)  cmd_status ;;
   doctor)  shift; cmd_doctor "${1:-}" ;;
-  fg)      resolve_env; exec "$PY" "$HERE/scheduler.py" fg ;;
+  fg)      shift; parse_run_flags "$@"; resolve_env; exec "$PY" "$HERE/scheduler.py" fg ;;
   -h|--help|help) usage ;;
   *) usage; exit 1 ;;
 esac
