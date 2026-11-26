@@ -46,6 +46,8 @@
       "type": "string",
       "enum": [
         "stock",
+        "watch",
+        "pick",
         "futures",
         "realestate",
         "macro",
