@@ -1782,9 +1782,20 @@ def cmd_health():
         # 避免看门狗在启动瞬间误重启。
         print("运行中 pid=%s（暂无心跳文件）" % pid)
         return 0
+    port = api_conf().get("port") or DEFAULT_PORT
     if age > HB_STALE_SEC:
-        print("僵死 pid=%s 心跳 %ds 未更新（阈值 %ds）" % (pid, age, HB_STALE_SEC))
+        if pid == -1:
+            # 本机没有调度器进程，-1 不是进程号，别当 pid 打出去
+            print("僵死（端口 %s 有响应、本机无调度器进程；响应源心跳 %ds 未更新，阈值 %ds）"
+                  % (port, age, HB_STALE_SEC))
+        else:
+            print("僵死 pid=%s 心跳 %ds 未更新（阈值 %ds）" % (pid, age, HB_STALE_SEC))
         return 2
+    if pid == -1:
+        # 心跳在动但本机看不到进程：响应来自别的命名空间/主机。判健康（确实有人在调度），
+        # 但输出不能写成「健康 pid=-1」—— -1 不是进程号，读日志的人会被误导。
+        print("健康（端口 %s 有响应、本机无调度器进程，心跳 %ds 前）" % (port, age))
+        return 0
     print("健康 pid=%s 心跳 %ds 前" % (pid, age))
     return 0
 
@@ -1804,13 +1815,17 @@ def main(argv):
     if cmd == "restart":
         rc = cmd_stop()
         if rc != 0:
-            # 停不掉时不中止，照常尝试拉起本机实例。
-            # 老逻辑在这里直接 return，结果「僵死 → 重启」在两种常见场景下永久空转：
-            #   ① 端口被另一台主机/容器的残留实例占着（共享云盘 + 共享端口），
-            #      HTTP 认证密码还对不上，cmd_stop 必然失败；
-            #   ② 该实例不写心跳文件，看门狗只会反复判僵死、反复中止。
-            # cmd_start 现在已能识别 pid==-1 并继续启动，所以这里放心往下走：
-            # 新实例至少能把调度循环跑起来（HTTP 端口起不来会单独记日志）。
+            # 停不掉时要分清「停的是谁」，两种情况后果完全不同：
+            #   · pid == -1 / None：端口被另一台主机/容器的残留实例占着（共享云盘 +
+            #     共享端口），HTTP 认证密码还未必对得上 —— cmd_stop 必然失败。这时照常
+            #     往下走，cmd_start 会继续拉起本机实例（端口真冲突会在日志里留痕）。
+            #   · pid > 0：停的是本机这个实例，kill 没成功。此时 cmd_start 只会打印
+            #     「已在运行」并返回 0，restart 对外就成了假成功 —— 必须如实报错。
+            pid = read_pid()
+            if pid and pid > 0:
+                print("停止失败且本机实例仍在运行 pid=%s，未重启（看 %s）"
+                      % (pid, SELF_LOG))
+                return 1
             print("停止失败（原因见上），仍尝试启动本机实例。")
         else:
             time.sleep(0.6)
