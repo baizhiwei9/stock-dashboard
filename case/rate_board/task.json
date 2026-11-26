@@ -1,0 +1,207 @@
+{
+  "key": "rate_board",
+  "title": "中美利率与政策预期",
+  "desc": "CME FedWatch 加息/降息概率 + 中国降准降息预期利差 + 土狗框架",
+  "section": "liquidity",
+  "metrics": [
+    {
+      "key": "rate.us.fedwatch.hike_next",
+      "sec": "RATE.BOARD",
+      "name": "FedWatch下次会议加息概率"
+    },
+    {
+      "key": "rate.us.fedwatch.hold_next",
+      "sec": "RATE.BOARD",
+      "name": "FedWatch下次会议维持不变概率"
+    },
+    {
+      "key": "rate.us.fedwatch.ease_next",
+      "sec": "RATE.BOARD",
+      "name": "FedWatch下次会议降息概率"
+    },
+    {
+      "key": "rate.us.fedwatch.target_mid",
+      "sec": "RATE.BOARD",
+      "name": "FedWatch隐含目标利率中值"
+    },
+    {
+      "key": "rate.us.fedwatch.days",
+      "sec": "RATE.BOARD",
+      "name": "距下次FOMC会议天数"
+    },
+    {
+      "key": "rate.us.fedwatch.meeting",
+      "sec": "RATE.BOARD",
+      "name": "下次FOMC会议日"
+    },
+    {
+      "key": "rate.us.fedwatch.hike_prev_1d",
+      "sec": "RATE.BOARD",
+      "name": "加息概率·1天前"
+    },
+    {
+      "key": "rate.us.fedwatch.hike_prev_1w",
+      "sec": "RATE.BOARD",
+      "name": "加息概率·1周前"
+    },
+    {
+      "key": "rate.us.fedwatch.hike_prev_1m",
+      "sec": "RATE.BOARD",
+      "name": "加息概率·1月前"
+    },
+    {
+      "key": "rate.us.effr",
+      "sec": "RATE.BOARD",
+      "name": "联邦基金有效利率EFFR"
+    },
+    {
+      "key": "rate.us.target_upper",
+      "sec": "RATE.BOARD",
+      "name": "联邦基金目标区间上限"
+    },
+    {
+      "key": "rate.us.target_lower",
+      "sec": "RATE.BOARD",
+      "name": "联邦基金目标区间下限"
+    },
+    {
+      "key": "rate.us.2y",
+      "sec": "RATE.BOARD",
+      "name": "美债2年（近24个月利率预期锚）"
+    },
+    {
+      "key": "rate.cn.cdb_1y3m",
+      "sec": "RATE.BOARD",
+      "name": "国开债1Y-3M利差（降准降息预期核心）"
+    },
+    {
+      "key": "rate.cn.ncd_1y3m",
+      "sec": "RATE.BOARD",
+      "name": "同业存单1Y-3M利差（同上印证）"
+    },
+    {
+      "key": "rate.cn.cdb3m_policy",
+      "sec": "RATE.BOARD",
+      "name": "3M国开-隔夜逆回购政策利率"
+    },
+    {
+      "key": "rate.cn.omo_policy",
+      "sec": "RATE.BOARD",
+      "name": "隔夜逆回购操作利率"
+    },
+    {
+      "key": "rate.cn.rrr",
+      "sec": "RATE.BOARD",
+      "name": "存款准备金率（大型机构）"
+    },
+    {
+      "key": "rate.cn.lpr5y",
+      "sec": "RATE.BOARD",
+      "name": "LPR 5年期"
+    },
+    {
+      "key": "rate.cn.lpr1y",
+      "sec": "RATE.BOARD",
+      "name": "LPR 1年期"
+    },
+    {
+      "key": "rate.cn.tugou_neutral",
+      "sec": "RATE.BOARD",
+      "name": "土狗中性利率"
+    },
+    {
+      "key": "rate.cn.tugou_discount",
+      "sec": "RATE.BOARD",
+      "name": "风险资产贴现率（FFTR+1Y掉期年化）"
+    },
+    {
+      "key": "rate.cn.tugou_kill_spread",
+      "sec": "RATE.BOARD",
+      "name": "按揭-租金收益率利差"
+    },
+    {
+      "key": "rate.cn.tugou_state",
+      "sec": "RATE.BOARD",
+      "name": "土狗状态机"
+    },
+    {
+      "key": "rate.cn.regime_level",
+      "sec": "RATE.BOARD",
+      "name": "降准降息预期档位·等级"
+    },
+    {
+      "key": "rate.cn.regime_label",
+      "sec": "RATE.BOARD",
+      "name": "降准降息预期档位"
+    },
+    {
+      "key": "rate.cn.regime_chg5",
+      "sec": "RATE.BOARD",
+      "name": "国开1Y-3M近5日变动"
+    },
+    {
+      "key": "rate.cn.ncd_regime_level",
+      "sec": "RATE.BOARD",
+      "name": "存单印证档位"
+    },
+    {
+      "key": "rate.cn.cdb3m_regime_level",
+      "sec": "RATE.BOARD",
+      "name": "短端溢价档位"
+    }
+  ],
+  "sched": {
+    "mode": "daily",
+    "at": "21:10",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u run.py",
+  "cwd": ".",
+  "timeout": 900,
+  "enabled": true,
+  "deliver": {
+    "report": false,
+    "email": false
+  },
+  "requires": [
+    "pylibs"
+  ],
+  "visibility": "public",
+  "build_workers": false,
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 3,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/report.md",
+        "out/fedwatch.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 900
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      }
+    ]
+  }
+}
