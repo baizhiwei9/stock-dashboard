@@ -25,6 +25,24 @@ A股四选股器综合选股器 v2.0
 
 使用：python3.13 unified_screener.py
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
 
 import os
 import sys
@@ -61,13 +79,13 @@ def _hub_root_path(_f=__file__):
             from hub_root import hub_root
             return hub_root(_d)
         _d = os.path.dirname(_d)
-    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+    return _cp('/opt/coze/.fuse_drive/dataHub_三级体系')
 
 _HUB_ROOT = _hub_root_path()
 
 
 # ===================== 路径配置 =====================
-BASE = '/Coze/Drive/蓁宝/所有对话/主对话'
+BASE = _cp('/Coze/Drive/蓁宝/所有对话/主对话')
 def _latest_trade_date():
     """最近交易日（YYYY-MM-DD）。优先 tushare trade_cal，失败则退化为跳过周末。"""
     from datetime import timedelta
@@ -470,7 +488,7 @@ def load_astock():
     # 3. BASE/outputs/选股器/（wrapper未修正__file__时的旧路径兜底）
     possible_paths = [
         os.path.join(os.path.dirname(os.path.dirname(ASTOCK_DIR)), 'outputs', '选股器'),
-        '/app/data/outputs/选股器',
+        _cp('/app/data/outputs/选股器'),
         os.path.join(BASE, 'outputs', '选股器'),
     ]
     csv_path = None

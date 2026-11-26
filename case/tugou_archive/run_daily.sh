@@ -5,12 +5,17 @@
 # 2026-11-13 迁移：原目录 /Coze/Drive/飞书_cli 变成只读挂载，无法写入日志和 state，
 #                 整体迁到工作目录下运行。同时按大佬要求改为「成功静默、失败才告警」。
 
-cd /Coze/Drive/蓁宝/所有对话/主对话/土狗归档 || exit 1
+# 2026-11-26 去云盘化：跑本脚本所在目录（= case/tugou_archive）的代码，
+# 不再 cd 到 /Coze/Drive 下的云端旧副本；日志落 ./logs。
+CASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$CASE_DIR" || exit 1
 
 # 飞书 CLI 环境变量（crontab 环境下需要显式指定）
-export LARKSUITE_CLI_CONFIG_DIR="/app/data/所有对话/主对话/.feishu_cli"
-export LARKSUITE_CLI_DATA_DIR="/app/data/所有对话/主对话/.feishu_cli"
-export LARKSUITE_CLI_LOG_DIR="/tmp"
+# 已有同名环境变量时不覆盖；未设时按 CASE_APP_DATA 重定向旧沙箱路径。
+: "${LARKSUITE_CLI_CONFIG_DIR:=${CASE_APP_DATA:-/app/data}/所有对话/主对话/.feishu_cli}"
+: "${LARKSUITE_CLI_DATA_DIR:=$LARKSUITE_CLI_CONFIG_DIR}"
+: "${LARKSUITE_CLI_LOG_DIR:=/tmp}"
+export LARKSUITE_CLI_CONFIG_DIR LARKSUITE_CLI_DATA_DIR LARKSUITE_CLI_LOG_DIR
 
 # 飞书通知群
 ALERT_CHAT="oc_5971f823bf987081f722f2942bbc8d71"
@@ -20,8 +25,8 @@ CHAT_ID="oc_0ca59fa0674e77c608e843d9d55a6757"
 TEST_WIKI="https://my.feishu.cn/wiki/GBdWwKTCyioHGkkPNntcEfernSd"
 
 # 日志文件
-LOG_FILE="/Coze/Drive/蓁宝/所有对话/主对话/土狗归档/logs/daily_$(date +%Y%m%d).log"
-mkdir -p logs
+mkdir -p "$CASE_DIR/logs"
+LOG_FILE="$CASE_DIR/logs/daily_$(date +%Y%m%d).log"
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') 开始执行 ===" >> "$LOG_FILE"
 
@@ -64,7 +69,7 @@ fi
 
 # 执行主任务
 echo "[执行] 开始每日增量归档..." >> "$LOG_FILE"
-python3 tugou_archive.py --mode daily >> "$LOG_FILE" 2>&1
+python3 "$CASE_DIR/tugou_archive.py" --mode daily >> "$LOG_FILE" 2>&1
 EXIT_CODE=$?
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') 执行结束，退出码: $EXIT_CODE ===" >> "$LOG_FILE"
 

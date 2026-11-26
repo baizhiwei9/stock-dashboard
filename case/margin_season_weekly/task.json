@@ -11,7 +11,7 @@
       5
     ]
   },
-  "cmd": "python3 -u codeact/scripts/weekly_combined_report.py",
+  "cmd": "python3 -u codeact/scripts/weekly_combined_report.py display_only last_friday true ./reports",
   "cwd": ".",
   "timeout": 1800,
   "enabled": false,

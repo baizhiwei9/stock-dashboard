@@ -469,9 +469,22 @@ bash scripts/switch_crontab.sh --revert
    否则 crontab 删了、scheduler 那边没任务，是**静默停摆**，不报错、不告警，第二天才发现没数据。
 2. 一个 key 对多条 cron 的（`risk_forecast_daily` → 12:30 + 20:50），
    `task.json` 的 `sched.at` 必须覆盖全部时间点。少一个，切完那条就永远不跑。
+3. **`cmd` 里的入口文件必须存在**。task.json 在、脚本被删或路径改了，preflight 能过但任务天天失败。
+4. **`sched.weekdays` 必须和 crontab 的星期字段一致**。这是最容易漏的一条：
+   `tugou_archive` 的 cron 是 `* * *`（每天），而 task.json 曾经写 `[1..5]` ——
+   切完周末就静默不跑了，日志里也不会有任何异常。preflight 现在会逐条对账
+   （`*` ↔ 1-7、`1-5` ↔ `[1,2,3,4,5]`、`0` 按周日 = 7 处理）。
 
 dry-run 跑同一套检查，但只警告不中止，方便先看清缺什么。
 所以正确姿势是：**先在目标目录 `bash scripts/switch_crontab.sh` 看 preflight 全绿，再 `--apply`**。
+
+> 另外两道保护（2026-11-26 补）：
+> - **`--apply` 先生成新 crontab、校验通过后才 `set_enabled true`**。反过来的话，
+>   生成失败时任务已经开着而 crontab 还在 = 双跑。
+> - **`crontab <file>` 返回 0 不等于装对了**。实测过：python 段失败时临时文件是空的，
+>   而 `crontab <空文件>` 照样返回 0，脚本会打印「✅ 已重装（现有 0 行）」把整张表清空。
+>   现在安装前三道闸：读现有表失败 → 中止；python 段失败 → 中止；新表为空或
+>   `行数 != 原行数 − 命中行数` → 中止（`exit 4`，scheduler 侧一行没改）。
 
 > 上面用 `/srv/monitor/stock-dashboard` 举例，那是部署规范位置。
 > 实际执行前先确认自己就在 scheduler 的工作目录里：
@@ -590,3 +603,61 @@ git add options/ && git commit -m "chore(options): 期权日更脚本入库" && 
 stock-dashboard / datahub-multi-tier / precious-task 任一仓库。
 
 三者都属盘中告警或一天多次（缠论日终一天 4 次），按 §12.1 边界未纳入本次迁移，需要单独决策。
+
+### 12.9 去云盘化：换机器不再依赖 `/Coze/Drive`
+
+> 目标：把这套代码挪到另一台主机上时，**不需要先复刻 Coze 的云盘目录结构**。
+> 历史数据不用带（用户口径：换机后重新算）。
+
+21 条任务的脚本原先写死了三类绝对根，换机器全部不存在：
+
+| 旧根 | 是什么 | 环境变量 |
+|---|---|---|
+| `/Coze/Drive/...` | FUSE 云盘主视图 | `CASE_DRIVE_ROOT` |
+| `/opt/coze/.fuse_drive/...` | FUSE 云盘别名视图 | `CASE_FUSE_ROOT` |
+| `/app/data/...` | 旧沙箱数据目录 | `CASE_APP_DATA` |
+
+现在统一走 `case/_lib/cloud_paths.py`：字面量包在 `_cp(...)` 里，由上面三个变量重定向。
+**三个变量都不设时 `translate()` 原样返回 —— 云主机上行为零变化**，不需要改任何配置。
+
+```bash
+# 打印映射表（未设的显示「未改（云主机默认）」）
+python3 case/_lib/cloud_paths.py
+
+# 换机器时先指过去，再自检目录是否真的存在
+export CASE_DRIVE_ROOT=/srv/legacy/drive
+export CASE_FUSE_ROOT=/srv/legacy/fuse
+export CASE_APP_DATA=/srv/legacy/appdata
+python3 case/_lib/cloud_paths.py --check      # 有配置的根不存在 → 退出 1
+```
+
+脚本侧（新代码照抄，不要再写裸路径）：
+
+```python
+_cp = _cloud_translate()          # 各脚本文件头已有的引导，返回 translate
+DB = _cp("/Coze/Drive/蓁宝/所有对话/主对话/环流日报/data/market.db")
+```
+
+`datahub-multi-tier` 里有同一份口径的实现：`data_hub/core/cloud_paths.py`
+（变量名、语义完全一致，两边各自部署、不互相 import）。producer / task / readiness 的默认值
+已经走它，所以 `data_hub` 侧不需要额外配置。
+
+**入口脚本也不再跑云端旧码**：
+
+- `case/hurst_daily/run_hurst_cron.sh` —— 原先 `cd /Coze/Drive/hurst_指数` 再跑那边的
+  `hurst_daily.py`（等于永远跑旧版本），现在 `cd` 到脚本自身目录、日志落 `./logs`。
+- `case/tugou_archive/run_daily.sh` —— 同理改成仓库相对路径；`LARKSUITE_CLI_*` 三个变量
+  改成 `${VAR:=默认}`，已有同名环境变量时不覆盖，crontab 里可以照旧注入。
+
+**自检**：
+
+```bash
+python3 -m pytest test_case_no_cloud_paths.py -q     # 20 个 key 里没有裸旧根 / .sh 不 cd 到云盘
+cd ../datahub-multi-tier && python3 -m pytest data_hub/tests/test_cloud_paths.py -q
+```
+
+两个用例都是「注释和 docstring 不算、`_cp(...)` 里的不算」，只拦真正会被执行到的字面量。
+
+**还剩一处不归本轮**：`bond_four_factor/main.py` 里仍有 5 处 `output_dir = "/Coze/Drive/..."`。
+它被剔出了切换清单（调 LLM，不迁 scheduler），所以不在 20 个 key 的守卫范围内；
+真要搬它时按同样的 `_cp()` 改法处理即可。

@@ -5,6 +5,24 @@
 
 输出: YYYY-MM-DD_环流日报.md
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
 
 import os
 import sys
@@ -37,7 +55,7 @@ def _hub_root_path(_f=__file__):
             from hub_root import hub_root
             return hub_root(_d)
         _d = os.path.dirname(_d)
-    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+    return _cp('/opt/coze/.fuse_drive/dataHub_三级体系')
 
 _HUB_ROOT = _hub_root_path()
 
@@ -51,7 +69,7 @@ for _hp in _HUB_PATHS:
         _sys.path.insert(0, _hp)
         break
 # 清理可能抢先插入的旧 data_hub 副本（外汇掉期点等），确保全局唯一副本
-for _bad in ('/Coze/Drive/外汇掉期点', '/opt/coze/.fuse_drive/外汇掉期点'):
+for _bad in (_cp('/Coze/Drive/外汇掉期点'), _cp('/opt/coze/.fuse_drive/外汇掉期点')):
     while _bad in _sys.path:
         _sys.path.remove(_bad)
 _old = _sys.modules.get('data_hub')
@@ -252,7 +270,7 @@ class _AKProxy:
 
 
 # 1Y AAA同业存单流动性监控模块
-_LOCAL_MODULES = '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules'
+_LOCAL_MODULES = _cp('/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts/modules')
 if _LOCAL_MODULES not in sys.path:
     sys.path.insert(0, _LOCAL_MODULES)
 try:
@@ -446,7 +464,7 @@ def alert_tag(val, yellow, red, reverse=False):
 # ===== 四子图（存单与降准降息预期利差）=====
 # 环流日报出报告时同步渲染四子图，图片落 outputs/images/，
 # 以相对路径嵌入报告，打开 md 就能直接看图。
-NCD_PLOT_SCRIPT = '/Coze/Drive/存单和_降准预期/scripts/plot_ncd_spread.py'
+NCD_PLOT_SCRIPT = _cp('/Coze/Drive/存单和_降准预期/scripts/plot_ncd_spread.py')
 NCD_PLOT_OUT = os.path.join(OUTPUT_DIR, 'images')
 
 
@@ -4711,7 +4729,7 @@ def generate_report():
         
         # 同时写入SQLite（项目共享目录）
         try:
-            _db_path = '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/data/market.db'
+            _db_path = _cp('/Coze/Drive/蓁宝/所有对话/主对话/环流日报/data/market.db')
             _conn = sqlite3.connect(_db_path)
             _conn.execute("PRAGMA journal_mode=WAL")
             _conn.execute(
@@ -4870,7 +4888,7 @@ def generate_report():
             ax.grid(color='#0f3460', alpha=0.5)
             
             # 输出目录
-            out_dir = f'/Coze/Drive/蓁宝/所有对话/主对话/环流日报/outputs/charts'
+            out_dir = _cp(f'/Coze/Drive/蓁宝/所有对话/主对话/环流日报/outputs/charts')
             os.makedirs(out_dir, exist_ok=True)
             chart_fname = f'{today_str}_1y_swap_weekly.png'
             swap_chart_path = os.path.join(out_dir, chart_fname)
@@ -4900,7 +4918,7 @@ def generate_report():
             print(f"  ⚠️ 掉期点异动: {last_chg_bp:+.0f}BP")
             try:
                 import sys
-                sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts')
+                sys.path.insert(0, _cp('/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts'))
                 from send_email import send_email_default
                 subject = f"⚠️ 1Y掉期点异动 {last_chg_bp:+.0f}BP - {today_str}"
                 body = f"""
@@ -4932,7 +4950,7 @@ def generate_report():
                 print(f"  ⚠️ 掉期点连续3日下行趋势，累计{total_3d:.0f}BP")
                 try:
                     import sys
-                    sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts')
+                    sys.path.insert(0, _cp('/Coze/Drive/蓁宝/所有对话/主对话/环流日报/scripts'))
                     from send_email import send_email_default
                     subject = f"📉 掉期点连续下行趋势 - {today_str}"
                     body = f"""
@@ -5558,7 +5576,7 @@ def generate_report():
         print(f"  ℹ️  今日({date_display})已推送过，跳过重复推送")
     else:
         import sys as _sys
-        _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+        _sys.path.insert(0, _cp('/Coze/Drive/蓁宝/所有对话/主对话'))
         from feishu_card_utils import build_circulation_daily_card
         from feishu_push import push_card_to_feishu
         
