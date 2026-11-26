@@ -4,11 +4,67 @@
   "desc": "期权异常OI日报；算法在 options_utility 仓，本任务只做薄包装",
   "section": "option",
   "visibility": "public",
-  "metrics": [],
+  "metrics": [
+    {
+      "key": "opt.oi.basis_abs.IF",
+      "sec": "OPT.OI",
+      "name": "沪深300绝对基差",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.oi.basis_abs.IC",
+      "sec": "OPT.OI",
+      "name": "中证500绝对基差",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.oi.basis_abs.IM",
+      "sec": "OPT.OI",
+      "name": "中证1000绝对基差",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.oi.basis_abs.T",
+      "sec": "OPT.OI",
+      "name": "10年国债绝对基差",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.oi.basis_abs.TF",
+      "sec": "OPT.OI",
+      "name": "5年国债绝对基差",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.oi.basis_abs.TS",
+      "sec": "OPT.OI",
+      "name": "2年国债绝对基差",
+      "unit": "",
+      "dec": 2
+    },
+    {
+      "key": "opt.oi.basis_abs.TL",
+      "sec": "OPT.OI",
+      "name": "30年国债绝对基差",
+      "unit": "",
+      "dec": 2
+    }
+  ],
   "sched": {
     "mode": "daily",
     "at": "15:30",
-    "weekdays": [1, 2, 3, 4, 5]
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
   },
   "cmd": "python3 -u run.py",
   "cwd": ".",
@@ -20,5 +76,34 @@
   },
   "source_repo": "baizhiwei9/options_utility",
   "source_entry": "alert/reports/oi_daily.py",
-  "original_cron_name": "期权OI日报"
+  "original_cron_name": "期权OI日报",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": false,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/latest.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "cmd": "python3 -u run.py",
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      }
+    ]
+  }
 }

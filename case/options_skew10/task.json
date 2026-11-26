@@ -4,11 +4,53 @@
   "desc": "偏度预警 skew10；算法在 options_utility 仓，本任务只做薄包装",
   "section": "option",
   "visibility": "public",
-  "metrics": [],
+  "metrics": [
+    {
+      "key": "opt.skew10.300ETF",
+      "sec": "OPT.SKEW10",
+      "name": "300ETF 0.1Δ偏度",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew10.500ETF",
+      "sec": "OPT.SKEW10",
+      "name": "500ETF 0.1Δ偏度",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew10.KC50",
+      "sec": "OPT.SKEW10",
+      "name": "科创50 0.1Δ偏度",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew10.CYB",
+      "sec": "OPT.SKEW10",
+      "name": "创业板指 0.1Δ偏度",
+      "unit": "%",
+      "dec": 2
+    },
+    {
+      "key": "opt.skew10.ZZ1000",
+      "sec": "OPT.SKEW10",
+      "name": "中证1000 0.1Δ偏度",
+      "unit": "%",
+      "dec": 2
+    }
+  ],
   "sched": {
     "mode": "daily",
     "at": "18:50",
-    "weekdays": [1, 2, 3, 4, 5]
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
   },
   "cmd": "python3 -u run.py",
   "cwd": ".",
@@ -20,5 +62,34 @@
   },
   "source_repo": "baizhiwei9/options_utility",
   "source_entry": "alert/tasks/skew10.py",
-  "original_cron_name": "偏度预警skew10"
+  "original_cron_name": "偏度预警skew10",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": false,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/latest.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "cmd": "python3 -u run.py",
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      }
+    ]
+  }
 }
