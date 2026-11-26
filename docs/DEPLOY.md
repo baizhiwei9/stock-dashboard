@@ -178,12 +178,28 @@ python3 scheduler.py status
 
 ## 6. 启动
 
+**一条命令起全部**（公有 `case/` + 私有 `CASE_EXTRA_DIRS` 同一个进程，按各自
+`task.json` 的 `sched` 时间跑，不需要 crontab）：
+
 ```bash
-# 前台跑，先确认没报错（Ctrl-C 退出）
+./start_all.sh up          # TaskManager + 常驻看门狗
+./start_all.sh status      # 全部任务（公有+私有）+ 看门狗/心跳
+./start_all.sh down        # 停
+./start_all.sh restart     # 重启
+./start_all.sh doctor      # 只体检：路径 / 凭据 / 任务分布 / 公私归属失配
+```
+
+`up` 是幂等的：已在跑就只补齐没起的部分。第一次会按需生成 `modules.json`
+（空 `modules`，任务全部来自 `case/` + `CASE_EXTRA_DIRS`），并做凭据门禁
+（缺项直接拒绝启动，先跑 `./install.sh`）。
+
+只想手工看调度器输出时：
+
+```bash
+./start_all.sh fg                 # 前台跑，Ctrl-C 退出
+# 等价于
 python3 scheduler.py fg
 
-# 确认无误后转后台常驻
-python3 scheduler.py start
 python3 scheduler.py status        # 看状态表
 python3 scheduler.py health        # 0=健康 / 1=未运行 / 2=僵死
 ```
@@ -201,23 +217,24 @@ python3 case/_lib/runner.py --task tech_consensus --dry-run   # 只看阶段链�
 
 ---
 
-## 7. 守护（唯一需要的一条 cron）
+## 7. 守护（常驻看门狗，不需要 cron）
 
-`scheduler.py` 是**单点常驻进程**：它被 kill 掉，所有任务都不会再被触发。所以留一条 cron
-专门守着它——cron 不跑任何业务任务，业务仍全部由 `scheduler.py` 决定。
-
-```cron
-# 每分钟巡检一次；路径换成你的实际部署目录
-* * * * * /srv/monitor/stock-dashboard/sd_watchdog.sh >/dev/null 2>&1
-```
-
-安装：
+`scheduler.py` 是**单点常驻进程**：它被 kill 掉，所有任务都不会再被触发。
+`start_all.sh up` 会同时拉起 `sd_watchdog.sh --loop`，按心跳巡检并在进程
+未运行/僵死时拉起或重启——**业务任务与守护都不写 crontab**。
 
 ```bash
-chmod +x /srv/monitor/stock-dashboard/sd_watchdog.sh
-crontab -e        # 粘上面那一行
-crontab -l | grep sd_watchdog    # 确认写入
+./start_all.sh up            # 同时起 TaskManager 与看门狗
+./start_all.sh status        # 看门狗 pid + 调度心跳
+tail -20 logs/watchdog.log   # 看门狗自己的记录（健康时不写）
 ```
+
+退出/重启用 `./start_all.sh down|restart`，不要只 kill 其中一个：看门狗会把
+它拉回来。
+
+> 老部署如果已经有一条 cron 看着（`* * * * * .../sd_watchdog.sh`），它仍然可用，
+> 与 `--loop` 同时存在也只会有一个真正去拉起 scheduler（`start` 幂等）。
+> 迁移到新机器时**不要**再装这条 cron，统一交给 `start_all.sh`。
 
 看门狗按**心跳**判定，不看 pid：
 
@@ -320,15 +337,26 @@ python3 -c "import json;s=json.load(open('state.json'));print(s['scheduler']['qu
 
 ## 8. 私有任务挂载
 
-私有任务放独立私有仓库，只按 `case/CONTRACT.md` 写 `task.json` + 脚本，不复制框架：
+私有任务放独立私有仓库，只按 `case/CONTRACT.md` 写 `task.json` + 脚本，不复制框架。
+标准布局是**与 stock-dashboard 同级**的 `precious-task/`，`start_all.sh` 会自动挂载：
 
 ```bash
-git clone git@github.com:<you>/precious-task.git /srv/private-tasks
-export CASE_EXTRA_DIRS=/srv/private-tasks/case
+# 标准布局：../precious-task
+./start_all.sh up                  # 自动 export CASE_EXTRA_DIRS=<同级>/precious-task/case
 
+# 放在别处时显式指定
+export SD_PRECIOUS_DIR=/srv/private-tasks
+./start_all.sh up
+
+# 也可以完全手工（不经过 start_all）
+export CASE_EXTRA_DIRS=/srv/private-tasks/case
 python3 scheduler.py status                       # 私有任务与 case/ 一起排期
 python3 case/_lib/runner.py --task <key> --dry-run
 ```
+
+`./start_all.sh doctor` 会打印「公有 N 条 / 私有 M 条」；私有仓找不到时 `up`
+默认拒绝启动（宁可报错，也不让私有任务静默消失），只跑公有任务用
+`SD_ALLOW_NO_PRECIOUS=1`。
 
 - 扫描顺序：先 `case/`，再 `CASE_EXTRA_DIRS`；同一个 key 重复时**先命中的生效**，后出现的记一条冲突（stderr）。
 - 私有任务 `task.json` 的 `visibility` 写 `private`（历史写法 `internal` 等价）：照常定时跑、照常写指标仓，
@@ -361,7 +389,8 @@ tail -30 logs/<key>.log                     # 具体任务在说什么
 | 到点没跑 | `enabled=false` / 超 6 小时宽限 / 上次被中断 | `status` 看 `next_run` 与 `last_status`；必要时 `on <key>` |
 | `status` 里一直显示 `running` | 上一次调度器被杀留下的脏状态 | 重启一次会自动标 `interrupted`；然后 `run <key>` 手动补 |
 | `watchdog.log` 每分钟一条失败 | 拉不起来 | `health` + `scheduler.log` 尾部；多半是 `PYTHONPATH`/依赖/权限 |
-| `watchdog.hb` 时间不动 | cron 那行没生效 | `crontab -l`；确认脚本可执行；确认路径正确 |
+| `watchdog.hb` 时间不动 | 看门狗没在跑 | `./start_all.sh status`；`./start_all.sh up` 重起 |
+| `status` 里看不到私有任务 | 没挂上私有仓 | `./start_all.sh doctor` 看 precious 路径；设 `SD_PRECIOUS_DIR` |
 | 报告生成了但没发出去 | `dispatch` 失败或检查不过 | 看 `case/<key>/out/status.json` 与 `out/alerts.json` |
 | 指标没上面板 | `visibility=internal` 或落库失败 | 看 `out/latest.json`；`CASE_NO_PUBLISH=1` 时本就不落库 |
 | 图里中文变方块 | 字体缺失 | 设 `CASE_CJK_FONT`；`assets.ensure_cjk_font()` 会明确报错，不画豆腐块 |
@@ -642,3 +671,83 @@ task 自动接管。
   case 包装里已按 live 行为跑两步，但 crontab 直接调该脚本的人仍会丢日频基差，需单独修该仓。
 - 期权数据目前仍是「算完直接推飞书 + 落 JSON 快照」，未入库；按老板口径后续改成
   `data_hub.core.persist.persist_result()` 落 `hub_points`，图片除外。不在本次范围。
+
+---
+
+## 14. 新机器迁移：一个 TaskManager + 一个启动脚本（2026-11-26）
+
+目标：换一台机器后，**只有两处放任务**，一个进程按各自时间跑，不留 crontab。
+
+| 任务归属 | 仓库 | 调度 |
+|---|---|---|
+| 产**公开**数据的任务 | `stock-dashboard` 的 `case/` | 同一个 `scheduler.py` |
+| **私有**任务 | `precious-task` 的 `case/`（通过 `CASE_EXTRA_DIRS` 挂载） | 同上 |
+
+算法在别的仓库时**只 import/调用，不复制**（例：期权任务的算法在 `options_utility`，
+薄包装落在 `stock-dashboard/case/options_*`，见 §13）。
+
+### 14.1 一次迁移步骤
+
+```bash
+# 1) 四个仓 clone 到同一个父目录（名字要对；私有仓先 gh auth login）
+git clone https://github.com/baizhiwei9/stock-dashboard.git
+gh repo clone baizhiwei9/precious-task
+gh repo clone baizhiwei9/datahub-multi-tier
+git clone https://github.com/baizhiwei9/options_utility.git
+
+# 2) 装依赖 + 录入凭据（一次性；缺项拒绝安装）
+cd stock-dashboard
+pip install -r requirements.txt
+./install.sh                  # 无终端：export COZE_SEC_* 后重跑
+
+# 3) 一条命令起全部任务（公有 + 私有 + 看门狗，不需要 crontab）
+./start_all.sh up
+#    要接管旧机的 build/macro 等 modules.json 模块时，改用：
+#    SD_MODULES_FROM=/备份/旧机/modules.json ./start_all.sh up
+
+# 4) 确认
+./start_all.sh status
+./start_all.sh doctor
+```
+
+`start_all.sh` 自动完成：
+
+- `CASE_EXTRA_DIRS=<同级>/precious-task/case`（已存在则只追加、不重复）
+- `DATA_HUB_PATH` / `EDB_REPO` / `PYTHONPATH` 指向同级 `datahub-multi-tier`
+- `OPTIONS_UTILITY_ROOT` 指向同级 `options_utility`（也可 `../options-utility`）
+- 首次生成 `modules.json`（空 `modules`，任务全部来自 case 目录；可用 `SD_MODULES_FROM` 导入旧机清单，见 §14.2）
+- 凭据门禁（`setup.py --check --file-only`），缺项 fail-closed
+- `scheduler.py start` + `sd_watchdog.sh --loop`，日志/心跳都在 `logs/`
+
+### 14.2 旧机器上的 `modules.json` 模块
+
+老部署的 macro / liquidity / rmt / chanlun / dfa / build 等 producer 仍写在
+`modules.json` 里，不走 `case/`；`modules.json` 不入库，新机器从 git 拿不到。
+首次 `up` 时用 `SD_MODULES_FROM` 指向旧机那份，一条命令导入（文件已存在则不会覆盖）：
+
+```bash
+SD_MODULES_FROM=/备份/旧机/modules.json ./start_all.sh up
+```
+
+导入后 `doctor` 会核对三件事：旧模块条数/启用数、「启用模块的绝对 `cwd` 在本机
+是否存在」、「cmd 里有没有 scheduler 不会展开的占位符」（只认 `{{DATAHUB_ROOT}}`
+和 `{{REPO_ROOT}}`，`{{WORKSPACE_A}}` / `{{FEISHU_*}}` 等要手改成真路径）。
+不动旧机也能用：不设 `SD_MODULES_FROM` 时只跑 `case/` 任务，`up`/`doctor` 会明确
+警告「公开看板不会自动刷新」，不会假装一切正常。
+
+### 14.3 端口与旧机器并存
+
+旧机器如果还在跑，别让两台同时写同一份 `state.json`：先 `./start_all.sh down`
+旧机，或改新机 `modules.json` 的 `api.port`。共享云盘上同名目录的旧 `datahub`
+会被同级解析先命中——`doctor` 打印的 `datahub` 路径要人工确认是这一台机器的。
+
+### 14.4 已发现的归属失配
+
+`doctor` 会报：
+
+- `realestate_daily` 是 **public** 但代码在 `precious-task` → 按本节口径应搬到
+  `stock-dashboard/case/`（待单独 PR，迁移期间调度不受影响，只是归属不符）。
+
+另有一批老的 `modules.json` 模块（macro / liquidity / rmt / chanlun / dfa 等）
+仍是 Dashboard 自带、不走 `case/`；它们产公开数据，位置符合「公有在 Dashboard」，
+但还没改成 `case` 任务。逐步迁，不在本次范围。

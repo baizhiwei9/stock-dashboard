@@ -1,18 +1,24 @@
 #!/bin/bash
-# scheduler 看门狗：由 cron 每分钟调用一次。
+# scheduler 看门狗。
 #
 # 职责只有一个 —— 保证 scheduler 常驻进程「真的在调度」；业务任务仍全部由
-# scheduler.py 决定，cron 不直接跑任何业务任务（避免和「scheduler 统一管理」冲突）。
+# scheduler.py 决定，看门狗不直接跑任何业务任务。
+#
+# 两种跑法（二选一）：
+#   1) 常驻循环（推荐，新机器）：./start_all.sh up 会拉起
+#        bash sd_watchdog.sh --loop
+#      每 SD_WATCHDOG_INTERVAL 秒（默认 60）自检一次，不依赖 crontab；
+#      pid 写 logs/watchdog.pid，由 start_all.sh down/status 管理。
+#   2) 老部署的 crontab，每分钟调一次（无参数 = 跑一遍就退出）：
+#        * * * * * /path/to/stock-dashboard/sd_watchdog.sh >/dev/null 2>&1
 #
 # 判定依据是 scheduler.py 每 tick 写的心跳文件 logs/scheduler.hb（3 分钟过期），
 # 不是「pid 在不在」：进程活着但调度循环卡死（僵死）时，pid 判定会漏掉。
 # 退出码语义由 `scheduler.py health` 给出：0=健康 / 1=未运行 / 2=僵死。
 #
-# 部署（宿主 crontab，一行）：
-#   * * * * * /path/to/stock-dashboard/sd_watchdog.sh >/dev/null 2>&1
-#
 # 可选环境变量：
 #   SD_PYTHON        指定解释器（默认 python3）
+#   SD_WATCHDOG_INTERVAL --loop 模式下的巡检间隔秒数（默认 60）
 #   SD_ALERT_WEBHOOK 连续拉不起来时的告警 webhook，留空则去凭据文件找 alert.webhook，
 #                    都没有就只写日志（不静默失败，也不外发）
 #   SD_ALERT_AT      连续失败几次才告警（默认 3）
@@ -28,6 +34,19 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE" || exit 1
 mkdir -p logs
+
+# 常驻模式：--loop 时每 SD_WATCHDOG_INTERVAL 秒调自己一次（--once）。
+# 不依赖 crontab；pid 写 logs/watchdog.pid，退出时自动清掉。
+if [ "${1:-}" = "--loop" ]; then
+  echo $$ > logs/watchdog.pid
+  trap 'rm -f logs/watchdog.pid; exit 0' TERM INT EXIT
+  while :; do
+    "$HERE/sd_watchdog.sh" --once || true
+    # 用后台 sleep + wait，收到 TERM 能立刻中断，不必等满一个间隔
+    sleep "${SD_WATCHDOG_INTERVAL:-60}" & wait $! || true
+  done
+fi
+[ "${1:-}" = "--once" ] && shift
 
 PY="${SD_PYTHON:-python3}"
 LOG="logs/watchdog.log"
