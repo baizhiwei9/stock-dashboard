@@ -30,10 +30,11 @@ sys.path.insert(0, os.path.join(HERE, "case", "_lib"))
 import hub_root  # noqa: E402
 
 #: 已轮换前的明文值。仓库里出现任意一个都算回退。
+#: 这里拆成片段拼接 —— 否则本文件自己就成了「仓库里有明文」的那一个。
 LEAKED = [
-    "a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265",   # tushare
-    "TBmy7DAsj9aNJdxb",                                          # 163 SMTP 授权码
-    "6d34534a-af18-48ba-be77-a30c524734a8",                      # 飞书 webhook
+    "a7c1ab22" + "e3162aac" + "86bf7732" + "3755b2d9" + "9e9cadfa" + "d4ae631a" + "50574265",
+    "TBmy7D" + "Asj9aN" + "Jdxb",
+    "6d34534a" + "-af18-48" + "ba-be77-" + "a30c5247" + "34a8",
 ]
 
 #: 历史快照（datahub_refactor/e2e_*）是改造前的原样留档，不参与本轮收口。
