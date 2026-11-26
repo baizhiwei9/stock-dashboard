@@ -431,9 +431,16 @@ curl -s -o /dev/null -w '%{time_total}\n' http://127.0.0.1:8767/api/state   # �
 ```bash
 bash scripts/sync_to_drive.sh --dry-run     # 先看要同步什么
 bash scripts/sync_to_drive.sh               # 同步一次
-# crontab：每小时一次
-0 * * * * cd /root/work/stock-dashboard && bash scripts/sync_to_drive.sh >/dev/null 2>&1
+
+# crontab：本仓每小时，私有任务（precious-task）每小时错开 15 分
+0  * * * * cd /root/work/stock-dashboard && bash scripts/sync_to_drive.sh >/dev/null 2>&1
+15 * * * * cd /root/work/stock-dashboard && \
+  SD_LOCAL_DIR=/root/work/precious-task \
+  SD_DRIVE_DIR='/Coze/Drive/股市监控画布/backup/precious-task' \
+  bash scripts/sync_to_drive.sh >/dev/null 2>&1
 ```
+
+脚本用 `SD_LOCAL_DIR` / `SD_DRIVE_DIR` 就能备份第二个目录，不需要复制一份脚本。
 
 脚本默认排除 `logs/`、`__pycache__/`、`state.json`、`scheduler.pid`、`*.bak*`，
 不加 `--prune` 就不会删云盘上的东西。数据全是从公开源抓的，丢了重跑一遍就有，
