@@ -149,3 +149,18 @@ def test_real_tick_no_not_before_pulls_widest(monkeypatch):
     state = {"modules": {}, "scheduler": {}}
     got = _run_tick(monkeypatch, [_mod("tech_snapshot", at="23:20")], state, now)
     assert ("tech_snapshot", True) in got, got
+
+def test_real_tick_pull_forward_survives_yesterday_slot(monkeypatch):
+    """昨天按点跑过、今天还没到点：提前拉取必须照常生效。
+
+    #95 第一版把「已跑过就 continue」放在了 `slot.date() == now.date()` 外层。
+    那时 slot 是**昨天**的计划点，提前 continue 就再也走不到下面
+    `slot = None` → 提前拉取分支，等于 16:00 之后整个 pull_forward 被关掉：
+    12 个任务全部退回卡点跑（实测 16:00~22:00 一个都不提前起）。
+    """
+    now = datetime(2026, 11, 26, 16, 0)
+    state = {"modules": {"option": {
+        "last_slot": "2026-11-25 18:10", "last_status": "ok", "note": ""}},
+        "scheduler": {}}
+    got = _run_tick(monkeypatch, [_mod("option", at="18:10")], state, now)
+    assert ("option", True) in got, "提前拉取被关掉了：%s" % got
