@@ -325,8 +325,13 @@ def emit(ctx):
                                      "window": [WIN_MIN, WIN_MAX],
                                      "pnl_bp": r.get("pnl_bp"),
                                      "avg_bp": r.get("avg_bp")}})
+        # 方向是枚举值，纯数字（-1/0/1）在面板上读不出来 → 同时写 value_text，
+        # task.json 里该指标标了 "text": true，看板优先显示文字。
+        _dir = r.get("dir")
+        _dir_txt = {1: "做多", -1: "做空", 0: "观望"}.get(_dir, "—")
         points.append({"key": "cot.direction", "sec": sec, "obs_date": as_of,
-                       "name": "%s COT 方向" % nm, "value": r.get("dir"), "dec": 0,
+                       "name": "%s COT 方向" % nm, "value": _dir, "dec": 0,
+                       "value_text": _dir_txt,
                        "quality": "ok",
                        "meta_json": {"scale": "1 做多 / -1 做空 / 0 观望",
                                      "cot": r.get("cot")}})
