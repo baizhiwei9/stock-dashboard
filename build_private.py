@@ -84,6 +84,17 @@ PRIVATE_CSS = """
 .excerpt ul{margin:0;padding-left:16px}
 .excerpt li{font-size:12px;line-height:1.65;color:var(--tx2)}
 
+/* ── 任务整页入口 ── */
+.pg-link{margin:12px 0 2px}
+.pg-link a{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border:1px solid var(--line);border-radius:10px;background:var(--card);
+  text-decoration:none;transition:border-color .16s ease,transform .16s ease}
+.pg-link a:hover{border-color:var(--blue);transform:translateY(-1px)}
+.pg-link .pg-ico{font-size:17px;line-height:1}
+.pg-link .pg-tx{display:flex;flex-direction:column;gap:2px}
+.pg-link .pg-tx b{font-size:13px;color:var(--blue);font-weight:600}
+.pg-link .pg-tx i{font-style:normal;font-size:11px;color:var(--tx3)}
+
 .lb{position:fixed;inset:0;z-index:99;background:rgba(4,7,11,.95);
   display:flex;flex-direction:column}
 .lb[hidden]{display:none}
@@ -364,6 +375,9 @@ def _mirror(key: str, src: str, assets_root: str, page_dir: str) -> Tuple[str, s
     return rel_full, rel_thumb, dim, size
 
 
+PAGE_MIN_BYTES = 2000          # 太小的 html 多半是空壳/占位，不挂链接
+#: 任务自产的**自包含页面**候选名：优先 `<key>.html`，其次通用名
+PAGE_NAMES = ("report.html", "index.html", "page.html", "dashboard.html")
 CARD_NAMES = ("card.json", "feishu_card.json", "card_payload.json")
 REPORT_NAMES = ("report.md", "latest.md", "summary.md")
 
@@ -503,6 +517,69 @@ def _excerpt_html(w: Dict, limit: int = 8) -> str:
             % (html.escape("报告关键数据"), html.escape(os.path.basename(md)), lis))
 
 
+def _page_html(w: Dict, assets_root: str, page_dir: str) -> str:
+    """任务自己产出的**自包含 HTML 页面** → 「打开完整页面」链接。
+
+    私有页原来只展示图（`_shots_html`）+ 报告摘要，看不到任务自己的整页
+    （例如 `market_tech` 把四张图 base64 内嵌成一张长页）。这里补一个入口：
+
+    * 只在 `out/` 里找（产物目录，不扫任务根目录，避免把 README 当页面）；
+    * 候选：`out/<key>.html` → `out/report.html` → 其它 `out/*.html`（取最大最新一张）；
+    * 单文件太小（< PAGE_MIN_BYTES）视为空壳，不挂；
+    * 命中就抄到 `assets/private/<key>/`（照 `_mirror` 的做法），链接指向抄过去那份，
+      否则相对路径在 `assets/` 下会失效。
+    """
+    root = _task_root(w)
+    if not root:
+        return ""
+    out_dir = os.path.join(root, "out")
+    if not os.path.isdir(out_dir):
+        return ""
+    key = w["key"]
+    cands: List[str] = []
+    for name in ["%s.html" % key] + list(PAGE_NAMES):
+        fp = os.path.join(out_dir, name)
+        if os.path.isfile(fp):
+            cands.append(fp)
+    if not cands:                                    # 兜底：out/ 下别的 html
+        try:
+            for fn in os.listdir(out_dir):
+                if fn.lower().endswith((".html", ".htm")):
+                    fp = os.path.join(out_dir, fn)
+                    if os.path.isfile(fp):
+                        cands.append(fp)
+        except OSError:
+            pass
+    picked, picked_sz = "", 0
+    for fp in cands:
+        try:
+            sz = os.path.getsize(fp)
+        except OSError:
+            continue
+        if sz < PAGE_MIN_BYTES:                       # 空壳/占位，不挂
+            continue
+        if sz > picked_sz:                            # 取最大的那张（整页通常最大）
+            picked, picked_sz = fp, sz
+    if not picked:
+        return ""
+    dstdir = os.path.join(assets_root, key)
+    os.makedirs(dstdir, exist_ok=True)
+    dst = os.path.join(dstdir, os.path.basename(picked))
+    try:
+        if (not os.path.exists(dst)) or os.path.getmtime(dst) < os.path.getmtime(picked):
+            shutil.copy2(picked, dst)
+    except OSError:
+        dst = picked
+    rel = os.path.relpath(dst, page_dir).replace(os.sep, "/")
+    title = (w.get("title") or key)
+    return ('<div class="pg-link"><a href="%s" target="_blank" rel="noopener">'
+            '<span class="pg-ico">📄</span>'
+            '<span class="pg-tx"><b>打开完整页面 →</b>'
+            '<i>%s · %s · %.0f KB</i></span></a></div>'
+            % (html.escape(rel), html.escape(title),
+               html.escape(os.path.basename(dst)), picked_sz / 1024.0))
+
+
 def _shots_html(w: Dict, assets_root: str, page_dir: str, limit: int) -> str:
     imgs = _find_images(_task_root(w), limit)
     if not imgs:
@@ -566,7 +643,7 @@ def build_private(out_path: str, with_images: bool = True,
     meta = {x["key"]: x for x in (cfg.get("sections") or [])}
     meta.update(EXTRA_SECTIONS)          # 未分板块等只在本页出现的板块
 
-    nav, blocks, n_img, n_rep, n_card = [], [], 0, 0, 0
+    nav, blocks, n_img, n_rep, n_card, n_page = [], [], 0, 0, 0, 0
     n_chart, scripts_js = 0, []
     for sec in SECTION_ORDER:
         items = by_sec.get(sec) or []
@@ -576,6 +653,11 @@ def build_private(out_path: str, with_images: bool = True,
         nav.append('<a href="#p_%s">%s</a>' % (sec, html.escape(m.get("title") or sec)))
         cards = []
         for w in items:
+            # 任务自己的整页入口放最前（有就给，没有不占位；不受 --no-images 影响）
+            pg = _page_html(w, assets_root, page_dir)
+            if pg:
+                n_page += 1
+                cards.append(pg)
             # 大佬要求配图在前：先出图、再出指标卡（图在上、卡片在下）
             if with_images:
                 shots = _shots_html(w, assets_root, page_dir, max_images)
@@ -630,6 +712,7 @@ def build_private(out_path: str, with_images: bool = True,
         '    <div><b>' + str(n_chart) + '</b><span>趋势图</span></div>\n'
         '    <div><b>' + str(n_card) + '</b><span>卡片</span></div>\n'
         '    <div><b>' + str(n_rep) + '</b><span>报告摘录</span></div>\n'
+        '    <div><b>' + str(n_page) + '</b><span>完整页面</span></div>\n'
         '    <div><b><a href="index.html">公开看板 →</a></b><span>另一套页面</span></div>\n'
         '  </div>\n</header>\n\n'
         '<nav class="jump">' +
