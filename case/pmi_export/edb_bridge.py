@@ -7,6 +7,24 @@ data_hub 的 EDB（SQLite）读取；取数、解析、落库、来源元信息�
 仓库定位：默认用 workspace 下的 DataHub 本地副本，可用环境变量 EDB_REPO 覆盖。
 读取方式：直接读 edb_points / edb_doc 两张表（EDB 的存储契约），不重复实现抓取。
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
 import os
 import sys
 
@@ -47,7 +65,7 @@ def _find_edb_repo() -> str:
         os.path.join(WORKSPACE, "datahub-multi-tier"),
         os.path.join(WORKSPACE, "dataHub_三级体系"),
         _LEGACY_REPO,
-        "/opt/coze/.fuse_drive/dataHub_三级体系",
+        _cp("/opt/coze/.fuse_drive/dataHub_三级体系"),
     ]
     try:
         for name in sorted(os.listdir(WORKSPACE)):

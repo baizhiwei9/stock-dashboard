@@ -43,11 +43,21 @@ python3 case/_lib/paths.py
 |---|---|---|
 | `DATA_HUB_PATH` | DataHub 仓库根 | 向上找仓库根的 `datahub_path.py` → 同级 `../datahub-multi-tier` → 云盘兜底 |
 | `CASE_WORKSPACE` | 老「蓁宝/所有对话/主对话」目录 | 云盘 `/Coze/Drive/蓁宝/所有对话/主对话` |
+| `CASE_DRIVE_ROOT` | `/Coze/Drive` 的新位置 | 仍是 `/Coze/Drive` |
+| `CASE_FUSE_ROOT` | `/opt/coze/.fuse_drive` 的新位置 | 仍是 `/opt/coze/.fuse_drive` |
+| `CASE_APP_DATA` | `/app/data` 的新位置 | 仍是 `/app/data` |
 | `CASE_FEISHU_LIB` | 飞书卡片/推送模块目录 | 仓库内 `case/sector_screening_v4` 优先 |
 | `FEISHU_PUSH_CANON` | 飞书推送真身 `feishu_push.py` | 向上找同级 `datahub-multi-tier/options/alert/notifier/` |
 | `GROWTH_SCREENER_DIR` | 成长股选股器目录（仓库外，见 §5） | `$CASE_WORKSPACE/成长股选股器` |
 | `TUSHARE_TOKEN` | Tushare token | `options/config/private.py` |
 | `CASE_PY_DEPS` / `CASE_FONTS` / `CASE_SHARED` | 手工依赖 / 字体 / 共享模块 | workspace 下同名目录 |
+
+后三个变量由 `case/_lib/cloud_paths.py` 统一消费：`case/` 下的旧根字面量都写成
+`_cp('/Coze/Drive/...')`，没设变量时原样返回（原机行为零变化），设了就只换根、其余原样拼回。
+`CASE_WORKSPACE` 是**最长前缀优先**：它命中「蓁宝/所有对话/主对话」时优先于 `CASE_DRIVE_ROOT`。
+
+自检：`python3 case/_lib/cloud_paths.py`（打印映射表），加 `--check` 有根缺失就返回 1。
+回归用例：`python3 -m pytest test_case_no_cloud_paths.py -q`（45 例，扫 21 个切换 key）。
 
 写进 `/etc/environment` 或 systemd unit 的 `Environment=` 都行。crontab 里则直接写在任务行首：
 

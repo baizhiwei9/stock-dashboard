@@ -15,7 +15,7 @@
       5
     ]
   },
-  "cmd": "python3 -u run_daily.py",
+  "cmd": "python3 -u run_daily.py --mail",
   "cwd": ".",
   "timeout": 1800,
   "enabled": true,
