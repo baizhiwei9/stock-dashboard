@@ -442,6 +442,17 @@ bash scripts/sync_to_drive.sh               # 同步一次
 
 脚本用 `SD_LOCAL_DIR` / `SD_DRIVE_DIR` 就能备份第二个目录，不需要复制一份脚本。
 
+**把 crontab 里的 DataHub 路径一次性切过来**（脚本：`scripts/switch_datahub_path.sh`）：
+
+```bash
+bash scripts/switch_datahub_path.sh              # dry-run：打印行数 + diff 预览
+bash scripts/switch_datahub_path.sh --apply      # 真改，自动备份到 /tmp
+bash scripts/switch_datahub_path.sh --revert     # 改坏了回滚
+```
+
+它只动**非注释行**，注释里保留历史原样；目标路径默认取 `python3 datahub_path.py`
+的结果（和 build.py / scheduler.py 同一口径），改完会核对残留条数。
+
 脚本默认排除 `logs/`、`__pycache__/`、`state.json`、`scheduler.pid`、`*.bak*`，
 不加 `--prune` 就不会删云盘上的东西。数据全是从公开源抓的，丢了重跑一遍就有，
 **不需要做主从/双写/一致性那一套**。
