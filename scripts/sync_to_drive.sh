@@ -58,6 +58,12 @@ EXCLUDES=(
   --exclude='out/*.webp'
   --exclude='out/*.gif'
   --exclude='out/*.pdf'
+  # 原始抓取缓存：case/<task>/data/db 与 data/md 是逐日 CSV 原件（margin 两个任务就占 230MB），
+  # 全是网上抓的、可重抓，不进备份。data/ 下的汇总 csv/json 仍然备份。
+  --exclude='*/data/db/'
+  --exclude='*/data/md/'
+  --exclude=catboost_info/
+  --exclude='preview-*.png'
 )
 
 DRY_RUN=0
