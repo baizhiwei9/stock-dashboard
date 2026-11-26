@@ -38,6 +38,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import build as B                                            # noqa: E402  复用 CSS / 卡片渲染 / 取数
+import feishu_card_dom as FCD                                # noqa: E402  飞书卡片 → DOM
 
 # task.json 没写 section / section_domain 的任务：不丢，单独归到「未分板块」
 UNSORTED = "unsorted"
@@ -334,7 +335,44 @@ def _mirror(key: str, src: str, assets_root: str, page_dir: str) -> Tuple[str, s
     return rel_full, rel_thumb, dim, size
 
 
+CARD_NAMES = ("card.json", "feishu_card.json", "card_payload.json")
 REPORT_NAMES = ("report.md", "latest.md", "summary.md")
+
+
+def _card_html(w: Dict) -> str:
+    """任务发飞书的那张交互式卡片 → 页面 DOM。
+
+    优先 `<root>/out/card.json`（任务侧 dump 的飞书卡片原样），其次 `out/card.md`
+    （卡片转的纯 Markdown 兜底）。同一份卡片，飞书看到的和页面上看到的一致，
+    展示层不用再去猜 report.md 的版式。
+    """
+    root = _task_root(w)
+    if not root:
+        return ""
+    for sub_dir in ("out", ""):
+        base = os.path.join(root, sub_dir) if sub_dir else root
+        if not os.path.isdir(base):
+            continue
+        for name in CARD_NAMES:
+            fp = os.path.join(base, name)
+            if not os.path.isfile(fp):
+                continue
+            try:
+                card = json.load(open(fp, encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            html_card = FCD.card_to_html(card)
+            if html_card:
+                return html_card
+        fp = os.path.join(base, "card.md")
+        if os.path.isfile(fp):
+            try:
+                md = open(fp, encoding="utf-8").read().strip()
+            except OSError:
+                md = ""
+            if md:
+                return '<div class="fc-card"><div class="fc-div">%s</div></div>' % FCD.md_to_html(md)
+    return 
 
 
 SKIP_MD = ("readme.md", "changelog.md", "contract.md", "deploy.md", "install.md",
@@ -479,7 +517,8 @@ def _lightbox_html() -> str:
 def build_private(out_path: str, with_images: bool = True,
                   max_images: int = 6,
                   assets: Optional[str] = None,
-                  with_report: bool = True) -> str:
+                  with_report: bool = True,
+                  with_card: bool = True) -> str:
     ws = _workers()
     if not ws:
         print("[build_private] 没有私有任务：确认 CASE_EXTRA_DIRS 指到私有仓的 case/ 这一层",
@@ -497,7 +536,7 @@ def build_private(out_path: str, with_images: bool = True,
     meta = {x["key"]: x for x in (cfg.get("sections") or [])}
     meta.update(EXTRA_SECTIONS)          # 未分板块等只在本页出现的板块
 
-    nav, blocks, n_img, n_rep = [], [], 0, 0
+    nav, blocks, n_img, n_rep, n_card = [], [], 0, 0, 0
     for sec in SECTION_ORDER:
         items = by_sec.get(sec) or []
         if not items:
@@ -513,6 +552,10 @@ def build_private(out_path: str, with_images: bool = True,
                     n_img += shots.count('class="shot"')
                     cards.append(shots)
             cards.append(B.render_registered_model(w, latest, {})[0])
+            chtml = _card_html(w) if with_card else ""
+            if chtml:
+                n_card += 1
+                cards.append(chtml)
             if with_report:
                 ex = _excerpt_html(w)
                 if ex:
@@ -537,7 +580,7 @@ def build_private(out_path: str, with_images: bool = True,
         '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         '<title>Private Tasks · 私有任务展示区</title>\n<style>'
-        + B.CSS + PRIVATE_CSS +
+        + B.CSS + PRIVATE_CSS + FCD.CSS +
         '</style>\n</head>\n<body>\n<div class="wrap">\n\n'
         '<header class="top">\n'
         '  <h1>Private Tasks<small>私有任务展示区 · precious-task（与公开看板分开两套页面）</small></h1>\n'
@@ -546,6 +589,7 @@ def build_private(out_path: str, with_images: bool = True,
         '    <div><b>' + str(len(ws)) + '</b><span>私有任务</span></div>\n'
         '    <div><b>' + str(n_with) + '</b><span>带指标</span></div>\n'
         '    <div><b>' + str(n_img) + '</b><span>产出图</span></div>\n'
+        '    <div><b>' + str(n_card) + '</b><span>卡片</span></div>\n'
         '    <div><b>' + str(n_rep) + '</b><span>报告摘录</span></div>\n'
         '    <div><b><a href="index.html">公开看板 →</a></b><span>另一套页面</span></div>\n'
         '  </div>\n</header>\n\n'
