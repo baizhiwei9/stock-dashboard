@@ -6,7 +6,10 @@
   "metrics": [],
   "sched": {
     "mode": "daily",
-    "at": "20:50",
+    "at": [
+      "12:30",
+      "20:50"
+    ],
     "weekdays": [
       1,
       2,

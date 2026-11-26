@@ -13,9 +13,12 @@
 | 15 分钟、1 小时、盘中多点采样（期权 OI / 期货基差 / 小波 / 缠论模拟盘 / 杨康平盘中 / 策略监控启停） | ❌ 不动 | 用户明确：继续走原数据库、原路径 |
 | 数据采集本身（data_hub 各 collector） | ❌ 不动 | 已统一在 `datahub-multi-tier` |
 
-## 二、清点结果：29 条日更/周更任务
+## 二、清点结果：29 条日更/周更任务（= 已入库 2 + 未入库 6 + 本次迁 21）
 
-- **仓库内已有 8 条**（全在 `datahub-multi-tier`）：PCR-MACD、两融入库、偏度预警skew10、期权OI日报、期权PCR收盘、期货基差日报、VIX日频入库、收盘期权监控
+- **真正入库的只有 2 条**（`datahub-multi-tier`）：`data_hub/margin_db.py`（两融入库）、`data_hub/collectors/vix_daily_cron.py`（VIX 日频入库）
+- **曾被误判为「已在库」、实际从未入库的 6 条**：全在 `datahub-multi-tier/options/run/` 下 —— `pcr_macd.sh`（PCR-MACD）、`skew10.sh`（偏度预警）、`oi_daily.sh`（期权OI日报）、`basis_daily.sh`（期货基差日报）、`close.sh`（收盘期权监控）、`midday.sh`（期权午盘）。
+  `git ls-files options/` = **0**，`git status` 显示 `?? options/` —— 该目录从来没被这个仓库跟踪过，`sync_github.sh` 也没带上它。
+  **这 6 条不在本次 21 条迁移内，也不满足「代码已在库」这个前提**：切换前要么先 `git add options/` 入库、要么继续留在 crontab 不动。
 - **散落在仓库外 21 条**：全部找到源码，缺失 0 条 → **本次已全部收进 `stock-dashboard/case/`**
 
 ## 三、21 条迁移明细
