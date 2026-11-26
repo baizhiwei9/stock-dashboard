@@ -22,6 +22,7 @@ HTTP 服务，让管理页面能查状态、启停模块、立刻跑一次、改
 模块字段（modules.json）：
   key/title/desc/domains/cwd/cmd/timeout/enabled  必填
   sched: {"mode":"daily","at":"21:00","weekdays":[1,2,3,4,5]}   ISO：1=周一 … 7=周日
+  at 也可写数组表示一天多个时间点：{"at":["07:50","19:55"]}（早报 + 晚报）
   depends: ["macro", ...]  这些模块在跑时先等它们跑完
 """
 
@@ -601,12 +602,19 @@ def register_worker(body):
     # 校验 sched
     if not isinstance(w["sched"], dict):
         return None, "sched 要写成对象，例如 {\"at\":\"21:30\",\"weekdays\":[1,2,3,4,5]}"
-    try:
-        hh, mm = [int(x) for x in str(w["sched"].get("at", "")).split(":")]
-        if not (0 <= hh < 24 and 0 <= mm < 60):
-            raise ValueError
-    except (ValueError, TypeError):
-        return None, "sched.at 要写成 HH:MM，例如 21:30"
+    _at = w["sched"].get("at")
+    if isinstance(_at, (list, tuple)):
+        if not _at:
+            return None, "sched.at 数组不能为空，例如 [\"07:50\",\"19:55\"]"
+        if len(_at) > 6:
+            return None, "sched.at 最多 6 个时间点"
+        _ts = [_parse_hhmm(x) for x in _at]
+        if any(t is None for t in _ts):
+            return None, "sched.at 数组每个元素都要写成 HH:MM，例如 [\"07:50\",\"19:55\"]"
+        w["sched"]["at"] = ["%02d:%02d" % (t.hour, t.minute) for t in sorted(set(_ts))]
+    else:
+        if _parse_hhmm(_at) is None:
+            return None, "sched.at 要写成 HH:MM（如 21:30），或一天多个时间点 [\"07:50\",\"19:55\"]"
     wds = w["sched"].get("weekdays")
     if wds is not None:
         try:
@@ -697,12 +705,59 @@ def set_enabled(key, on):
 
 
 # ────────────────────────────── 时间计算 ──────────────────────────────
-def _at_time(sched, day):
-    try:
-        hh, mm = [int(x) for x in str(sched.get("at", "")).split(":")]
-    except (ValueError, AttributeError):
+def _parse_hhmm(v):
+    """把一个 HH:MM 字符串解析成 time；非法 / 空返回 None（不抛异常）。
+
+    宽松口径与旧实现一致：`"7:5"` 这类少写 0 的写法照样认，
+    但 `"25:99"`、`""`、`None`、`"abc"` 一律返回 None。
+    """
+    s = str(v if v is not None else "").strip()
+    if not s:
         return None
-    return datetime.combine(day, dtime(hh, mm))
+    try:
+        hh, mm = [int(x) for x in s.split(":")]
+    except (ValueError, TypeError):
+        return None
+    if not (0 <= hh < 24 and 0 <= mm < 60):
+        return None
+    try:
+        return dtime(hh, mm)
+    except (ValueError, TypeError):
+        return None
+
+
+def _at_times(sched):
+    """sched.at → 有序去重的 time 列表（一天可多个时间点）。
+
+    `"21:00"`            → [21:00]            （旧写法，行为不变）
+    `["07:50","19:55"]`  → [07:50, 19:55]     （新写法：早报 + 晚报）
+    没写 / 空数组 / 元素全非法 → []（沿用「没 at 就不调度」的老行为）
+    """
+    at = (sched or {}).get("at")
+    if at is None or at == "":
+        return []
+    raw = list(at) if isinstance(at, (list, tuple)) else [at]
+    out = []
+    for x in raw:
+        t = _parse_hhmm(x)
+        if t is not None and t not in out:
+            out.append(t)
+    out.sort()
+    return out
+
+
+def _at_datetime(hhmm, day):
+    """把单个时间点（time 或 "HH:MM"）落到某一天 → datetime；非法返回 None。"""
+    t = hhmm if isinstance(hhmm, dtime) else _parse_hhmm(hhmm)
+    if t is None:
+        return None
+    return datetime.combine(day, t)
+
+
+def _at_time(sched, day):
+    """【兼容保留】旧的单时间点接口，等价于 sched.at 的第一个时间点。"""
+    ts = _at_times(sched)
+    return _at_datetime(ts[0], day) if ts else None
 
 
 def _weekdays(sched):
@@ -734,30 +789,43 @@ def _span(sched, back=False):
 
 
 def compute_slot(sched, now):
-    """now 之前（含）最近一个应跑时间点；没有就 None。"""
-    if not sched.get("at"):
+    """now 之前（含）最近一个应跑时间点；没有就 None。
+
+    一天可能有多个时间点（如早报 07:50 + 晚报 19:55）：同一天内取
+    「≤ now 的最后一个」，那天的都过了才继续往前一天找。
+    字符串 at 的返回结果与改造前逐毫秒一致。
+    """
+    times = _at_times(sched)
+    if not times:
         return None
     for d in range(0, _span(sched, back=True)):
         day = (now - timedelta(days=d)).date()
         if not _day_ok(sched, day):
             continue
-        cand = _at_time(sched, day)
-        if cand and cand <= now:
-            return cand
+        for t in reversed(times):
+            cand = _at_datetime(t, day)
+            if cand and cand <= now:
+                return cand
     return None
 
 
 def compute_next(sched, now):
-    """严格晚于 now 的下一个应跑时间点。"""
-    if not sched.get("at"):
+    """严格晚于 now 的下一个应跑时间点。
+
+    一天可能有多个时间点：同一天内取「> now 的第一个」，那天的都过了才继续往后一天找。
+    字符串 at 的返回结果与改造前逐毫秒一致。
+    """
+    times = _at_times(sched)
+    if not times:
         return None
     for d in range(0, _span(sched)):
         day = (now + timedelta(days=d)).date()
         if not _day_ok(sched, day):
             continue
-        cand = _at_time(sched, day)
-        if cand and cand > now:
-            return cand
+        for t in times:
+            cand = _at_datetime(t, day)
+            if cand and cand > now:
+                return cand
     return None
 
 
