@@ -297,14 +297,19 @@ def _write_json(path, obj):
 # 控制台首屏也要 10s+。
 #
 # 口径：TTL 缓存，默认 30s —— tick 15s 至少命中一次，/api/state 连续刷新全命中。
-# modules.json / registry.json 另带 mtime 指纹，改了就立刻失效；case/*/task.json
-# 不加指纹（拿指纹本身就要扫一遍目录，省不掉那笔 IO），新增/改动最多延迟 30s。
+# 新增/删除/改 task.json、改 modules.json 最多延迟 30s 生效（不是秒级调度需求）。
+#
+# 为什么不做 mtime 指纹（连 modules.json 那种一次 stat 的便宜指纹也不做）：
+# 这块是 FUSE 云盘，mtime 本身不可靠 —— 实测 registry.json / state.json 的
+# mtime 时而是 1970-01-01、时而是真实时间，同一个文件隔两秒 stat 两次结果不同。
+# 拿不可靠的指纹做失效判断，只会换来「该失效时不失效 + 不该失效时反复重读」，
+# 正确性还得靠 TTL 兜底。少一层无效机制，行为更好预测。
 # · 本进程自己写配置（save_cfg / save_registry）立即失效，读回一定是最新的
 # · 管理动作（run_all / register / 模块启停）与「读-改-写」路径传 force=True
 # · 缓存里存的是快照，取出来一律 deepcopy：调用方改字段（run_all 会打 _manual）
 #   不会污染缓存，也不会把改过的值带给下一个调用者
 MODULES_TTL_SEC = 30
-_MOD_CACHE = {}            # name -> (expire_at, stamp, value)
+_MOD_CACHE = {}            # name -> (expire_at, value)
 _MOD_CACHE_LOCK = threading.Lock()
 # 单飞：缓存过期的那一刻，tick 线程和几个 HTTP 线程可能同时进来。不串行化的话
 # 它们会各扫一遍盘（云盘上每次 4~10s），反而比不缓存更慢。RLock 是因为
@@ -312,41 +317,26 @@ _MOD_CACHE_LOCK = threading.Lock()
 _MOD_LOAD_LOCK = threading.RLock()
 
 
-def _cache_get(name, ttl, loader, force=False, stamp=None):
-    """取缓存；force=True / 已过期 / stamp 变了就重算并回填。
+def _cache_get(name, ttl, loader, force=False):
+    """取缓存；force=True 或已过期就重算并回填。
 
-    stamp 用于「单个小文件的 mtime+size」这种一次 stat 就能拿到的便宜指纹：
-    别的进程（manager.py、手工编辑）改了 modules.json / registry.json 时立刻失效，
-    不用等满 TTL。case/ 目录那种贵指纹不做 —— 见 _case_modules() 的说明。
-    loader 抛异常时不写缓存（下次照样重试，不会把空结果钉住 30 秒）。
+    loader 抛异常时不写缓存 —— 一次读盘失败不该被钉住 30 秒。
     """
     if not force:
         with _MOD_CACHE_LOCK:
             hit = _MOD_CACHE.get(name)
         if hit is not None and hit[0] > time.time():
-            if stamp is None or hit[1] == stamp():
-                return copy.deepcopy(hit[2])
+            return copy.deepcopy(hit[1])
     with _MOD_LOAD_LOCK:
         if not force:                    # 等锁期间别人可能已经填好了
             with _MOD_CACHE_LOCK:
                 hit = _MOD_CACHE.get(name)
             if hit is not None and hit[0] > time.time():
-                if stamp is None or hit[1] == stamp():
-                    return copy.deepcopy(hit[2])
+                return copy.deepcopy(hit[1])
         val = loader()
-        cur = stamp() if stamp is not None else None
         with _MOD_CACHE_LOCK:
-            _MOD_CACHE[name] = (time.time() + ttl, cur, val)
+            _MOD_CACHE[name] = (time.time() + ttl, val)
         return copy.deepcopy(val)
-
-
-def _file_stamp(path):
-    """(mtime_ns, size)；文件不存在返回 None。一次 stat，云盘上也便宜。"""
-    try:
-        st = os.stat(path)
-    except OSError:
-        return None
-    return (st.st_mtime_ns, st.st_size)
 
 
 def _cache_drop(*names):
@@ -364,8 +354,7 @@ def _load_cfg_raw():
 
 
 def load_cfg(force=False):
-    return _cache_get("cfg", MODULES_TTL_SEC, _load_cfg_raw, force,
-                      stamp=lambda: _file_stamp(CFG_PATH))
+    return _cache_get("cfg", MODULES_TTL_SEC, _load_cfg_raw, force)
 
 
 def save_cfg(cfg):
@@ -421,8 +410,7 @@ def _load_registry_raw():
 
 
 def load_registry(force=False):
-    return _cache_get("registry", MODULES_TTL_SEC, _load_registry_raw, force,
-                      stamp=lambda: _file_stamp(REG_PATH))
+    return _cache_get("registry", MODULES_TTL_SEC, _load_registry_raw, force)
 
 
 def save_registry(r):

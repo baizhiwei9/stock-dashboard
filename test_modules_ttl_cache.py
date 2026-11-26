@@ -63,8 +63,8 @@ def test_ttl_expiry_rescans(monkeypatch):
     S._case_modules()
     # 直接改过期时刻，别真等 30 秒
     with S._MOD_CACHE_LOCK:
-        exp, stamp, val = S._MOD_CACHE["case"]
-        S._MOD_CACHE["case"] = (time.time() - 1, stamp, val)
+        exp, val = S._MOD_CACHE["case"]
+        S._MOD_CACHE["case"] = (time.time() - 1, val)
     S._case_modules()
     assert calls["n"] == 2, calls
 
@@ -111,10 +111,15 @@ def test_save_registry_invalidates_registry_cache(monkeypatch, tmp_path):
     assert S.load_registry()["workers"] == []
 
 
-def test_external_cfg_edit_takes_effect_immediately(monkeypatch, tmp_path):
-    """modules.json 被别的进程改了（manager.py / 手工编辑）不能等 30s。
+def test_cfg_edit_by_other_process_waits_for_ttl(monkeypatch, tmp_path):
+    """别的进程改 modules.json，TTL 内看不到 —— 这是刻意接受的代价。
 
-    这类文件一次 stat 就能拿到 mtime，用指纹失效比等 TTL 划算。
+    为什么不做 mtime 指纹：这块是 FUSE 云盘，mtime 本身不可靠（实测
+    registry.json / state.json 的 mtime 时而 1970-01-01、时而真实时间，
+    同一个文件隔两秒 stat 两次结果不同）。用不可靠的指纹做失效判断，
+    正确性仍要靠 TTL 兜底，只是多一层不好预测的行为。
+
+    本进程自己写的不受这条限制 —— save_cfg / save_registry 主动失效。
     """
     _fresh(monkeypatch)
     cfg_path = str(tmp_path / "modules.json")
@@ -126,20 +131,12 @@ def test_external_cfg_edit_takes_effect_immediately(monkeypatch, tmp_path):
     time.sleep(0.01)
     with open(cfg_path, "w", encoding="utf-8") as f:
         f.write('{"modules": [{"key": "zzz"}]}')
-    assert [m["key"] for m in S.load_cfg()["modules"]] == ["zzz"]
+    assert [m["key"] for m in S.load_cfg()["modules"]] == ["a"]   # TTL 内仍是老值
 
-
-def test_external_registry_edit_takes_effect_immediately(monkeypatch, tmp_path):
-    _fresh(monkeypatch)
-    reg_path = str(tmp_path / "registry.json")
-    monkeypatch.setattr(S, "REG_PATH", reg_path)
-    S.save_registry({"workers": [{"key": "w1"}]})
-    assert [w["key"] for w in S.load_registry()["workers"]] == ["w1"]
-
-    time.sleep(0.01)
-    with open(reg_path, "w", encoding="utf-8") as f:
-        f.write('{"workers": [{"key": "w2"}]}')
-    assert [w["key"] for w in S.load_registry()["workers"]] == ["w2"]
+    with S._MOD_CACHE_LOCK:
+        exp, val = S._MOD_CACHE["cfg"]
+        S._MOD_CACHE["cfg"] = (time.time() - 1, val)
+    assert [m["key"] for m in S.load_cfg()["modules"]] == ["zzz"]  # 过期后生效
 
 
 def test_new_case_dir_appears_after_ttl(monkeypatch):
@@ -161,8 +158,8 @@ def test_new_case_dir_appears_after_ttl(monkeypatch):
     assert [m["key"] for m in S._case_modules()] == ["five_strategy"]
     # 过期后立刻能看到
     with S._MOD_CACHE_LOCK:
-        exp, stamp, val = S._MOD_CACHE["case"]
-        S._MOD_CACHE["case"] = (time.time() - 1, stamp, val)
+        exp, val = S._MOD_CACHE["case"]
+        S._MOD_CACHE["case"] = (time.time() - 1, val)
     assert [m["key"] for m in S._case_modules()] == ["five_strategy", "brand_new"]
 
 
@@ -259,8 +256,8 @@ def test_real_tick_scans_once_for_two_ticks(monkeypatch):
     # 第三个 tick 跨过 30s TTL → 必须重扫（新增 case 才能生效）
     # TTL 用的是 time.time()（真实时钟），这里直接把它改成已过期，别真等 30 秒
     with S._MOD_CACHE_LOCK:
-        exp, stamp, val = S._MOD_CACHE["case"]
-        S._MOD_CACHE["case"] = (time.time() - 1, stamp, val)
+        exp, val = S._MOD_CACHE["case"]
+        S._MOD_CACHE["case"] = (time.time() - 1, val)
     t["v"] = _dt(2026, 11, 26, 12, 0, 40)
     S.tick()
     assert calls["n"] == 2, calls
