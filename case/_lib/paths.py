@@ -43,7 +43,6 @@ import os
 # 迁机后它通常整个不存在，留着是因为 py_deps / .fonts 这类东西
 # 有时还在原处，能命中就不用重装。
 _LEGACY_WORKSPACE = "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace"
-_DEFAULT_HUB = "/opt/coze/.fuse_drive/dataHub_三级体系"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))          # …/case/_lib
 _CASE_DIR = os.path.dirname(_HERE)                          # …/case
@@ -123,7 +122,7 @@ def datahub_root():
         except Exception:
             pass
     # datahub_path.py 不在（case 目录被单独拷出去跑）时的降级：
-    # 环境变量 → 仓库同级 → 兜底常量，规则与它保持一致。
+    # 环境变量 → 仓库同级；都没有就返回空串，不再退云盘旧副本。
     env = _env("DATA_HUB_PATH", "DATAHUB_DIR", "EDB_REPO")
     if _is_hub(env):
         return env
@@ -131,7 +130,7 @@ def datahub_root():
         p = os.path.normpath(os.path.join(_PROJECT_DIR, rel))
         if _is_hub(p):
             return p
-    return _DEFAULT_HUB
+    return ""
 
 
 def ensure_hub_on_path(root=None):
@@ -243,26 +242,16 @@ def font_path(name="NotoSansSC-Regular.ttf"):
 
 
 # ── 7. 老「主对话」目录 + 飞书模块目录 ───────────────────────────────────
-# case/*/ 里 20 余处脚本仍在 sys.path.insert 云盘上的
-# 「蓁宝/所有对话/主对话」，目的几乎只有一个：import 飞书卡片/推送模块。
-# 这些模块仓库里已有完全相同的副本（feishu_card_utils.py 207955B 与云盘 md5 一致、
-# feishu_push.py 是薄壳、pboc_liquidity_reader / usd_fingerprint 在
-# case/circulation_daily/scripts/modules 下），所以迁机后不该再依赖云盘。
-_LEGACY_MAIN = "/Coze/Drive/蓁宝/所有对话/主对话"
-_LEGACY_MAIN_ALT = "/opt/coze/.fuse_drive/蓁宝/所有对话/主对话"
-
-
+# 老「主对话」目录只认 CASE_WORKSPACE。云盘上那套 workspace
+# （蓁宝/所有对话/主对话）已废弃，不再作为默认值 —— 飞书卡片/推送模块在仓库内
+# 都有副本（case/sector_screening_v4、case/circulation_daily/scripts/modules）。
 def legacy_workspace():
-    """老「主对话」目录。迁机后由 CASE_WORKSPACE 指到新位置。
+    """老「主对话」目录：只认 CASE_WORKSPACE，没设就返回空串。
 
     注意与 workspace_root() 的区别：workspace_root() 是「stock-dashboard 的
-    父目录」（本机 /root/work），而这里指的是云盘上另一套 workspace
-    （蓁宝/所有对话/主对话），两者不是一回事，不要合并。
+    父目录」（本机 /root/work），两者不是一回事，不要合并。
     """
-    env = _env("CASE_WORKSPACE")
-    if env:
-        return env
-    return _first_dir(_LEGACY_MAIN, _LEGACY_MAIN_ALT) or _LEGACY_MAIN
+    return _env("CASE_WORKSPACE")
 
 
 def feishu_dirs():

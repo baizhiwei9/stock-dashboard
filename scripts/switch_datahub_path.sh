@@ -20,8 +20,9 @@ set -uo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)
 REPO=$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd -P)
 
-# 源：云盘那份老 DataHub。换部署形态时只改这一行。
-OLD_PATH=${OLD_PATH:-/opt/coze/.fuse_drive/dataHub_三级体系}
+# 源：要替换掉的旧 DataHub 路径。云盘旧路径已废弃，不再默认，必须显式给：
+#   OLD_PATH=/旧/路径 bash scripts/switch_datahub_path.sh --apply
+OLD_PATH=${OLD_PATH:-}
 # 目标：默认取仓库根 datahub_path.py 的解析结果（与 build.py / scheduler.py 同口径）
 NEW_PATH=${NEW_PATH:-$(cd "$REPO" && python3 datahub_path.py 2>/dev/null || true)}
 
@@ -47,6 +48,7 @@ if [ "$MODE" = revert ]; then
   exit 0
 fi
 
+[ -n "$OLD_PATH" ] || { echo "旧路径为空：先设 OLD_PATH（云盘旧路径已废弃，不再默认）" >&2; exit 1; }
 [ -n "$NEW_PATH" ] || { echo "目标路径为空：先设 NEW_PATH 或用 --to 指定" >&2; exit 1; }
 [ -d "$NEW_PATH/data_hub" ] || { echo "目标不可用：$NEW_PATH 下没有 data_hub/" >&2; exit 1; }
 [ "$NEW_PATH" != "$OLD_PATH" ] || { echo "新旧路径相同，无需切换" >&2; exit 2; }

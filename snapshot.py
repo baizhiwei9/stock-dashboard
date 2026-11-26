@@ -45,7 +45,7 @@ from datetime import datetime
 from datahub_path import datahub_root
 
 DATAHUB_ROOT = datahub_root()
-if DATAHUB_ROOT not in sys.path:
+if DATAHUB_ROOT and DATAHUB_ROOT not in sys.path:
     sys.path.insert(0, DATAHUB_ROOT)
 
 from data_hub.tech import (                                    # noqa: E402

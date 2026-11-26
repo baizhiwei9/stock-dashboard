@@ -527,21 +527,21 @@ dry-run 跑同一套检查，但只警告不中止，方便先看清缺什么。
    echo "$PYTHONPATH" | tr ':' '\n' | grep datahub     # 应命中本机 datahub-multi-tier
    python3 -c "import data_hub; print(data_hub.__file__)"   # 路径必须在本机，不是云盘副本
    ```
-   命中云盘旧副本（`/opt/coze/.fuse_drive/dataHub_三级体系`）不会报错，
-   只会读到另一套库 —— 属于**静默连错库**，数字不对但没有任何告警。
+   云盘旧副本（`/opt/coze/.fuse_drive/dataHub_三级体系`）已废弃、不再作为兜底：
+   解析不到就直接报错，不会再「静默连错库」。
 
 2. **数据根：让 `python3 datahub_path.py` 落在本机 `datahub-multi-tier`**
    ```bash
    python3 datahub_path.py                    # 打印实际生效的 DataHub 根，换机器只看这一条
    ```
-   解析顺序：`DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO` → 同级 `../datahub-multi-tier`
-   → 兜底 `/opt/coze/.fuse_drive/dataHub_三级体系`。前三个只有「目录存在且含 `data_hub/`」
-   才会被采用，否则直接跳过（跳过是对的：选错了后面 import 也必然失败）。
+   解析顺序：`DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO` → 同级 `../datahub-multi-tier`。
+   前三个只有「目录存在且含 `data_hub/`」才会被采用，否则直接跳过（跳过是对的：
+   选错了后面 import 也必然失败）。都没有时**报错退出**，不再退云盘旧副本。
    `DATAHUB_ROOT` **不是**主路径变量 —— 它只在 `modules.json` 的 `cwd` / `cmd` 里当
    `{{DATAHUB_ROOT}}` 占位符用，另外 `option_risk_cn_us` / `rate_board` 两个老脚本会直接
    `os.environ` 读它。别指望设了 `DATAHUB_ROOT` 就能改数据根。
-   打印结果若是兜底路径 `/opt/coze/.fuse_drive/dataHub_三级体系`，说明前几条一个都没命中
-   （这条兜底路径可能压根不存在）—— 这时**先别切**，把 `DATA_HUB_PATH` 指到本机副本再验一次。
+   打印为空或直接报错，说明前几条一个都没命中 —— 这时**先别切**，
+   把 `DATA_HUB_PATH` 指到本机副本再验一次。
 
 3. **依赖闭包与凭据**
    ```bash

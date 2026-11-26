@@ -38,7 +38,7 @@ git clone https://github.com/baizhiwei9/datahub-multi-tier
 
 1. `DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO`，取第一个存在且含 `data_hub/` 的；
 2. 同级 checkout `<父目录>/datahub-multi-tier`；
-3. `/opt/coze/.fuse_drive/dataHub_三级体系` 兜底。
+3. 都没有就**显式报错**（`python3 datahub_path.py` 退出码 1）—— 云盘旧副本已废弃，不再兜底。
 
 同级 checkout 最省事；放在别处就用环境变量指定（绝对路径）：
 
@@ -313,13 +313,30 @@ bash run_daily.sh
 
 ### 5.3 定时调度
 
-两个可选入口：
+**新机器：一条命令起全部，不写 crontab。**
 
-- **`scheduler.py`**（仓库自带）：按 `modules.json` 里每个 task 的启停时间跑，HTTP 控制台端口见 `modules.json` 的 `api.port`。
-  ```bash
-  python3 scheduler.py fg     # 前台跑
-  ```
-- **系统 crontab**：纯 Python 任务用 crontab 更省资源（零 Token）。注意同一任务**不要同时挂在 scheduler 和 crontab 上**，会双跑。
+```bash
+./start_all.sh up          # TaskManager（公有 case/ + 私有 precious-task/case）+ 常驻看门狗
+./start_all.sh status      # 任务分布、看门狗与调度心跳
+./start_all.sh doctor      # 只体检：路径 / 凭据 / 任务分布 / 公私归属失配
+./start_all.sh down        # 停（不要只 kill 其中一个，看门狗会把调度器拉回来）
+```
+
+`up` 是幂等的，按 `task.json` 的 `sched` 时间跑；私有仓缺失时默认拒绝启动
+（只跑公有加 `SD_ALLOW_NO_PRECIOUS=1`）。换机导入旧机 `modules.json`
+（build / macro 等不入库的 producer）用
+`SD_MODULES_FROM=/旧机/modules.json ./start_all.sh up`。
+完整迁移步骤、端口与旧机并存的处理见 [docs/DEPLOY.md](docs/DEPLOY.md) §14。
+
+只想手工看调度输出时：
+
+```bash
+python3 scheduler.py fg     # 前台跑（Ctrl-C 退出）；后台常驻请用 ./start_all.sh up
+```
+
+> **不要再用 crontab 兜底。** 业务任务与看门狗都由 `start_all.sh` 统一管理；老部署
+> 遗留的 `* * * * * .../sd_watchdog.sh` 行在迁到 `start_all.sh` 后应当删掉 —— 与
+> `--loop` 常驻看门狗并存会重复拉起（`start` 幂等，但会掩盖真实故障）。
 
 > ⚠️ 本仓库的任务都是**纯 Python 脚本**，不需要 LLM，调度方式不影响 Token 成本。但**必须串行**（见 §1 内存要求）。
 
@@ -382,9 +399,10 @@ export CASE_EXTRA_DIRS=/path/to/precious-task/case
 
 ---
 
-## 7.1 跑在本机盘、云盘只做备份（推荐）
+## 7.1 只在本机盘跑（云盘目录已废弃）
 
-**不要直接在 FUSE 云盘目录里跑调度器。** 实测（2026-11-26，云盘 `/Coze/Drive/...`）：
+**云盘（`/Coze/Drive/...`、`/opt/coze/.fuse_drive/...`）已不再作为运行或备份位置。**
+下面是当时在 FUSE 云盘上跑的实测（2026-11-26），留作「为什么不要在云盘跑」的依据：
 
 | 操作 | 云盘 | 本机盘 |
 |---|---|---|
@@ -394,53 +412,37 @@ export CASE_EXTRA_DIRS=/path/to/precious-task/case
 | `tick()` 实测间隔（名义 15s） | **29 s** | 15 s |
 
 `all_modules()` 每个 tick 都要跑一次，云盘上光扫目录就吃掉十几秒 —— 调度精度整体退化，
-控制台也打不开。所以：**代码、配置、`state.json`、数据库全部放本机盘跑；云盘只当备份。**
+控制台也打不开。所以：**代码、配置、`state.json`、数据库全部放本机盘跑，不再往云盘同步。**
 
 ```
 /root/work/                     # 本机盘（ext4）：跑在这里
 ├── stock-dashboard/            #   git clone 到本机，不要 clone 到云盘
 ├── datahub-multi-tier/
 └── data/
-
-/Coze/Drive/股市监控画布/backup/  # 云盘：只放同步上来的副本
 ```
 
 ```bash
-# ① 本机盘部署（云盘上那份原件先留着，不删）
-rsync -a --exclude logs --exclude __pycache__ \
-      /Coze/Drive/股市监控画布/stock-dashboard/ /root/work/stock-dashboard/
-rsync -a --exclude __pycache__ \
-      /Coze/Drive/股市监控画布/datahub-multi-tier/ /root/work/datahub-multi-tier/
+# ① 本机盘部署（直接从 git clone，不再从云盘拷副本）
+git clone <stock-dashboard 仓库> /root/work/stock-dashboard
+git clone <datahub-multi-tier 仓库> /root/work/datahub-multi-tier
 
 # ② 按本文第 2~3 节重跑依赖与凭据（凭据在 ~/.config 下，不随目录搬）
 cd /root/work/stock-dashboard && ./install.sh
 
-# ③ 起调度器，确认 47 个模块都在
-python3 scheduler.py fg          # 前台看几秒，没问题 Ctrl-C
-bash sd_watchdog.sh              # 带 CASE_EXTRA_DIRS 拉起常驻实例
+# ③ 一条命令起调度器 + 看门狗（自动注入 CASE_EXTRA_DIRS / DataHub / options_utility）
+./start_all.sh up
+./start_all.sh status            # 47 个模块 + 私有任务是否都在
 python3 scheduler.py health      # 0 = 健康
 curl -s -o /dev/null -w '%{time_total}\n' http://127.0.0.1:8767/api/state   # 应 < 0.1s
 ```
 
 > **重启必须带 `CASE_EXTRA_DIRS`**。裸 `python3 scheduler.py restart` 会把私有任务
-> （`precious-task/case` 下那 18 个）整个漏掉 —— `sd_watchdog.sh` 会自动导出这个变量，
-> 所以**统一走 `bash sd_watchdog.sh`**，别手敲 restart。
+> （`precious-task/case` 下那 18 个）整个漏掉 —— `start_all.sh` 会解析并注入这个变量，
+> 所以**统一走 `./start_all.sh restart`**，别手敲 `scheduler.py restart`。
 
-**定时把本机盘备份回云盘**（脚本：`scripts/sync_to_drive.sh`）：
-
-```bash
-bash scripts/sync_to_drive.sh --dry-run     # 先看要同步什么
-bash scripts/sync_to_drive.sh               # 同步一次
-
-# crontab：本仓每小时，私有任务（precious-task）每小时错开 15 分
-0  * * * * cd /root/work/stock-dashboard && bash scripts/sync_to_drive.sh >/dev/null 2>&1
-15 * * * * cd /root/work/stock-dashboard && \
-  SD_LOCAL_DIR=/root/work/precious-task \
-  SD_DRIVE_DIR='/Coze/Drive/股市监控画布/backup/precious-task' \
-  bash scripts/sync_to_drive.sh >/dev/null 2>&1
-```
-
-脚本用 `SD_LOCAL_DIR` / `SD_DRIVE_DIR` 就能备份第二个目录，不需要复制一份脚本。
+**云盘备份链路已下线。** `scripts/sync_to_drive.sh` 仍保留（要备份到别处还能用），
+但 `SD_DRIVE_DIR` 不再默认云盘、必须显式给，也不再建议挂 crontab（业务与守护都归
+`start_all.sh` 管）。旧部署留在 crontab 里的两行 `sync_to_drive.sh` 应删除。
 
 **把 crontab 里的 DataHub 路径一次性切过来**（脚本：`scripts/switch_datahub_path.sh`）：
 
@@ -452,6 +454,8 @@ bash scripts/switch_datahub_path.sh --revert     # 改坏了回滚
 
 它只动**非注释行**，注释里保留历史原样；目标路径默认取 `python3 datahub_path.py`
 的结果（和 build.py / scheduler.py 同一口径），改完会核对残留条数。
+`OLD_PATH` 不再默认云盘路径，旧机迁移时必须显式给：
+`OLD_PATH=/旧/路径 bash scripts/switch_datahub_path.sh --apply`。
 
 脚本默认排除 `logs/`、`__pycache__/`、`state.json`、`scheduler.pid`、`*.bak*`，
 不加 `--prune` 就不会删云盘上的东西。数据全是从公开源抓的，丢了重跑一遍就有，
@@ -499,5 +503,6 @@ TECH_METRICS_CLOUD_DIR=/Coze/Drive/股市监控画布/datahub-multi-tier/output 
 | 任务失败 | `case/<task>/out/status.json` 的 `error` / `stages` |
 | 取数失败 | `case/<task>/out/` 下的阶段日志；再单独跑 `--only fetch` |
 | 推送失败 | 先跑 §3.3 校验凭据；再看返回的 `code` / `msg` |
+| 到点没跑 / 看门狗不在 | `./start_all.sh status` 看调度心跳与看门狗 pid；`./start_all.sh doctor` 看路径/凭据/公私归属 |
 | 卡住不退出 | `ps aux \| grep <task>` 看是否在等 SQLite 锁（是不是有别的任务在跑） |
 | 产物没生成 | `case/<task>/out/` 是否为空 → `pipeline.stages` 的 `artifacts` 是否配错 |

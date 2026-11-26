@@ -41,8 +41,8 @@ python3 case/_lib/paths.py
 
 | 变量 | 作用 | 不设时的行为 |
 |---|---|---|
-| `DATA_HUB_PATH` | DataHub 仓库根 | 向上找仓库根的 `datahub_path.py` → 同级 `../datahub-multi-tier` → 云盘兜底 |
-| `CASE_WORKSPACE` | 老「蓁宝/所有对话/主对话」目录 | 云盘 `/Coze/Drive/蓁宝/所有对话/主对话` |
+| `DATA_HUB_PATH` | DataHub 仓库根 | 向上找仓库根的 `datahub_path.py` → 同级 `../datahub-multi-tier`；都没有则报错 |
+| `CASE_WORKSPACE` | 老「蓁宝/所有对话/主对话」目录 | 空（不再默认云盘旧目录） |
 | `CASE_DRIVE_ROOT` | `/Coze/Drive` 的新位置 | 仍是 `/Coze/Drive` |
 | `CASE_FUSE_ROOT` | `/opt/coze/.fuse_drive` 的新位置 | 仍是 `/opt/coze/.fuse_drive` |
 | `CASE_APP_DATA` | `/app/data` 的新位置 | 仍是 `/app/data` |
@@ -208,6 +208,7 @@ python3 -c "import json;d=json.load(open('case/tugou_archive/archive_state.json'
 > 换机器后第一次跑，务必看日志确认是「增量」而不是「全量」：
 > 土狗日志里出现大量「已归档，跳过」才对；Hurst 卡片应该只有当天数据。
 
+
 ---
 
 ## 6. 迁机自检清单
@@ -252,10 +253,11 @@ done
 | 历史数据 | `datahub-multi-tier/output/` 47M（含 `margin_detail.db` 43M） | **不迁移**，按需重新算 |
 | 期权 `options/` | 只在云盘 + 本机，未入库 | **已入库**（本次 PR） |
 | `modules.json` | 本机手写 | 从 `modules.example.json` 生成 |
-| 云盘兜底 | 命中 | 探测不到，自动走仓库内副本 |
+| 云盘兜底 | 框架层曾按云盘兜底 | 框架层已删兜底：解析不到就报错；case 脚本的旧根字面量走 `_cp()` 重定向 |
 
-**注意**：代码里所有云盘路径都保留成了「最后兜底」，所以在原机上行为**完全不变**，
-不会因为这次改造把正在跑的东西改坏。
+**注意**：框架层（`datahub_path.py` / `hub_root.py` / 启动脚本）的云盘兜底已删除，
+解析不到 DataHub 就显式报错；case 脚本里的旧根字面量统一走 `_cp()`，可用
+`CASE_DRIVE_ROOT` / `CASE_FUSE_ROOT` 重定向，不设时原样返回。
 
 ---
 

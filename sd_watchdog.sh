@@ -55,8 +55,8 @@ ALERT_AT="${SD_ALERT_AT:-3}"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
 
 # 环境自举：cron 的 env 极简，PYTHONPATH 一般为空。DataHub 根统一交给
-# datahub_path.py 解析（DATA_HUB_PATH → DATAHUB_DIR → EDB_REPO → 同级 checkout
-# → /opt 兜底），与 scheduler.py 用的是同一份逻辑；补进 PYTHONPATH 后，
+# datahub_path.py 解析（DATA_HUB_PATH → DATAHUB_DIR → EDB_REPO → 同级 checkout，
+# 都没有就留空、不猜云盘旧路径），与 scheduler.py 用的是同一份逻辑；补进 PYTHONPATH 后，
 # scheduler 内的 task_health 上报和任务子进程看到的是同一个根，不会出现
 # 「看门狗认为 datahub 在、子进程 import 失败」。已有的 PYTHONPATH 只增不覆盖。
 DH="$("$PY" "$HERE/datahub_path.py" 2>/dev/null || true)"
@@ -75,7 +75,7 @@ fi
 # 只追加不覆盖，多目录用冒号分隔。
 PRIV_CASE="${SD_CASE_EXTRA_DIRS:-$HERE/../precious-task/case}"
 if [ -d "$PRIV_CASE" ]; then
-  # 归一成物理路径再比：$HERE/../precious-task/case 与 /Coze/.../precious-task/case
+  # 归一成物理路径再比：$HERE/../precious-task/case 与软链/相对路径指向的同一目录
   # 是同一个目录，不归一就会重复挂载、同一个任务扫两遍。
   PRIV_CASE="$(cd "$PRIV_CASE" && pwd -P)"
   _dup=0

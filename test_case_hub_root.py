@@ -14,7 +14,7 @@ PR #102 把 21 条日更/周更任务迁进 ``case/`` 后，这些脚本仍各�
 本用例守四件事：
   1. 每个 case 脚本的候选第一项必须是本地 checkout，不是云盘；
   2. 不许按「上层目录里有 datahub-multi-tier」猜（残留副本会连错库）；
-  3. 云盘路径必须留作最后兜底（原机部署还在用）；
+  3. 云盘路径已废弃：框架层不再兜底（case 脚本的旧根走 `_cp()` 重定向）；
   4. 每个脚本里的 prologue 能真跑起来，且不再有裸的云盘字面量。
 """
 import os
@@ -91,9 +91,11 @@ def test_env_override_first(tmp_path, monkeypatch):
     assert hub_root.hub_root(str(tmp_path / "nowhere")) == str(hub)
 
 
-def test_cloud_kept_as_last_resort(tmp_path):
-    """云盘路径必须留作兜底 —— 直接删会让原机部署彻底崩。"""
-    assert hub_root.hub_candidates(str(tmp_path / "nowhere"))[-1] == CLOUD
+def test_no_cloud_fallback_left(tmp_path):
+    """云盘旧路径已废弃：hub_root 的候选里不许再出现（框架层不再兜底）。"""
+    cands = hub_root.hub_candidates(str(tmp_path / "nowhere"))
+    bad = [c for c in cands if CLOUD in c or "/Coze/Drive" in c]
+    assert not bad, "云盘路径不该再作为候选：%r" % (bad,)
 
 
 @pytest.mark.parametrize("rel", TARGETS)

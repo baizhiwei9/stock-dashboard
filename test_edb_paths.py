@@ -130,9 +130,9 @@ def test_no_db_anywhere_returns_none(tmp_path, monkeypatch, clean_env):
     """两边都没有 → None。
 
     2026-11-26（#92 复核）：原来只把 EDB_REPO / DATA_HUB_PATH 指到空 tmp，
-    但 ``legacy_candidates()`` 末尾还会追加 ``datahub_path.DEFAULT_ROOT``
-    （``/opt/coze/.fuse_drive/dataHub_三级体系``）。在真跑生产的机器上那里
-    有旧库，这条用例会**误失败**。所以把仓库兜底也堵掉，只测「两边都没有」。
+    但 ``legacy_candidates()`` 末尾还会追加云盘兜底（``datahub_path.DEFAULT_ROOT``）。
+    那条兜底现在已删除；这里仍把 ``_datahub_root`` / ``legacy_candidates`` 一起打桩，
+    只测「两边都没有」。
     """
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("EDB_REPO", str(tmp_path / "nowhere"))

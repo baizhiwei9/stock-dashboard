@@ -28,7 +28,7 @@
 #   SD_PYTHON=python3           解释器
 #   SD_PRECIOUS_DIR=...         私有仓根目录（默认同级 ../precious-task）
 #   OPTIONS_UTILITY_ROOT=...    期权算法仓根（默认同级 ../options_utility 或 ../options-utility）
-#   DATA_HUB_PATH=...           DataHub 根（默认同级 ../datahub-multi-tier，再退 /opt 兜底）
+#   DATA_HUB_PATH=...           DataHub 根（默认同级 ../datahub-multi-tier；都没有时 up 直接报错）
 #   SD_MODULES_FROM=...         首次启动时从旧机 modules.json 导入本机模块清单（build/macro 等）
 #   SD_SKIP_LIVE=1              凭据校验跳过联网（离线装机）
 #   SD_ALLOW_NO_PRECIOUS=1      私有仓缺失也允许启动（默认拒绝，避免私有任务静默消失）
@@ -82,7 +82,7 @@ resolve_env() {
   "$PY" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' \
     || die "Python 版本过低，需要 3.11+：$("$PY" -V 2>&1)"
 
-  # DataHub：与 build.py / scheduler.py / 看门狗同一套解析（env → 同级 → /opt 兜底）
+  # DataHub：与 build.py / scheduler.py / 看门狗同一套解析（env → 同级；不猜云盘旧副本）
   DH="$("$PY" "$HERE/datahub_path.py" 2>/dev/null || true)"
   if [ -n "$DH" ] && [ -d "$DH/data_hub" ]; then
     export DATA_HUB_PATH="${DATA_HUB_PATH:-$DH}"
@@ -107,8 +107,7 @@ resolve_env() {
   # 期权算法仓：只引用，不复制
   OPT=""
   for c in "${OPTIONS_UTILITY_ROOT:-}" "$HERE/../options_utility" \
-           "$HERE/../options-utility" \
-           "/opt/coze/.fuse_drive/dataHub_三级体系/options"; do
+           "$HERE/../options-utility"; do
     [ -n "$c" ] || continue
     if [ -f "$c/alert/engine.py" ]; then
       OPT="$(cd "$c" && pwd -P)"
@@ -319,6 +318,25 @@ watchdog_pid() {
   printf '%s' "$pid"
 }
 
+#: 本仓库常驻看门狗的 pid 列表：pid 文件优先；文件被清掉时按「cwd 在本仓库 +
+#: 命令行含 sd_watchdog.sh --loop」兜底，否则 down 会漏杀 —— 漏杀后看门狗会把
+#: 刚停掉的调度器又拉回来，表现为「down 了但任务还在跑」。
+watchdog_pids() {
+  local pid found=0
+  if pid="$(watchdog_pid)"; then
+    printf '%s\n' "$pid"
+    return 0
+  fi
+  command -v pgrep >/dev/null 2>&1 || return 1
+  for pid in $(pgrep -f -- 'sd_watchdog\.sh --loop' 2>/dev/null); do
+    [ "$(readlink -f "/proc/$pid/cwd" 2>/dev/null)" = "$HERE" ] || continue
+    tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q 'sd_watchdog.sh' || continue
+    printf '%s\n' "$pid"
+    found=1
+  done
+  [ "$found" = 1 ]
+}
+
 start_watchdog() {
   local pid
   if pid="$(watchdog_pid)"; then
@@ -344,23 +362,26 @@ start_watchdog() {
 }
 
 stop_watchdog() {
-  local pid i
-  if ! pid="$(watchdog_pid)"; then
+  local pid i pids stopped=""
+  if ! pids="$(watchdog_pids)"; then
     rm -f "$WD_PID"
     say "看门狗未运行"
     return 0
   fi
-  kill -TERM "$pid" 2>/dev/null || true
-  for i in $(seq 1 20); do
-    kill -0 "$pid" 2>/dev/null || break
-    sleep 0.5
+  for pid in $pids; do
+    kill -TERM "$pid" 2>/dev/null || true
+    for i in $(seq 1 20); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.5
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      warn "看门狗 pid=$pid 未响应 TERM，强制结束"
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
+    stopped="${stopped:+$stopped,}$pid"
   done
-  if kill -0 "$pid" 2>/dev/null; then
-    warn "看门狗 pid=$pid 未响应 TERM，强制结束"
-    kill -KILL "$pid" 2>/dev/null || true
-  fi
   rm -f "$WD_PID"
-  say "看门狗已停止（pid=$pid）"
+  say "看门狗已停止（pid=$stopped）"
 }
 
 cmd_up() {

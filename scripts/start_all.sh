@@ -46,8 +46,7 @@ find_dh() {
       "${DATA_HUB_PATH:-}" \
       "$SD_ROOT/../datahub-multi-tier" \
       "$SD_ROOT/../../datahub-multi-tier" \
-      "/opt/data/datahub-multi-tier" \
-      "/opt/coze/.fuse_drive/dataHub_三级体系"; do
+      "/opt/data/datahub-multi-tier"; do
     if [ -n "$cand" ] && [ -d "$cand" ] && [ -f "$cand/data_hub/task_manager.py" ]; then
       (cd "$cand" && pwd); return 0
     fi
