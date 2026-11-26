@@ -208,6 +208,35 @@ def _latest_for(ws: List[Dict]) -> Dict:
     return latest
 
 
+def _series_for(ws: List[Dict]) -> Dict:
+    """按 (metric_key, sec) 批量取历史序列，供页面画趋势图。
+
+    2026-11-26 修复（大佬：「私有页趋势图怎么都画不出来」）：
+    原来这里直接给 ``render_registered_model(w, latest, {})`` 传空字典，
+    图表 div 生成了但 series 永远为空 → 一条线都画不出来。公开页（build.py）
+    一直传的是真序列。现在照 ``_latest_for`` 的口径把序列也取齐。
+    """
+    need: Dict[str, List[str]] = {}
+    for w in ws:
+        for it in (w.get("metrics") or []):
+            if isinstance(it, str):
+                it = {"key": it}
+            k = it.get("key")
+            s = it.get("sec") or w.get("sec") or ""
+            if k and s:
+                need.setdefault(s, []).append(k)
+    series: Dict = {}
+    for s, ks in need.items():
+        for k in ks:
+            if (k, s) in series:
+                continue
+            try:
+                series[(k, s)] = B.read_series(k, s)
+            except Exception:                                 # noqa: BLE001
+                series[(k, s)] = []
+    return series
+
+
 def _task_root(w: Dict) -> str:
     """任务**真实产出目录**：task.json 的 `root`（`{WS}` 展开）优先，退回 case 目录。
 
@@ -524,6 +553,7 @@ def build_private(out_path: str, with_images: bool = True,
         print("[build_private] 没有私有任务：确认 CASE_EXTRA_DIRS 指到私有仓的 case/ 这一层",
               file=sys.stderr)
     latest = _latest_for(ws)
+    series = _series_for(ws)
 
     page_dir = os.path.dirname(os.path.abspath(out_path))
     assets_root = assets or os.path.join(page_dir, "assets", "private")
@@ -537,6 +567,7 @@ def build_private(out_path: str, with_images: bool = True,
     meta.update(EXTRA_SECTIONS)          # 未分板块等只在本页出现的板块
 
     nav, blocks, n_img, n_rep, n_card = [], [], 0, 0, 0
+    n_chart, scripts_js = 0, []
     for sec in SECTION_ORDER:
         items = by_sec.get(sec) or []
         if not items:
@@ -551,7 +582,14 @@ def build_private(out_path: str, with_images: bool = True,
                 if shots:
                     n_img += shots.count('class="shot"')
                     cards.append(shots)
-            cards.append(B.render_registered_model(w, latest, {})[0])
+            _blk, _charts = B.render_registered_model(w, latest, series)
+            cards.append(_blk)
+            for _cid, _key, _nm, _color, _unit, _dec in (_charts or []):
+                _js = B.chart_payload(_cid, series.get(_key) or [], _nm,
+                                      _color, unit=_unit, dec=_dec)
+                if _js:
+                    n_chart += 1
+                    scripts_js.append(_js)
             chtml = _card_html(w) if with_card else ""
             if chtml:
                 n_card += 1
@@ -589,6 +627,7 @@ def build_private(out_path: str, with_images: bool = True,
         '    <div><b>' + str(len(ws)) + '</b><span>私有任务</span></div>\n'
         '    <div><b>' + str(n_with) + '</b><span>带指标</span></div>\n'
         '    <div><b>' + str(n_img) + '</b><span>产出图</span></div>\n'
+        '    <div><b>' + str(n_chart) + '</b><span>趋势图</span></div>\n'
         '    <div><b>' + str(n_card) + '</b><span>卡片</span></div>\n'
         '    <div><b>' + str(n_rep) + '</b><span>报告摘录</span></div>\n'
         '    <div><b><a href="index.html">公开看板 →</a></b><span>另一套页面</span></div>\n'
@@ -607,6 +646,10 @@ def build_private(out_path: str, with_images: bool = True,
         '构建时间 ' + now + '。</p>\n'
         '</footer>\n\n</div>\n'
         + (_lightbox_html() + "\n<script>" + PRIVATE_JS + "</script>\n" if with_images else "") +
+        # 趋势图：公开页的 drawChart 在 B.JS_CORE 里，私有页原来没引入 →
+        # 图表 div 有了也没人画。这里补上 JS_CORE 和各图表的 drawChart 调用。
+        (("\n<script>" + B.JS_CORE + "</script>\n" +
+          "\n".join(scripts_js)) if scripts_js else "") +
         '</body>\n</html>\n'
     )
 
