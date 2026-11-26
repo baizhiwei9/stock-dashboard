@@ -6,30 +6,30 @@
   "visibility": "public",
   "metrics": [
     {
-      "key": "opt.mid.iv.沪深300",
+      "key": "opt.mid.iv.300ETF",
       "sec": "OPT.IV",
-      "name": "沪深300 ATM IV",
+      "name": "300ETF ATM IV",
       "unit": "%",
       "dec": 2
     },
     {
-      "key": "opt.mid.iv.中证500",
+      "key": "opt.mid.iv.500ETF",
       "sec": "OPT.IV",
-      "name": "中证500 ATM IV",
+      "name": "500ETF ATM IV",
       "unit": "%",
       "dec": 2
     },
     {
-      "key": "opt.mid.iv.创业板",
+      "key": "opt.mid.iv.创业板ETF",
       "sec": "OPT.IV",
-      "name": "创业板 ATM IV",
+      "name": "创业板ETF ATM IV",
       "unit": "%",
       "dec": 2
     },
     {
-      "key": "opt.mid.iv.科创50",
+      "key": "opt.mid.iv.科创50ETF",
       "sec": "OPT.IV",
-      "name": "科创50 ATM IV",
+      "name": "科创50ETF ATM IV",
       "unit": "%",
       "dec": 2
     },
@@ -41,30 +41,30 @@
       "dec": 2
     },
     {
-      "key": "opt.mid.ivskew.沪深300",
+      "key": "opt.mid.ivskew.300ETF",
       "sec": "OPT.IV",
-      "name": "沪深300 IV偏度",
+      "name": "300ETF IV偏度",
       "unit": "pp",
       "dec": 2
     },
     {
-      "key": "opt.mid.ivskew.中证500",
+      "key": "opt.mid.ivskew.500ETF",
       "sec": "OPT.IV",
-      "name": "中证500 IV偏度",
+      "name": "500ETF IV偏度",
       "unit": "pp",
       "dec": 2
     },
     {
-      "key": "opt.mid.ivskew.创业板",
+      "key": "opt.mid.ivskew.创业板ETF",
       "sec": "OPT.IV",
-      "name": "创业板 IV偏度",
+      "name": "创业板ETF IV偏度",
       "unit": "pp",
       "dec": 2
     },
     {
-      "key": "opt.mid.ivskew.科创50",
+      "key": "opt.mid.ivskew.科创50ETF",
       "sec": "OPT.IV",
-      "name": "科创50 IV偏度",
+      "name": "科创50ETF IV偏度",
       "unit": "pp",
       "dec": 2
     },

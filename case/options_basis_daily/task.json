@@ -25,34 +25,6 @@
       "name": "中证1000基差率",
       "unit": "%",
       "dec": 3
-    },
-    {
-      "key": "opt.basis.pct.T",
-      "sec": "OPT.BASIS",
-      "name": "10年国债基差率",
-      "unit": "%",
-      "dec": 3
-    },
-    {
-      "key": "opt.basis.pct.TF",
-      "sec": "OPT.BASIS",
-      "name": "5年国债基差率",
-      "unit": "%",
-      "dec": 3
-    },
-    {
-      "key": "opt.basis.pct.TS",
-      "sec": "OPT.BASIS",
-      "name": "2年国债基差率",
-      "unit": "%",
-      "dec": 3
-    },
-    {
-      "key": "opt.basis.pct.TL",
-      "sec": "OPT.BASIS",
-      "name": "30年国债基差率",
-      "unit": "%",
-      "dec": 3
     }
   ],
   "sched": {
