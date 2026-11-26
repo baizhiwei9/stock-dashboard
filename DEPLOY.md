@@ -377,6 +377,8 @@ export CASE_EXTRA_DIRS=/path/to/precious-task/case
 | SQLite 单写锁 | 并发跑两个任务时，后启动的会卡在 EDB 库锁上直到超时（rc=124） | **严格串行**。等前一个任务 `status.json` 落盘后再起下一个 |
 | 无 swap | 7GB 机器上并发 → OOM → 进程被静默 kill，日志只有一行空错误 | 串行 + 单任务 `timeout` 给足 |
 | 云盘 `.git` 只读 | 在云盘目录里跑 `git` / `gh` 报 `not a git repository` | 在 `/tmp` 单独 clone 一份做 git 操作 |
+| 云盘（FUSE）目录操作极慢 | `listdir case/` 0.6~1.3s，`_case_modules()` 6~14s，`tick()` 实测间隔 29s（名义 15s），`/api/state` 9~12s | **不要把运行目录放云盘**：代码/配置/`state.json`/数据库放本机盘，云盘只做备份，见 §7.1 |
+| 云盘 mtime 不可靠 | `registry.json` / `state.json` 的 mtime 时而是 `1970-01-01`、时而真实时间；同一文件隔 2 秒 `stat` 两次结果不同 | 任何依赖 mtime 的缓存 / 增量判断在云盘上都会失效；本机盘没这个问题 |
 
 ---
 
