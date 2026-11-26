@@ -1,0 +1,3215 @@
+{
+  "date": "20260519",
+  "top200": [
+    {
+      "ts_code": "301666.SZ",
+      "name": "大普微-UW",
+      "industry": "IT设备",
+      "pct_change": 156.6,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "688143.SH",
+      "name": "长盈通",
+      "industry": "通信设备",
+      "pct_change": 108.08,
+      "category": "通信设备"
+    },
+    {
+      "ts_code": "001259.SZ",
+      "name": "利仁科技",
+      "industry": "家用电器",
+      "pct_change": 93.8,
+      "category": "小家电"
+    },
+    {
+      "ts_code": "300302.SZ",
+      "name": "同有科技",
+      "industry": "IT设备",
+      "pct_change": 92.89,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "300959.SZ",
+      "name": "线上线下",
+      "industry": "电信运营",
+      "pct_change": 91.8,
+      "category": "通信/数字营销"
+    },
+    {
+      "ts_code": "601991.SH",
+      "name": "大唐发电",
+      "industry": "火力发电",
+      "pct_change": 90.62,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "688820.SH",
+      "name": "盛合晶微",
+      "industry": "半导体",
+      "pct_change": 82.62,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "920125.BJ",
+      "name": "鸿仕达",
+      "industry": "专用机械",
+      "pct_change": 76.32,
+      "category": "机械"
+    },
+    {
+      "ts_code": "688478.SH",
+      "name": "晶升股份",
+      "industry": "半导体",
+      "pct_change": 71.72,
+      "category": "半导体设备/封测"
+    },
+    {
+      "ts_code": "688545.SH",
+      "name": "兴福电子",
+      "industry": "元器件",
+      "pct_change": 71.07,
+      "category": "半导体材料"
+    },
+    {
+      "ts_code": "688146.SH",
+      "name": "中船特气",
+      "industry": "半导体",
+      "pct_change": 69.14,
+      "category": "化工"
+    },
+    {
+      "ts_code": "002208.SZ",
+      "name": "合肥城建",
+      "industry": "区域地产",
+      "pct_change": 66.23,
+      "category": "房地产"
+    },
+    {
+      "ts_code": "301696.SZ",
+      "name": "三瑞智能",
+      "industry": "电气设备",
+      "pct_change": 65.87,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "920186.BJ",
+      "name": "中科仪",
+      "industry": "机械基件",
+      "pct_change": 64.92,
+      "category": "机械"
+    },
+    {
+      "ts_code": "301319.SZ",
+      "name": "唯特偶",
+      "industry": "元器件",
+      "pct_change": 64.82,
+      "category": "半导体设备/封测"
+    },
+    {
+      "ts_code": "301502.SZ",
+      "name": "华阳智能",
+      "industry": "电气设备",
+      "pct_change": 63.37,
+      "category": "工业母机/机器人"
+    },
+    {
+      "ts_code": "688069.SH",
+      "name": "德林海",
+      "industry": "环境保护",
+      "pct_change": 62.82,
+      "category": "环保/城市服务"
+    },
+    {
+      "ts_code": "002929.SZ",
+      "name": "润建股份",
+      "industry": "通信设备",
+      "pct_change": 60.84,
+      "category": "通信设备"
+    },
+    {
+      "ts_code": "600769.SH",
+      "name": "祥龙电业",
+      "industry": "水务",
+      "pct_change": 60.38,
+      "category": "环保"
+    },
+    {
+      "ts_code": "002552.SZ",
+      "name": "宝鼎科技",
+      "industry": "元器件",
+      "pct_change": 60.13,
+      "category": "军工/船舶"
+    },
+    {
+      "ts_code": "920699.BJ",
+      "name": "海达尔",
+      "industry": "家用电器",
+      "pct_change": 59.45,
+      "category": "小家电"
+    },
+    {
+      "ts_code": "600396.SH",
+      "name": "华电辽能",
+      "industry": "火力发电",
+      "pct_change": 58.17,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "600578.SH",
+      "name": "京能电力",
+      "industry": "火力发电",
+      "pct_change": 57.99,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "920181.BJ",
+      "name": "赛英电子",
+      "industry": "元器件",
+      "pct_change": 57.87,
+      "category": "军工电子"
+    },
+    {
+      "ts_code": "603938.SH",
+      "name": "三孚股份",
+      "industry": "化工原料",
+      "pct_change": 57.44,
+      "category": "化工"
+    },
+    {
+      "ts_code": "920156.BJ",
+      "name": "海昌智能",
+      "industry": "专用机械",
+      "pct_change": 56.32,
+      "category": "机械"
+    },
+    {
+      "ts_code": "300721.SZ",
+      "name": "怡达股份",
+      "industry": "化工原料",
+      "pct_change": 54.95,
+      "category": "化工"
+    },
+    {
+      "ts_code": "002918.SZ",
+      "name": "蒙娜丽莎",
+      "industry": "陶瓷",
+      "pct_change": 54.7,
+      "category": "建材/陶瓷"
+    },
+    {
+      "ts_code": "300571.SZ",
+      "name": "平治信息",
+      "industry": "互联网",
+      "pct_change": 54.68,
+      "category": "算力/IDC"
+    },
+    {
+      "ts_code": "300209.SZ",
+      "name": "行云科技",
+      "industry": "互联网",
+      "pct_change": 54.26,
+      "category": "AI软件"
+    },
+    {
+      "ts_code": "688603.SH",
+      "name": "天承科技",
+      "industry": "化工原料",
+      "pct_change": 54.26,
+      "category": "化工"
+    },
+    {
+      "ts_code": "603278.SH",
+      "name": "大业股份",
+      "industry": "钢加工",
+      "pct_change": 52.41,
+      "category": "汽车零部件"
+    },
+    {
+      "ts_code": "688766.SH",
+      "name": "普冉股份",
+      "industry": "半导体",
+      "pct_change": 52.35,
+      "category": "AI算力芯片"
+    },
+    {
+      "ts_code": "603045.SH",
+      "name": "福达合金",
+      "industry": "小金属",
+      "pct_change": 51.99,
+      "category": "半导体材料"
+    },
+    {
+      "ts_code": "688535.SH",
+      "name": "华海诚科",
+      "industry": "半导体",
+      "pct_change": 51.68,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688549.SH",
+      "name": "中巨芯-U",
+      "industry": "元器件",
+      "pct_change": 51.51,
+      "category": "半导体材料"
+    },
+    {
+      "ts_code": "300903.SZ",
+      "name": "科翔股份",
+      "industry": "元器件",
+      "pct_change": 51.5,
+      "category": "PCB/铜箔"
+    },
+    {
+      "ts_code": "300433.SZ",
+      "name": "蓝思科技",
+      "industry": "元器件",
+      "pct_change": 50.64,
+      "category": "消费电子"
+    },
+    {
+      "ts_code": "301538.SZ",
+      "name": "骏鼎达",
+      "industry": "塑料",
+      "pct_change": 50.62,
+      "category": "汽车零部件"
+    },
+    {
+      "ts_code": "688596.SH",
+      "name": "正帆科技",
+      "industry": "专用机械",
+      "pct_change": 50.34,
+      "category": "机械"
+    },
+    {
+      "ts_code": "601126.SH",
+      "name": "四方股份",
+      "industry": "电气设备",
+      "pct_change": 50.15,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "002491.SZ",
+      "name": "通鼎互联",
+      "industry": "通信设备",
+      "pct_change": 49.94,
+      "category": "通信设备"
+    },
+    {
+      "ts_code": "920438.BJ",
+      "name": "戈碧迦",
+      "industry": "元器件",
+      "pct_change": 48.79,
+      "category": "光学元件/材料"
+    },
+    {
+      "ts_code": "300508.SZ",
+      "name": "维宏股份",
+      "industry": "软件服务",
+      "pct_change": 48.69,
+      "category": "软件/信创"
+    },
+    {
+      "ts_code": "603269.SH",
+      "name": "海鸥股份",
+      "industry": "机械基件",
+      "pct_change": 48.39,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "688234.SH",
+      "name": "天岳先进",
+      "industry": "半导体",
+      "pct_change": 48.36,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "002979.SZ",
+      "name": "雷赛智能",
+      "industry": "专用机械",
+      "pct_change": 48.34,
+      "category": "机械"
+    },
+    {
+      "ts_code": "688813.SH",
+      "name": "泰金新能",
+      "industry": "专用机械",
+      "pct_change": 48.14,
+      "category": "机械"
+    },
+    {
+      "ts_code": "301308.SZ",
+      "name": "江波龙",
+      "industry": "半导体",
+      "pct_change": 47.64,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "002885.SZ",
+      "name": "京泉华",
+      "industry": "元器件",
+      "pct_change": 47.63,
+      "category": "变压器/磁性元件"
+    },
+    {
+      "ts_code": "301188.SZ",
+      "name": "力诺药包",
+      "industry": "玻璃",
+      "pct_change": 46.89,
+      "category": "医药医疗"
+    },
+    {
+      "ts_code": "603779.SH",
+      "name": "威龙股份",
+      "industry": "红黄酒",
+      "pct_change": 46.44,
+      "category": "食品饮料"
+    },
+    {
+      "ts_code": "603115.SH",
+      "name": "海星股份",
+      "industry": "铝",
+      "pct_change": 46.37,
+      "category": "铝/电子铝箔"
+    },
+    {
+      "ts_code": "603459.SH",
+      "name": "红板科技",
+      "industry": "元器件",
+      "pct_change": 45.88,
+      "category": "PCB/铜箔"
+    },
+    {
+      "ts_code": "301000.SZ",
+      "name": "肇民科技",
+      "industry": "汽车配件",
+      "pct_change": 45.87,
+      "category": "汽车/智驾"
+    },
+    {
+      "ts_code": "301235.SZ",
+      "name": "华康洁净",
+      "industry": "医疗保健",
+      "pct_change": 45.65,
+      "category": "半导体设备/封测"
+    },
+    {
+      "ts_code": "002281.SZ",
+      "name": "光迅科技",
+      "industry": "通信设备",
+      "pct_change": 45.48,
+      "category": "光模块/CPO"
+    },
+    {
+      "ts_code": "688307.SH",
+      "name": "中润光学",
+      "industry": "元器件",
+      "pct_change": 45.36,
+      "category": "光芯片/光源"
+    },
+    {
+      "ts_code": "688371.SH",
+      "name": "菲沃泰",
+      "industry": "元器件",
+      "pct_change": 45.23,
+      "category": "半导体材料"
+    },
+    {
+      "ts_code": "300553.SZ",
+      "name": "集智股份",
+      "industry": "电器仪表",
+      "pct_change": 44.49,
+      "category": "工业母机/机器人"
+    },
+    {
+      "ts_code": "688003.SH",
+      "name": "天准科技",
+      "industry": "专用机械",
+      "pct_change": 44.15,
+      "category": "机械"
+    },
+    {
+      "ts_code": "688017.SH",
+      "name": "绿的谐波",
+      "industry": "机械基件",
+      "pct_change": 44.07,
+      "category": "机械"
+    },
+    {
+      "ts_code": "300632.SZ",
+      "name": "光莆股份",
+      "industry": "半导体",
+      "pct_change": 43.85,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "600130.SH",
+      "name": "波导股份",
+      "industry": "元器件",
+      "pct_change": 43.72,
+      "category": "消费电子"
+    },
+    {
+      "ts_code": "688551.SH",
+      "name": "科威尔",
+      "industry": "专用机械",
+      "pct_change": 43.61,
+      "category": "半导体设备/封测"
+    },
+    {
+      "ts_code": "300745.SZ",
+      "name": "欣锐科技",
+      "industry": "汽车配件",
+      "pct_change": 43.49,
+      "category": "汽车/智驾"
+    },
+    {
+      "ts_code": "300478.SZ",
+      "name": "杭州高新",
+      "industry": "塑料",
+      "pct_change": 43.46,
+      "category": "塑料/新材料"
+    },
+    {
+      "ts_code": "002031.SZ",
+      "name": "巨轮智能",
+      "industry": "汽车配件",
+      "pct_change": 43.26,
+      "category": "工业母机/机器人"
+    },
+    {
+      "ts_code": "301369.SZ",
+      "name": "联动科技",
+      "industry": "半导体",
+      "pct_change": 43.25,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "300819.SZ",
+      "name": "聚杰微纤",
+      "industry": "纺织",
+      "pct_change": 43.13,
+      "category": "纺织服装"
+    },
+    {
+      "ts_code": "688008.SH",
+      "name": "澜起科技",
+      "industry": "半导体",
+      "pct_change": 43.1,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688783.SH",
+      "name": "西安奕材-U",
+      "industry": "半导体",
+      "pct_change": 41.43,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "001211.SZ",
+      "name": "双枪科技",
+      "industry": "家居用品",
+      "pct_change": 41.34,
+      "category": "家居用品"
+    },
+    {
+      "ts_code": "300259.SZ",
+      "name": "新天科技",
+      "industry": "电器仪表",
+      "pct_change": 41.26,
+      "category": "传感器/仪表"
+    },
+    {
+      "ts_code": "688096.SH",
+      "name": "京源环保",
+      "industry": "环境保护",
+      "pct_change": 41.05,
+      "category": "环保"
+    },
+    {
+      "ts_code": "603738.SH",
+      "name": "泰晶科技",
+      "industry": "元器件",
+      "pct_change": 40.92,
+      "category": "半导体/晶振"
+    },
+    {
+      "ts_code": "688507.SH",
+      "name": "索辰科技",
+      "industry": "软件服务",
+      "pct_change": 40.77,
+      "category": "软件/信创"
+    },
+    {
+      "ts_code": "688663.SH",
+      "name": "新风光",
+      "industry": "电气设备",
+      "pct_change": 40.45,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "000029.SZ",
+      "name": "深深房Ａ",
+      "industry": "区域地产",
+      "pct_change": 40.26,
+      "category": "房地产"
+    },
+    {
+      "ts_code": "001309.SZ",
+      "name": "德明利",
+      "industry": "半导体",
+      "pct_change": 40.06,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "002484.SZ",
+      "name": "江海股份",
+      "industry": "元器件",
+      "pct_change": 39.11,
+      "category": "电力设备"
+    },
+    {
+      "ts_code": "300042.SZ",
+      "name": "朗科科技",
+      "industry": "IT设备",
+      "pct_change": 39.09,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "688655.SH",
+      "name": "迅捷兴",
+      "industry": "元器件",
+      "pct_change": 39.03,
+      "category": "PCB/铜箔"
+    },
+    {
+      "ts_code": "301317.SZ",
+      "name": "鑫磊股份",
+      "industry": "机械基件",
+      "pct_change": 38.96,
+      "category": "机械"
+    },
+    {
+      "ts_code": "301183.SZ",
+      "name": "东田微",
+      "industry": "元器件",
+      "pct_change": 38.85,
+      "category": "光器件/光纤"
+    },
+    {
+      "ts_code": "003031.SZ",
+      "name": "中瓷电子",
+      "industry": "元器件",
+      "pct_change": 38.71,
+      "category": "半导体封装"
+    },
+    {
+      "ts_code": "000811.SZ",
+      "name": "冰轮环境",
+      "industry": "工程机械",
+      "pct_change": 38.68,
+      "category": "机械"
+    },
+    {
+      "ts_code": "300283.SZ",
+      "name": "温州宏丰",
+      "industry": "电气设备",
+      "pct_change": 38.63,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "688300.SH",
+      "name": "联瑞新材",
+      "industry": "矿物制品",
+      "pct_change": 38.61,
+      "category": "半导体材料"
+    },
+    {
+      "ts_code": "688167.SH",
+      "name": "炬光科技",
+      "industry": "元器件",
+      "pct_change": 38.52,
+      "category": "光芯片/光源"
+    },
+    {
+      "ts_code": "688120.SH",
+      "name": "华海清科",
+      "industry": "半导体",
+      "pct_change": 38.28,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "603007.SH",
+      "name": "顺景科技",
+      "industry": "建筑工程",
+      "pct_change": 38.23,
+      "category": "建筑/房地产"
+    },
+    {
+      "ts_code": "001210.SZ",
+      "name": "金房能源",
+      "industry": "供气供热",
+      "pct_change": 38.17,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "688785.SH",
+      "name": "恒运昌",
+      "industry": "半导体",
+      "pct_change": 38.13,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688323.SH",
+      "name": "瑞华泰",
+      "industry": "塑料",
+      "pct_change": 38.1,
+      "category": "新材料/PI薄膜"
+    },
+    {
+      "ts_code": "300672.SZ",
+      "name": "国科微",
+      "industry": "半导体",
+      "pct_change": 37.96,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688800.SH",
+      "name": "瑞可达",
+      "industry": "元器件",
+      "pct_change": 37.88,
+      "category": "连接器/线缆"
+    },
+    {
+      "ts_code": "605198.SH",
+      "name": "安德利",
+      "industry": "软饮料",
+      "pct_change": 37.63,
+      "category": "消费电子"
+    },
+    {
+      "ts_code": "688260.SH",
+      "name": "昀冢科技",
+      "industry": "元器件",
+      "pct_change": 37.6,
+      "category": "半导体材料"
+    },
+    {
+      "ts_code": "002008.SZ",
+      "name": "大族激光",
+      "industry": "专用机械",
+      "pct_change": 37.54,
+      "category": "光芯片/光源"
+    },
+    {
+      "ts_code": "300912.SZ",
+      "name": "凯龙高科",
+      "industry": "汽车配件",
+      "pct_change": 37.53,
+      "category": "汽车/智驾"
+    },
+    {
+      "ts_code": "301171.SZ",
+      "name": "易点天下",
+      "industry": "互联网",
+      "pct_change": 37.26,
+      "category": "连接器/线缆"
+    },
+    {
+      "ts_code": "603156.SH",
+      "name": "养元饮品",
+      "industry": "软饮料",
+      "pct_change": 37.04,
+      "category": "消费"
+    },
+    {
+      "ts_code": "603082.SH",
+      "name": "北自科技",
+      "industry": "运输设备",
+      "pct_change": 37.01,
+      "category": "交运"
+    },
+    {
+      "ts_code": "300323.SZ",
+      "name": "华灿光电",
+      "industry": "半导体",
+      "pct_change": 36.78,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "603618.SH",
+      "name": "杭电股份",
+      "industry": "电气设备",
+      "pct_change": 36.59,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "600667.SH",
+      "name": "太极实业",
+      "industry": "半导体",
+      "pct_change": 36.5,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688811.SH",
+      "name": "有研复材",
+      "industry": "小金属",
+      "pct_change": 36.46,
+      "category": "金属材料"
+    },
+    {
+      "ts_code": "300776.SZ",
+      "name": "帝尔激光",
+      "industry": "专用机械",
+      "pct_change": 36.42,
+      "category": "光芯片/光源"
+    },
+    {
+      "ts_code": "301169.SZ",
+      "name": "零点有数",
+      "industry": "文教休闲",
+      "pct_change": 36.23,
+      "category": "AI应用/数据"
+    },
+    {
+      "ts_code": "603120.SH",
+      "name": "肯特催化",
+      "industry": "化工原料",
+      "pct_change": 36.2,
+      "category": "化工"
+    },
+    {
+      "ts_code": "600903.SH",
+      "name": "贵州燃气",
+      "industry": "供气供热",
+      "pct_change": 36.17,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "002518.SZ",
+      "name": "科士达",
+      "industry": "电气设备",
+      "pct_change": 36.09,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "601133.SH",
+      "name": "柏诚股份",
+      "industry": "建筑工程",
+      "pct_change": 36.08,
+      "category": "半导体设备/封测"
+    },
+    {
+      "ts_code": "603895.SH",
+      "name": "天永智能",
+      "industry": "专用机械",
+      "pct_change": 35.79,
+      "category": "机械"
+    },
+    {
+      "ts_code": "300201.SZ",
+      "name": "海伦哲",
+      "industry": "工程机械",
+      "pct_change": 35.56,
+      "category": "航天军工"
+    },
+    {
+      "ts_code": "600500.SH",
+      "name": "中化国际",
+      "industry": "塑料",
+      "pct_change": 35.43,
+      "category": "化工"
+    },
+    {
+      "ts_code": "688693.SH",
+      "name": "锴威特",
+      "industry": "半导体",
+      "pct_change": 35.42,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "300820.SZ",
+      "name": "英杰电气",
+      "industry": "电气设备",
+      "pct_change": 35.37,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "688598.SH",
+      "name": "金博股份",
+      "industry": "矿物制品",
+      "pct_change": 35.34,
+      "category": "金属材料"
+    },
+    {
+      "ts_code": "300863.SZ",
+      "name": "卡倍亿",
+      "industry": "汽车配件",
+      "pct_change": 35.25,
+      "category": "汽车零部件"
+    },
+    {
+      "ts_code": "002245.SZ",
+      "name": "蔚蓝锂芯",
+      "industry": "电气设备",
+      "pct_change": 35.19,
+      "category": "锂电"
+    },
+    {
+      "ts_code": "000672.SZ",
+      "name": "上峰水泥",
+      "industry": "水泥",
+      "pct_change": 35.0,
+      "category": "建材/水泥"
+    },
+    {
+      "ts_code": "688233.SH",
+      "name": "神工股份",
+      "industry": "半导体",
+      "pct_change": 34.82,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "002409.SZ",
+      "name": "雅克科技",
+      "industry": "半导体",
+      "pct_change": 34.8,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "301387.SZ",
+      "name": "光大同创",
+      "industry": "元器件",
+      "pct_change": 34.77,
+      "category": "消费电子"
+    },
+    {
+      "ts_code": "603936.SH",
+      "name": "博敏电子",
+      "industry": "元器件",
+      "pct_change": 34.71,
+      "category": "PCB/铜箔"
+    },
+    {
+      "ts_code": "000767.SZ",
+      "name": "晋控电力",
+      "industry": "火力发电",
+      "pct_change": 34.66,
+      "category": "电力/能源"
+    },
+    {
+      "ts_code": "600707.SH",
+      "name": "彩虹股份",
+      "industry": "元器件",
+      "pct_change": 34.36,
+      "category": "面板/显示"
+    },
+    {
+      "ts_code": "300736.SZ",
+      "name": "百邦科技",
+      "industry": "通信设备",
+      "pct_change": 34.02,
+      "category": "通信设备"
+    },
+    {
+      "ts_code": "300537.SZ",
+      "name": "广信材料",
+      "industry": "染料涂料",
+      "pct_change": 33.88,
+      "category": "光刻胶/化学品"
+    },
+    {
+      "ts_code": "300131.SZ",
+      "name": "英唐智控",
+      "industry": "元器件",
+      "pct_change": 33.85,
+      "category": "半导体/分销"
+    },
+    {
+      "ts_code": "002787.SZ",
+      "name": "华源控股",
+      "industry": "广告包装",
+      "pct_change": 33.66,
+      "category": "包装"
+    },
+    {
+      "ts_code": "301629.SZ",
+      "name": "矽电股份",
+      "industry": "半导体",
+      "pct_change": 33.45,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "300839.SZ",
+      "name": "博汇股份",
+      "industry": "石油加工",
+      "pct_change": 33.36,
+      "category": "化工/石油加工"
+    },
+    {
+      "ts_code": "920368.BJ",
+      "name": "连城数控",
+      "industry": "专用机械",
+      "pct_change": 33.31,
+      "category": "机械"
+    },
+    {
+      "ts_code": "002348.SZ",
+      "name": "高乐股份",
+      "industry": "文教休闲",
+      "pct_change": 33.06,
+      "category": "消费"
+    },
+    {
+      "ts_code": "300265.SZ",
+      "name": "通光线缆",
+      "industry": "电气设备",
+      "pct_change": 33.06,
+      "category": "连接器/线缆"
+    },
+    {
+      "ts_code": "300536.SZ",
+      "name": "农尚环境",
+      "industry": "建筑工程",
+      "pct_change": 32.97,
+      "category": "建筑"
+    },
+    {
+      "ts_code": "688231.SH",
+      "name": "隆达股份",
+      "industry": "航空",
+      "pct_change": 32.93,
+      "category": "军工"
+    },
+    {
+      "ts_code": "300780.SZ",
+      "name": "德恩精工",
+      "industry": "机械基件",
+      "pct_change": 32.89,
+      "category": "机械"
+    },
+    {
+      "ts_code": "605186.SH",
+      "name": "健麾信息",
+      "industry": "专用机械",
+      "pct_change": 32.73,
+      "category": "医药医疗"
+    },
+    {
+      "ts_code": "600522.SH",
+      "name": "中天科技",
+      "industry": "通信设备",
+      "pct_change": 32.7,
+      "category": "通信设备"
+    },
+    {
+      "ts_code": "920012.BJ",
+      "name": "创达新材",
+      "industry": "元器件",
+      "pct_change": 32.66,
+      "category": "新材料/胶粘剂"
+    },
+    {
+      "ts_code": "688359.SH",
+      "name": "三孚新科",
+      "industry": "化工原料",
+      "pct_change": 32.55,
+      "category": "化工"
+    },
+    {
+      "ts_code": "300943.SZ",
+      "name": "春晖智控",
+      "industry": "机械基件",
+      "pct_change": 32.52,
+      "category": "工业母机/机器人"
+    },
+    {
+      "ts_code": "002980.SZ",
+      "name": "华盛昌",
+      "industry": "电器仪表",
+      "pct_change": 32.47,
+      "category": "消费电子"
+    },
+    {
+      "ts_code": "300052.SZ",
+      "name": "中青宝",
+      "industry": "互联网",
+      "pct_change": 32.31,
+      "category": "传媒/游戏"
+    },
+    {
+      "ts_code": "603031.SH",
+      "name": "安孚科技",
+      "industry": "电气设备",
+      "pct_change": 32.27,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "688697.SH",
+      "name": "纽威数控",
+      "industry": "机床制造",
+      "pct_change": 32.18,
+      "category": "工业母机/机器人"
+    },
+    {
+      "ts_code": "688107.SH",
+      "name": "安路科技",
+      "industry": "半导体",
+      "pct_change": 32.17,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688409.SH",
+      "name": "富创精密",
+      "industry": "半导体",
+      "pct_change": 32.12,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688159.SH",
+      "name": "有方科技",
+      "industry": "通信设备",
+      "pct_change": 32.03,
+      "category": "通信设备"
+    },
+    {
+      "ts_code": "300489.SZ",
+      "name": "光智科技",
+      "industry": "专用机械",
+      "pct_change": 31.96,
+      "category": "机械"
+    },
+    {
+      "ts_code": "601609.SH",
+      "name": "金田股份",
+      "industry": "铜",
+      "pct_change": 31.95,
+      "category": "铜/有色"
+    },
+    {
+      "ts_code": "603063.SH",
+      "name": "禾望电气",
+      "industry": "电气设备",
+      "pct_change": 31.95,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "300816.SZ",
+      "name": "艾可蓝",
+      "industry": "汽车配件",
+      "pct_change": 31.86,
+      "category": "汽车/智驾"
+    },
+    {
+      "ts_code": "688313.SH",
+      "name": "仕佳光子",
+      "industry": "通信设备",
+      "pct_change": 31.56,
+      "category": "通信设备"
+    },
+    {
+      "ts_code": "688350.SH",
+      "name": "富淼科技",
+      "industry": "化工原料",
+      "pct_change": 31.49,
+      "category": "化工"
+    },
+    {
+      "ts_code": "688652.SH",
+      "name": "京仪装备",
+      "industry": "半导体",
+      "pct_change": 31.48,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "300782.SZ",
+      "name": "卓胜微",
+      "industry": "半导体",
+      "pct_change": 31.3,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "603316.SH",
+      "name": "诚邦股份",
+      "industry": "建筑工程",
+      "pct_change": 31.3,
+      "category": "建筑"
+    },
+    {
+      "ts_code": "301095.SZ",
+      "name": "广立微",
+      "industry": "半导体",
+      "pct_change": 31.24,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "300449.SZ",
+      "name": "汉邦高科",
+      "industry": "IT设备",
+      "pct_change": 31.17,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "300836.SZ",
+      "name": "佰奥智能",
+      "industry": "专用机械",
+      "pct_change": 31.13,
+      "category": "工业母机/机器人"
+    },
+    {
+      "ts_code": "600530.SH",
+      "name": "交大昂立",
+      "industry": "医疗保健",
+      "pct_change": 31.12,
+      "category": "医药/保健"
+    },
+    {
+      "ts_code": "301413.SZ",
+      "name": "安培龙",
+      "industry": "电器仪表",
+      "pct_change": 30.99,
+      "category": "传感器/仪表"
+    },
+    {
+      "ts_code": "600172.SH",
+      "name": "黄河旋风",
+      "industry": "矿物制品",
+      "pct_change": 30.96,
+      "category": "超硬材料/培育钻石"
+    },
+    {
+      "ts_code": "920100.BJ",
+      "name": "三协电机",
+      "industry": "电气设备",
+      "pct_change": 30.86,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "002034.SZ",
+      "name": "旺能环境",
+      "industry": "环境保护",
+      "pct_change": 30.82,
+      "category": "稀有金属/锗"
+    },
+    {
+      "ts_code": "301093.SZ",
+      "name": "华兰股份",
+      "industry": "医疗保健",
+      "pct_change": 30.65,
+      "category": "医药医疗"
+    },
+    {
+      "ts_code": "002428.SZ",
+      "name": "云南锗业",
+      "industry": "小金属",
+      "pct_change": 30.61,
+      "category": "环保/固废"
+    },
+    {
+      "ts_code": "688416.SH",
+      "name": "恒烁股份",
+      "industry": "半导体",
+      "pct_change": 30.53,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688312.SH",
+      "name": "燕麦科技",
+      "industry": "专用机械",
+      "pct_change": 30.44,
+      "category": "机械"
+    },
+    {
+      "ts_code": "603078.SH",
+      "name": "江化微",
+      "industry": "半导体",
+      "pct_change": 30.19,
+      "category": "半导体"
+    },
+    {
+      "ts_code": "688808.SH",
+      "name": "联讯仪器",
+      "industry": "电器仪表",
+      "pct_change": 30.16,
+      "category": "半导体设备/封测"
+    },
+    {
+      "ts_code": "002915.SZ",
+      "name": "中欣氟材",
+      "industry": "化工原料",
+      "pct_change": 29.94,
+      "category": "化工"
+    },
+    {
+      "ts_code": "002782.SZ",
+      "name": "可立克",
+      "industry": "元器件",
+      "pct_change": 29.88,
+      "category": "变压器/磁性元件"
+    },
+    {
+      "ts_code": "301196.SZ",
+      "name": "唯科科技",
+      "industry": "专用机械",
+      "pct_change": 29.86,
+      "category": "机械"
+    },
+    {
+      "ts_code": "300154.SZ",
+      "name": "瑞凌股份",
+      "industry": "机械基件",
+      "pct_change": 29.85,
+      "category": "机械"
+    },
+    {
+      "ts_code": "603400.SH",
+      "name": "华之杰",
+      "industry": "机械基件",
+      "pct_change": 29.77,
+      "category": "机械"
+    },
+    {
+      "ts_code": "002183.SZ",
+      "name": "怡亚通",
+      "industry": "仓储物流",
+      "pct_change": 29.7,
+      "category": "交运"
+    },
+    {
+      "ts_code": "603162.SH",
+      "name": "海通发展",
+      "industry": "水运",
+      "pct_change": 29.52,
+      "category": "交运/航运"
+    },
+    {
+      "ts_code": "300400.SZ",
+      "name": "劲拓股份",
+      "industry": "专用机械",
+      "pct_change": 29.46,
+      "category": "半导体设备/封测"
+    },
+    {
+      "ts_code": "002254.SZ",
+      "name": "泰和新材",
+      "industry": "化纤",
+      "pct_change": 29.37,
+      "category": "化工"
+    },
+    {
+      "ts_code": "600183.SH",
+      "name": "生益科技",
+      "industry": "元器件",
+      "pct_change": 29.33,
+      "category": "PCB/铜箔"
+    },
+    {
+      "ts_code": "688727.SH",
+      "name": "恒坤新材",
+      "industry": "半导体",
+      "pct_change": 29.31,
+      "category": "半导体材料"
+    },
+    {
+      "ts_code": "002757.SZ",
+      "name": "南兴股份",
+      "industry": "专用机械",
+      "pct_change": 29.23,
+      "category": "机械"
+    },
+    {
+      "ts_code": "688123.SH",
+      "name": "聚辰股份",
+      "industry": "半导体",
+      "pct_change": 29.22,
+      "category": "AI算力芯片"
+    },
+    {
+      "ts_code": "688319.SH",
+      "name": "欧林生物",
+      "industry": "生物制药",
+      "pct_change": 29.21,
+      "category": "创新药"
+    },
+    {
+      "ts_code": "002888.SZ",
+      "name": "惠威科技",
+      "industry": "元器件",
+      "pct_change": 29.14,
+      "category": "消费电子/音响"
+    },
+    {
+      "ts_code": "300983.SZ",
+      "name": "尤安设计",
+      "industry": "建筑工程",
+      "pct_change": 29.11,
+      "category": "建筑"
+    },
+    {
+      "ts_code": "301313.SZ",
+      "name": "凡拓数创",
+      "industry": "文教休闲",
+      "pct_change": 29.09,
+      "category": "AI应用/数字创意"
+    },
+    {
+      "ts_code": "688668.SH",
+      "name": "鼎通科技",
+      "industry": "通信设备",
+      "pct_change": 28.91,
+      "category": "连接器/线缆"
+    },
+    {
+      "ts_code": "688328.SH",
+      "name": "深科达",
+      "industry": "专用机械",
+      "pct_change": 28.87,
+      "category": "机械"
+    },
+    {
+      "ts_code": "300001.SZ",
+      "name": "特锐德",
+      "industry": "电气设备",
+      "pct_change": 28.81,
+      "category": "机械/设备"
+    },
+    {
+      "ts_code": "603916.SH",
+      "name": "苏博特",
+      "industry": "化工原料",
+      "pct_change": 28.75,
+      "category": "化工"
+    },
+    {
+      "ts_code": "301511.SZ",
+      "name": "德福科技",
+      "industry": "电气设备",
+      "pct_change": 28.74,
+      "category": "PCB/铜箔"
+    },
+    {
+      "ts_code": "688218.SH",
+      "name": "江苏北人",
+      "industry": "专用机械",
+      "pct_change": 28.74,
+      "category": "机械"
+    },
+    {
+      "ts_code": "603311.SH",
+      "name": "金海高科",
+      "industry": "家用电器",
+      "pct_change": 28.66,
+      "category": "消费电子"
+    }
+  ],
+  "categories": {
+    "半导体": {
+      "count": 25,
+      "total_pct": 987.1600000000001,
+      "stocks": [
+        {
+          "ts_code": "688820.SH",
+          "name": "盛合晶微",
+          "industry": "半导体",
+          "pct_change": 82.62,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688535.SH",
+          "name": "华海诚科",
+          "industry": "半导体",
+          "pct_change": 51.68,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688234.SH",
+          "name": "天岳先进",
+          "industry": "半导体",
+          "pct_change": 48.36,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "301308.SZ",
+          "name": "江波龙",
+          "industry": "半导体",
+          "pct_change": 47.64,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "300632.SZ",
+          "name": "光莆股份",
+          "industry": "半导体",
+          "pct_change": 43.85,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "301369.SZ",
+          "name": "联动科技",
+          "industry": "半导体",
+          "pct_change": 43.25,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688008.SH",
+          "name": "澜起科技",
+          "industry": "半导体",
+          "pct_change": 43.1,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688783.SH",
+          "name": "西安奕材-U",
+          "industry": "半导体",
+          "pct_change": 41.43,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "001309.SZ",
+          "name": "德明利",
+          "industry": "半导体",
+          "pct_change": 40.06,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688120.SH",
+          "name": "华海清科",
+          "industry": "半导体",
+          "pct_change": 38.28,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688785.SH",
+          "name": "恒运昌",
+          "industry": "半导体",
+          "pct_change": 38.13,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "300672.SZ",
+          "name": "国科微",
+          "industry": "半导体",
+          "pct_change": 37.96,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "300323.SZ",
+          "name": "华灿光电",
+          "industry": "半导体",
+          "pct_change": 36.78,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "600667.SH",
+          "name": "太极实业",
+          "industry": "半导体",
+          "pct_change": 36.5,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688693.SH",
+          "name": "锴威特",
+          "industry": "半导体",
+          "pct_change": 35.42,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688233.SH",
+          "name": "神工股份",
+          "industry": "半导体",
+          "pct_change": 34.82,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "002409.SZ",
+          "name": "雅克科技",
+          "industry": "半导体",
+          "pct_change": 34.8,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "301629.SZ",
+          "name": "矽电股份",
+          "industry": "半导体",
+          "pct_change": 33.45,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688107.SH",
+          "name": "安路科技",
+          "industry": "半导体",
+          "pct_change": 32.17,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688409.SH",
+          "name": "富创精密",
+          "industry": "半导体",
+          "pct_change": 32.12,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688652.SH",
+          "name": "京仪装备",
+          "industry": "半导体",
+          "pct_change": 31.48,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "300782.SZ",
+          "name": "卓胜微",
+          "industry": "半导体",
+          "pct_change": 31.3,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "301095.SZ",
+          "name": "广立微",
+          "industry": "半导体",
+          "pct_change": 31.24,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "688416.SH",
+          "name": "恒烁股份",
+          "industry": "半导体",
+          "pct_change": 30.53,
+          "category": "半导体"
+        },
+        {
+          "ts_code": "603078.SH",
+          "name": "江化微",
+          "industry": "半导体",
+          "pct_change": 30.19,
+          "category": "半导体"
+        }
+      ]
+    },
+    "机械": {
+      "count": 21,
+      "total_pct": 850.95,
+      "stocks": [
+        {
+          "ts_code": "920125.BJ",
+          "name": "鸿仕达",
+          "industry": "专用机械",
+          "pct_change": 76.32,
+          "category": "机械"
+        },
+        {
+          "ts_code": "920186.BJ",
+          "name": "中科仪",
+          "industry": "机械基件",
+          "pct_change": 64.92,
+          "category": "机械"
+        },
+        {
+          "ts_code": "920156.BJ",
+          "name": "海昌智能",
+          "industry": "专用机械",
+          "pct_change": 56.32,
+          "category": "机械"
+        },
+        {
+          "ts_code": "688596.SH",
+          "name": "正帆科技",
+          "industry": "专用机械",
+          "pct_change": 50.34,
+          "category": "机械"
+        },
+        {
+          "ts_code": "002979.SZ",
+          "name": "雷赛智能",
+          "industry": "专用机械",
+          "pct_change": 48.34,
+          "category": "机械"
+        },
+        {
+          "ts_code": "688813.SH",
+          "name": "泰金新能",
+          "industry": "专用机械",
+          "pct_change": 48.14,
+          "category": "机械"
+        },
+        {
+          "ts_code": "688003.SH",
+          "name": "天准科技",
+          "industry": "专用机械",
+          "pct_change": 44.15,
+          "category": "机械"
+        },
+        {
+          "ts_code": "688017.SH",
+          "name": "绿的谐波",
+          "industry": "机械基件",
+          "pct_change": 44.07,
+          "category": "机械"
+        },
+        {
+          "ts_code": "301317.SZ",
+          "name": "鑫磊股份",
+          "industry": "机械基件",
+          "pct_change": 38.96,
+          "category": "机械"
+        },
+        {
+          "ts_code": "000811.SZ",
+          "name": "冰轮环境",
+          "industry": "工程机械",
+          "pct_change": 38.68,
+          "category": "机械"
+        },
+        {
+          "ts_code": "603895.SH",
+          "name": "天永智能",
+          "industry": "专用机械",
+          "pct_change": 35.79,
+          "category": "机械"
+        },
+        {
+          "ts_code": "920368.BJ",
+          "name": "连城数控",
+          "industry": "专用机械",
+          "pct_change": 33.31,
+          "category": "机械"
+        },
+        {
+          "ts_code": "300780.SZ",
+          "name": "德恩精工",
+          "industry": "机械基件",
+          "pct_change": 32.89,
+          "category": "机械"
+        },
+        {
+          "ts_code": "300489.SZ",
+          "name": "光智科技",
+          "industry": "专用机械",
+          "pct_change": 31.96,
+          "category": "机械"
+        },
+        {
+          "ts_code": "688312.SH",
+          "name": "燕麦科技",
+          "industry": "专用机械",
+          "pct_change": 30.44,
+          "category": "机械"
+        },
+        {
+          "ts_code": "301196.SZ",
+          "name": "唯科科技",
+          "industry": "专用机械",
+          "pct_change": 29.86,
+          "category": "机械"
+        },
+        {
+          "ts_code": "300154.SZ",
+          "name": "瑞凌股份",
+          "industry": "机械基件",
+          "pct_change": 29.85,
+          "category": "机械"
+        },
+        {
+          "ts_code": "603400.SH",
+          "name": "华之杰",
+          "industry": "机械基件",
+          "pct_change": 29.77,
+          "category": "机械"
+        },
+        {
+          "ts_code": "002757.SZ",
+          "name": "南兴股份",
+          "industry": "专用机械",
+          "pct_change": 29.23,
+          "category": "机械"
+        },
+        {
+          "ts_code": "688328.SH",
+          "name": "深科达",
+          "industry": "专用机械",
+          "pct_change": 28.87,
+          "category": "机械"
+        },
+        {
+          "ts_code": "688218.SH",
+          "name": "江苏北人",
+          "industry": "专用机械",
+          "pct_change": 28.74,
+          "category": "机械"
+        }
+      ]
+    },
+    "机械/设备": {
+      "count": 13,
+      "total_pct": 660.05,
+      "stocks": [
+        {
+          "ts_code": "301666.SZ",
+          "name": "大普微-UW",
+          "industry": "IT设备",
+          "pct_change": 156.6,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "300302.SZ",
+          "name": "同有科技",
+          "industry": "IT设备",
+          "pct_change": 92.89,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "301696.SZ",
+          "name": "三瑞智能",
+          "industry": "电气设备",
+          "pct_change": 65.87,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "688663.SH",
+          "name": "新风光",
+          "industry": "电气设备",
+          "pct_change": 40.45,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "300042.SZ",
+          "name": "朗科科技",
+          "industry": "IT设备",
+          "pct_change": 39.09,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "300283.SZ",
+          "name": "温州宏丰",
+          "industry": "电气设备",
+          "pct_change": 38.63,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "002518.SZ",
+          "name": "科士达",
+          "industry": "电气设备",
+          "pct_change": 36.09,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "300820.SZ",
+          "name": "英杰电气",
+          "industry": "电气设备",
+          "pct_change": 35.37,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "603031.SH",
+          "name": "安孚科技",
+          "industry": "电气设备",
+          "pct_change": 32.27,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "603063.SH",
+          "name": "禾望电气",
+          "industry": "电气设备",
+          "pct_change": 31.95,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "300449.SZ",
+          "name": "汉邦高科",
+          "industry": "IT设备",
+          "pct_change": 31.17,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "920100.BJ",
+          "name": "三协电机",
+          "industry": "电气设备",
+          "pct_change": 30.86,
+          "category": "机械/设备"
+        },
+        {
+          "ts_code": "300001.SZ",
+          "name": "特锐德",
+          "industry": "电气设备",
+          "pct_change": 28.81,
+          "category": "机械/设备"
+        }
+      ]
+    },
+    "化工": {
+      "count": 11,
+      "total_pct": 459.52000000000004,
+      "stocks": [
+        {
+          "ts_code": "688146.SH",
+          "name": "中船特气",
+          "industry": "半导体",
+          "pct_change": 69.14,
+          "category": "化工"
+        },
+        {
+          "ts_code": "603938.SH",
+          "name": "三孚股份",
+          "industry": "化工原料",
+          "pct_change": 57.44,
+          "category": "化工"
+        },
+        {
+          "ts_code": "300721.SZ",
+          "name": "怡达股份",
+          "industry": "化工原料",
+          "pct_change": 54.95,
+          "category": "化工"
+        },
+        {
+          "ts_code": "688603.SH",
+          "name": "天承科技",
+          "industry": "化工原料",
+          "pct_change": 54.26,
+          "category": "化工"
+        },
+        {
+          "ts_code": "603120.SH",
+          "name": "肯特催化",
+          "industry": "化工原料",
+          "pct_change": 36.2,
+          "category": "化工"
+        },
+        {
+          "ts_code": "600500.SH",
+          "name": "中化国际",
+          "industry": "塑料",
+          "pct_change": 35.43,
+          "category": "化工"
+        },
+        {
+          "ts_code": "688359.SH",
+          "name": "三孚新科",
+          "industry": "化工原料",
+          "pct_change": 32.55,
+          "category": "化工"
+        },
+        {
+          "ts_code": "688350.SH",
+          "name": "富淼科技",
+          "industry": "化工原料",
+          "pct_change": 31.49,
+          "category": "化工"
+        },
+        {
+          "ts_code": "002915.SZ",
+          "name": "中欣氟材",
+          "industry": "化工原料",
+          "pct_change": 29.94,
+          "category": "化工"
+        },
+        {
+          "ts_code": "002254.SZ",
+          "name": "泰和新材",
+          "industry": "化纤",
+          "pct_change": 29.37,
+          "category": "化工"
+        },
+        {
+          "ts_code": "603916.SH",
+          "name": "苏博特",
+          "industry": "化工原料",
+          "pct_change": 28.75,
+          "category": "化工"
+        }
+      ]
+    },
+    "电力/能源": {
+      "count": 9,
+      "total_pct": 450.9100000000001,
+      "stocks": [
+        {
+          "ts_code": "601991.SH",
+          "name": "大唐发电",
+          "industry": "火力发电",
+          "pct_change": 90.62,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "600396.SH",
+          "name": "华电辽能",
+          "industry": "火力发电",
+          "pct_change": 58.17,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "600578.SH",
+          "name": "京能电力",
+          "industry": "火力发电",
+          "pct_change": 57.99,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "601126.SH",
+          "name": "四方股份",
+          "industry": "电气设备",
+          "pct_change": 50.15,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "603269.SH",
+          "name": "海鸥股份",
+          "industry": "机械基件",
+          "pct_change": 48.39,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "001210.SZ",
+          "name": "金房能源",
+          "industry": "供气供热",
+          "pct_change": 38.17,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "603618.SH",
+          "name": "杭电股份",
+          "industry": "电气设备",
+          "pct_change": 36.59,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "600903.SH",
+          "name": "贵州燃气",
+          "industry": "供气供热",
+          "pct_change": 36.17,
+          "category": "电力/能源"
+        },
+        {
+          "ts_code": "000767.SZ",
+          "name": "晋控电力",
+          "industry": "火力发电",
+          "pct_change": 34.66,
+          "category": "电力/能源"
+        }
+      ]
+    },
+    "通信设备": {
+      "count": 7,
+      "total_pct": 349.17,
+      "stocks": [
+        {
+          "ts_code": "688143.SH",
+          "name": "长盈通",
+          "industry": "通信设备",
+          "pct_change": 108.08,
+          "category": "通信设备"
+        },
+        {
+          "ts_code": "002929.SZ",
+          "name": "润建股份",
+          "industry": "通信设备",
+          "pct_change": 60.84,
+          "category": "通信设备"
+        },
+        {
+          "ts_code": "002491.SZ",
+          "name": "通鼎互联",
+          "industry": "通信设备",
+          "pct_change": 49.94,
+          "category": "通信设备"
+        },
+        {
+          "ts_code": "300736.SZ",
+          "name": "百邦科技",
+          "industry": "通信设备",
+          "pct_change": 34.02,
+          "category": "通信设备"
+        },
+        {
+          "ts_code": "600522.SH",
+          "name": "中天科技",
+          "industry": "通信设备",
+          "pct_change": 32.7,
+          "category": "通信设备"
+        },
+        {
+          "ts_code": "688159.SH",
+          "name": "有方科技",
+          "industry": "通信设备",
+          "pct_change": 32.03,
+          "category": "通信设备"
+        },
+        {
+          "ts_code": "688313.SH",
+          "name": "仕佳光子",
+          "industry": "通信设备",
+          "pct_change": 31.56,
+          "category": "通信设备"
+        }
+      ]
+    },
+    "半导体材料": {
+      "count": 7,
+      "total_pct": 325.32,
+      "stocks": [
+        {
+          "ts_code": "688545.SH",
+          "name": "兴福电子",
+          "industry": "元器件",
+          "pct_change": 71.07,
+          "category": "半导体材料"
+        },
+        {
+          "ts_code": "603045.SH",
+          "name": "福达合金",
+          "industry": "小金属",
+          "pct_change": 51.99,
+          "category": "半导体材料"
+        },
+        {
+          "ts_code": "688549.SH",
+          "name": "中巨芯-U",
+          "industry": "元器件",
+          "pct_change": 51.51,
+          "category": "半导体材料"
+        },
+        {
+          "ts_code": "688371.SH",
+          "name": "菲沃泰",
+          "industry": "元器件",
+          "pct_change": 45.23,
+          "category": "半导体材料"
+        },
+        {
+          "ts_code": "688300.SH",
+          "name": "联瑞新材",
+          "industry": "矿物制品",
+          "pct_change": 38.61,
+          "category": "半导体材料"
+        },
+        {
+          "ts_code": "688260.SH",
+          "name": "昀冢科技",
+          "industry": "元器件",
+          "pct_change": 37.6,
+          "category": "半导体材料"
+        },
+        {
+          "ts_code": "688727.SH",
+          "name": "恒坤新材",
+          "industry": "半导体",
+          "pct_change": 29.31,
+          "category": "半导体材料"
+        }
+      ]
+    },
+    "半导体设备/封测": {
+      "count": 7,
+      "total_pct": 321.5,
+      "stocks": [
+        {
+          "ts_code": "688478.SH",
+          "name": "晶升股份",
+          "industry": "半导体",
+          "pct_change": 71.72,
+          "category": "半导体设备/封测"
+        },
+        {
+          "ts_code": "301319.SZ",
+          "name": "唯特偶",
+          "industry": "元器件",
+          "pct_change": 64.82,
+          "category": "半导体设备/封测"
+        },
+        {
+          "ts_code": "301235.SZ",
+          "name": "华康洁净",
+          "industry": "医疗保健",
+          "pct_change": 45.65,
+          "category": "半导体设备/封测"
+        },
+        {
+          "ts_code": "688551.SH",
+          "name": "科威尔",
+          "industry": "专用机械",
+          "pct_change": 43.61,
+          "category": "半导体设备/封测"
+        },
+        {
+          "ts_code": "601133.SH",
+          "name": "柏诚股份",
+          "industry": "建筑工程",
+          "pct_change": 36.08,
+          "category": "半导体设备/封测"
+        },
+        {
+          "ts_code": "688808.SH",
+          "name": "联讯仪器",
+          "industry": "电器仪表",
+          "pct_change": 30.16,
+          "category": "半导体设备/封测"
+        },
+        {
+          "ts_code": "300400.SZ",
+          "name": "劲拓股份",
+          "industry": "专用机械",
+          "pct_change": 29.46,
+          "category": "半导体设备/封测"
+        }
+      ]
+    },
+    "工业母机/机器人": {
+      "count": 6,
+      "total_pct": 246.95000000000002,
+      "stocks": [
+        {
+          "ts_code": "301502.SZ",
+          "name": "华阳智能",
+          "industry": "电气设备",
+          "pct_change": 63.37,
+          "category": "工业母机/机器人"
+        },
+        {
+          "ts_code": "300553.SZ",
+          "name": "集智股份",
+          "industry": "电器仪表",
+          "pct_change": 44.49,
+          "category": "工业母机/机器人"
+        },
+        {
+          "ts_code": "002031.SZ",
+          "name": "巨轮智能",
+          "industry": "汽车配件",
+          "pct_change": 43.26,
+          "category": "工业母机/机器人"
+        },
+        {
+          "ts_code": "300943.SZ",
+          "name": "春晖智控",
+          "industry": "机械基件",
+          "pct_change": 32.52,
+          "category": "工业母机/机器人"
+        },
+        {
+          "ts_code": "688697.SH",
+          "name": "纽威数控",
+          "industry": "机床制造",
+          "pct_change": 32.18,
+          "category": "工业母机/机器人"
+        },
+        {
+          "ts_code": "300836.SZ",
+          "name": "佰奥智能",
+          "industry": "专用机械",
+          "pct_change": 31.13,
+          "category": "工业母机/机器人"
+        }
+      ]
+    },
+    "PCB/铜箔": {
+      "count": 6,
+      "total_pct": 229.19,
+      "stocks": [
+        {
+          "ts_code": "300903.SZ",
+          "name": "科翔股份",
+          "industry": "元器件",
+          "pct_change": 51.5,
+          "category": "PCB/铜箔"
+        },
+        {
+          "ts_code": "603459.SH",
+          "name": "红板科技",
+          "industry": "元器件",
+          "pct_change": 45.88,
+          "category": "PCB/铜箔"
+        },
+        {
+          "ts_code": "688655.SH",
+          "name": "迅捷兴",
+          "industry": "元器件",
+          "pct_change": 39.03,
+          "category": "PCB/铜箔"
+        },
+        {
+          "ts_code": "603936.SH",
+          "name": "博敏电子",
+          "industry": "元器件",
+          "pct_change": 34.71,
+          "category": "PCB/铜箔"
+        },
+        {
+          "ts_code": "600183.SH",
+          "name": "生益科技",
+          "industry": "元器件",
+          "pct_change": 29.33,
+          "category": "PCB/铜箔"
+        },
+        {
+          "ts_code": "301511.SZ",
+          "name": "德福科技",
+          "industry": "电气设备",
+          "pct_change": 28.74,
+          "category": "PCB/铜箔"
+        }
+      ]
+    },
+    "消费电子": {
+      "count": 6,
+      "total_pct": 227.89000000000001,
+      "stocks": [
+        {
+          "ts_code": "300433.SZ",
+          "name": "蓝思科技",
+          "industry": "元器件",
+          "pct_change": 50.64,
+          "category": "消费电子"
+        },
+        {
+          "ts_code": "600130.SH",
+          "name": "波导股份",
+          "industry": "元器件",
+          "pct_change": 43.72,
+          "category": "消费电子"
+        },
+        {
+          "ts_code": "605198.SH",
+          "name": "安德利",
+          "industry": "软饮料",
+          "pct_change": 37.63,
+          "category": "消费电子"
+        },
+        {
+          "ts_code": "301387.SZ",
+          "name": "光大同创",
+          "industry": "元器件",
+          "pct_change": 34.77,
+          "category": "消费电子"
+        },
+        {
+          "ts_code": "002980.SZ",
+          "name": "华盛昌",
+          "industry": "电器仪表",
+          "pct_change": 32.47,
+          "category": "消费电子"
+        },
+        {
+          "ts_code": "603311.SH",
+          "name": "金海高科",
+          "industry": "家用电器",
+          "pct_change": 28.66,
+          "category": "消费电子"
+        }
+      ]
+    },
+    "汽车/智驾": {
+      "count": 4,
+      "total_pct": 158.75,
+      "stocks": [
+        {
+          "ts_code": "301000.SZ",
+          "name": "肇民科技",
+          "industry": "汽车配件",
+          "pct_change": 45.87,
+          "category": "汽车/智驾"
+        },
+        {
+          "ts_code": "300745.SZ",
+          "name": "欣锐科技",
+          "industry": "汽车配件",
+          "pct_change": 43.49,
+          "category": "汽车/智驾"
+        },
+        {
+          "ts_code": "300912.SZ",
+          "name": "凯龙高科",
+          "industry": "汽车配件",
+          "pct_change": 37.53,
+          "category": "汽车/智驾"
+        },
+        {
+          "ts_code": "300816.SZ",
+          "name": "艾可蓝",
+          "industry": "汽车配件",
+          "pct_change": 31.86,
+          "category": "汽车/智驾"
+        }
+      ]
+    },
+    "光芯片/光源": {
+      "count": 4,
+      "total_pct": 157.83999999999997,
+      "stocks": [
+        {
+          "ts_code": "688307.SH",
+          "name": "中润光学",
+          "industry": "元器件",
+          "pct_change": 45.36,
+          "category": "光芯片/光源"
+        },
+        {
+          "ts_code": "688167.SH",
+          "name": "炬光科技",
+          "industry": "元器件",
+          "pct_change": 38.52,
+          "category": "光芯片/光源"
+        },
+        {
+          "ts_code": "002008.SZ",
+          "name": "大族激光",
+          "industry": "专用机械",
+          "pct_change": 37.54,
+          "category": "光芯片/光源"
+        },
+        {
+          "ts_code": "300776.SZ",
+          "name": "帝尔激光",
+          "industry": "专用机械",
+          "pct_change": 36.42,
+          "category": "光芯片/光源"
+        }
+      ]
+    },
+    "小家电": {
+      "count": 2,
+      "total_pct": 153.25,
+      "stocks": [
+        {
+          "ts_code": "001259.SZ",
+          "name": "利仁科技",
+          "industry": "家用电器",
+          "pct_change": 93.8,
+          "category": "小家电"
+        },
+        {
+          "ts_code": "920699.BJ",
+          "name": "海达尔",
+          "industry": "家用电器",
+          "pct_change": 59.45,
+          "category": "小家电"
+        }
+      ]
+    },
+    "汽车零部件": {
+      "count": 3,
+      "total_pct": 138.28,
+      "stocks": [
+        {
+          "ts_code": "603278.SH",
+          "name": "大业股份",
+          "industry": "钢加工",
+          "pct_change": 52.41,
+          "category": "汽车零部件"
+        },
+        {
+          "ts_code": "301538.SZ",
+          "name": "骏鼎达",
+          "industry": "塑料",
+          "pct_change": 50.62,
+          "category": "汽车零部件"
+        },
+        {
+          "ts_code": "300863.SZ",
+          "name": "卡倍亿",
+          "industry": "汽车配件",
+          "pct_change": 35.25,
+          "category": "汽车零部件"
+        }
+      ]
+    },
+    "连接器/线缆": {
+      "count": 4,
+      "total_pct": 137.11,
+      "stocks": [
+        {
+          "ts_code": "688800.SH",
+          "name": "瑞可达",
+          "industry": "元器件",
+          "pct_change": 37.88,
+          "category": "连接器/线缆"
+        },
+        {
+          "ts_code": "301171.SZ",
+          "name": "易点天下",
+          "industry": "互联网",
+          "pct_change": 37.26,
+          "category": "连接器/线缆"
+        },
+        {
+          "ts_code": "300265.SZ",
+          "name": "通光线缆",
+          "industry": "电气设备",
+          "pct_change": 33.06,
+          "category": "连接器/线缆"
+        },
+        {
+          "ts_code": "688668.SH",
+          "name": "鼎通科技",
+          "industry": "通信设备",
+          "pct_change": 28.91,
+          "category": "连接器/线缆"
+        }
+      ]
+    },
+    "医药医疗": {
+      "count": 3,
+      "total_pct": 110.27000000000001,
+      "stocks": [
+        {
+          "ts_code": "301188.SZ",
+          "name": "力诺药包",
+          "industry": "玻璃",
+          "pct_change": 46.89,
+          "category": "医药医疗"
+        },
+        {
+          "ts_code": "605186.SH",
+          "name": "健麾信息",
+          "industry": "专用机械",
+          "pct_change": 32.73,
+          "category": "医药医疗"
+        },
+        {
+          "ts_code": "301093.SZ",
+          "name": "华兰股份",
+          "industry": "医疗保健",
+          "pct_change": 30.65,
+          "category": "医药医疗"
+        }
+      ]
+    },
+    "房地产": {
+      "count": 2,
+      "total_pct": 106.49000000000001,
+      "stocks": [
+        {
+          "ts_code": "002208.SZ",
+          "name": "合肥城建",
+          "industry": "区域地产",
+          "pct_change": 66.23,
+          "category": "房地产"
+        },
+        {
+          "ts_code": "000029.SZ",
+          "name": "深深房Ａ",
+          "industry": "区域地产",
+          "pct_change": 40.26,
+          "category": "房地产"
+        }
+      ]
+    },
+    "环保": {
+      "count": 2,
+      "total_pct": 101.43,
+      "stocks": [
+        {
+          "ts_code": "600769.SH",
+          "name": "祥龙电业",
+          "industry": "水务",
+          "pct_change": 60.38,
+          "category": "环保"
+        },
+        {
+          "ts_code": "688096.SH",
+          "name": "京源环保",
+          "industry": "环境保护",
+          "pct_change": 41.05,
+          "category": "环保"
+        }
+      ]
+    },
+    "建筑": {
+      "count": 3,
+      "total_pct": 93.38,
+      "stocks": [
+        {
+          "ts_code": "300536.SZ",
+          "name": "农尚环境",
+          "industry": "建筑工程",
+          "pct_change": 32.97,
+          "category": "建筑"
+        },
+        {
+          "ts_code": "603316.SH",
+          "name": "诚邦股份",
+          "industry": "建筑工程",
+          "pct_change": 31.3,
+          "category": "建筑"
+        },
+        {
+          "ts_code": "300983.SZ",
+          "name": "尤安设计",
+          "industry": "建筑工程",
+          "pct_change": 29.11,
+          "category": "建筑"
+        }
+      ]
+    },
+    "通信/数字营销": {
+      "count": 1,
+      "total_pct": 91.8,
+      "stocks": [
+        {
+          "ts_code": "300959.SZ",
+          "name": "线上线下",
+          "industry": "电信运营",
+          "pct_change": 91.8,
+          "category": "通信/数字营销"
+        }
+      ]
+    },
+    "软件/信创": {
+      "count": 2,
+      "total_pct": 89.46000000000001,
+      "stocks": [
+        {
+          "ts_code": "300508.SZ",
+          "name": "维宏股份",
+          "industry": "软件服务",
+          "pct_change": 48.69,
+          "category": "软件/信创"
+        },
+        {
+          "ts_code": "688507.SH",
+          "name": "索辰科技",
+          "industry": "软件服务",
+          "pct_change": 40.77,
+          "category": "软件/信创"
+        }
+      ]
+    },
+    "AI算力芯片": {
+      "count": 2,
+      "total_pct": 81.57,
+      "stocks": [
+        {
+          "ts_code": "688766.SH",
+          "name": "普冉股份",
+          "industry": "半导体",
+          "pct_change": 52.35,
+          "category": "AI算力芯片"
+        },
+        {
+          "ts_code": "688123.SH",
+          "name": "聚辰股份",
+          "industry": "半导体",
+          "pct_change": 29.22,
+          "category": "AI算力芯片"
+        }
+      ]
+    },
+    "变压器/磁性元件": {
+      "count": 2,
+      "total_pct": 77.51,
+      "stocks": [
+        {
+          "ts_code": "002885.SZ",
+          "name": "京泉华",
+          "industry": "元器件",
+          "pct_change": 47.63,
+          "category": "变压器/磁性元件"
+        },
+        {
+          "ts_code": "002782.SZ",
+          "name": "可立克",
+          "industry": "元器件",
+          "pct_change": 29.88,
+          "category": "变压器/磁性元件"
+        }
+      ]
+    },
+    "传感器/仪表": {
+      "count": 2,
+      "total_pct": 72.25,
+      "stocks": [
+        {
+          "ts_code": "300259.SZ",
+          "name": "新天科技",
+          "industry": "电器仪表",
+          "pct_change": 41.26,
+          "category": "传感器/仪表"
+        },
+        {
+          "ts_code": "301413.SZ",
+          "name": "安培龙",
+          "industry": "电器仪表",
+          "pct_change": 30.99,
+          "category": "传感器/仪表"
+        }
+      ]
+    },
+    "金属材料": {
+      "count": 2,
+      "total_pct": 71.80000000000001,
+      "stocks": [
+        {
+          "ts_code": "688811.SH",
+          "name": "有研复材",
+          "industry": "小金属",
+          "pct_change": 36.46,
+          "category": "金属材料"
+        },
+        {
+          "ts_code": "688598.SH",
+          "name": "金博股份",
+          "industry": "矿物制品",
+          "pct_change": 35.34,
+          "category": "金属材料"
+        }
+      ]
+    },
+    "消费": {
+      "count": 2,
+      "total_pct": 70.1,
+      "stocks": [
+        {
+          "ts_code": "603156.SH",
+          "name": "养元饮品",
+          "industry": "软饮料",
+          "pct_change": 37.04,
+          "category": "消费"
+        },
+        {
+          "ts_code": "002348.SZ",
+          "name": "高乐股份",
+          "industry": "文教休闲",
+          "pct_change": 33.06,
+          "category": "消费"
+        }
+      ]
+    },
+    "交运": {
+      "count": 2,
+      "total_pct": 66.71,
+      "stocks": [
+        {
+          "ts_code": "603082.SH",
+          "name": "北自科技",
+          "industry": "运输设备",
+          "pct_change": 37.01,
+          "category": "交运"
+        },
+        {
+          "ts_code": "002183.SZ",
+          "name": "怡亚通",
+          "industry": "仓储物流",
+          "pct_change": 29.7,
+          "category": "交运"
+        }
+      ]
+    },
+    "环保/城市服务": {
+      "count": 1,
+      "total_pct": 62.82,
+      "stocks": [
+        {
+          "ts_code": "688069.SH",
+          "name": "德林海",
+          "industry": "环境保护",
+          "pct_change": 62.82,
+          "category": "环保/城市服务"
+        }
+      ]
+    },
+    "军工/船舶": {
+      "count": 1,
+      "total_pct": 60.13,
+      "stocks": [
+        {
+          "ts_code": "002552.SZ",
+          "name": "宝鼎科技",
+          "industry": "元器件",
+          "pct_change": 60.13,
+          "category": "军工/船舶"
+        }
+      ]
+    },
+    "军工电子": {
+      "count": 1,
+      "total_pct": 57.87,
+      "stocks": [
+        {
+          "ts_code": "920181.BJ",
+          "name": "赛英电子",
+          "industry": "元器件",
+          "pct_change": 57.87,
+          "category": "军工电子"
+        }
+      ]
+    },
+    "建材/陶瓷": {
+      "count": 1,
+      "total_pct": 54.7,
+      "stocks": [
+        {
+          "ts_code": "002918.SZ",
+          "name": "蒙娜丽莎",
+          "industry": "陶瓷",
+          "pct_change": 54.7,
+          "category": "建材/陶瓷"
+        }
+      ]
+    },
+    "算力/IDC": {
+      "count": 1,
+      "total_pct": 54.68,
+      "stocks": [
+        {
+          "ts_code": "300571.SZ",
+          "name": "平治信息",
+          "industry": "互联网",
+          "pct_change": 54.68,
+          "category": "算力/IDC"
+        }
+      ]
+    },
+    "AI软件": {
+      "count": 1,
+      "total_pct": 54.26,
+      "stocks": [
+        {
+          "ts_code": "300209.SZ",
+          "name": "行云科技",
+          "industry": "互联网",
+          "pct_change": 54.26,
+          "category": "AI软件"
+        }
+      ]
+    },
+    "光学元件/材料": {
+      "count": 1,
+      "total_pct": 48.79,
+      "stocks": [
+        {
+          "ts_code": "920438.BJ",
+          "name": "戈碧迦",
+          "industry": "元器件",
+          "pct_change": 48.79,
+          "category": "光学元件/材料"
+        }
+      ]
+    },
+    "食品饮料": {
+      "count": 1,
+      "total_pct": 46.44,
+      "stocks": [
+        {
+          "ts_code": "603779.SH",
+          "name": "威龙股份",
+          "industry": "红黄酒",
+          "pct_change": 46.44,
+          "category": "食品饮料"
+        }
+      ]
+    },
+    "铝/电子铝箔": {
+      "count": 1,
+      "total_pct": 46.37,
+      "stocks": [
+        {
+          "ts_code": "603115.SH",
+          "name": "海星股份",
+          "industry": "铝",
+          "pct_change": 46.37,
+          "category": "铝/电子铝箔"
+        }
+      ]
+    },
+    "光模块/CPO": {
+      "count": 1,
+      "total_pct": 45.48,
+      "stocks": [
+        {
+          "ts_code": "002281.SZ",
+          "name": "光迅科技",
+          "industry": "通信设备",
+          "pct_change": 45.48,
+          "category": "光模块/CPO"
+        }
+      ]
+    },
+    "塑料/新材料": {
+      "count": 1,
+      "total_pct": 43.46,
+      "stocks": [
+        {
+          "ts_code": "300478.SZ",
+          "name": "杭州高新",
+          "industry": "塑料",
+          "pct_change": 43.46,
+          "category": "塑料/新材料"
+        }
+      ]
+    },
+    "纺织服装": {
+      "count": 1,
+      "total_pct": 43.13,
+      "stocks": [
+        {
+          "ts_code": "300819.SZ",
+          "name": "聚杰微纤",
+          "industry": "纺织",
+          "pct_change": 43.13,
+          "category": "纺织服装"
+        }
+      ]
+    },
+    "家居用品": {
+      "count": 1,
+      "total_pct": 41.34,
+      "stocks": [
+        {
+          "ts_code": "001211.SZ",
+          "name": "双枪科技",
+          "industry": "家居用品",
+          "pct_change": 41.34,
+          "category": "家居用品"
+        }
+      ]
+    },
+    "半导体/晶振": {
+      "count": 1,
+      "total_pct": 40.92,
+      "stocks": [
+        {
+          "ts_code": "603738.SH",
+          "name": "泰晶科技",
+          "industry": "元器件",
+          "pct_change": 40.92,
+          "category": "半导体/晶振"
+        }
+      ]
+    },
+    "电力设备": {
+      "count": 1,
+      "total_pct": 39.11,
+      "stocks": [
+        {
+          "ts_code": "002484.SZ",
+          "name": "江海股份",
+          "industry": "元器件",
+          "pct_change": 39.11,
+          "category": "电力设备"
+        }
+      ]
+    },
+    "光器件/光纤": {
+      "count": 1,
+      "total_pct": 38.85,
+      "stocks": [
+        {
+          "ts_code": "301183.SZ",
+          "name": "东田微",
+          "industry": "元器件",
+          "pct_change": 38.85,
+          "category": "光器件/光纤"
+        }
+      ]
+    },
+    "半导体封装": {
+      "count": 1,
+      "total_pct": 38.71,
+      "stocks": [
+        {
+          "ts_code": "003031.SZ",
+          "name": "中瓷电子",
+          "industry": "元器件",
+          "pct_change": 38.71,
+          "category": "半导体封装"
+        }
+      ]
+    },
+    "建筑/房地产": {
+      "count": 1,
+      "total_pct": 38.23,
+      "stocks": [
+        {
+          "ts_code": "603007.SH",
+          "name": "顺景科技",
+          "industry": "建筑工程",
+          "pct_change": 38.23,
+          "category": "建筑/房地产"
+        }
+      ]
+    },
+    "新材料/PI薄膜": {
+      "count": 1,
+      "total_pct": 38.1,
+      "stocks": [
+        {
+          "ts_code": "688323.SH",
+          "name": "瑞华泰",
+          "industry": "塑料",
+          "pct_change": 38.1,
+          "category": "新材料/PI薄膜"
+        }
+      ]
+    },
+    "AI应用/数据": {
+      "count": 1,
+      "total_pct": 36.23,
+      "stocks": [
+        {
+          "ts_code": "301169.SZ",
+          "name": "零点有数",
+          "industry": "文教休闲",
+          "pct_change": 36.23,
+          "category": "AI应用/数据"
+        }
+      ]
+    },
+    "航天军工": {
+      "count": 1,
+      "total_pct": 35.56,
+      "stocks": [
+        {
+          "ts_code": "300201.SZ",
+          "name": "海伦哲",
+          "industry": "工程机械",
+          "pct_change": 35.56,
+          "category": "航天军工"
+        }
+      ]
+    },
+    "锂电": {
+      "count": 1,
+      "total_pct": 35.19,
+      "stocks": [
+        {
+          "ts_code": "002245.SZ",
+          "name": "蔚蓝锂芯",
+          "industry": "电气设备",
+          "pct_change": 35.19,
+          "category": "锂电"
+        }
+      ]
+    },
+    "建材/水泥": {
+      "count": 1,
+      "total_pct": 35.0,
+      "stocks": [
+        {
+          "ts_code": "000672.SZ",
+          "name": "上峰水泥",
+          "industry": "水泥",
+          "pct_change": 35.0,
+          "category": "建材/水泥"
+        }
+      ]
+    },
+    "面板/显示": {
+      "count": 1,
+      "total_pct": 34.36,
+      "stocks": [
+        {
+          "ts_code": "600707.SH",
+          "name": "彩虹股份",
+          "industry": "元器件",
+          "pct_change": 34.36,
+          "category": "面板/显示"
+        }
+      ]
+    },
+    "光刻胶/化学品": {
+      "count": 1,
+      "total_pct": 33.88,
+      "stocks": [
+        {
+          "ts_code": "300537.SZ",
+          "name": "广信材料",
+          "industry": "染料涂料",
+          "pct_change": 33.88,
+          "category": "光刻胶/化学品"
+        }
+      ]
+    },
+    "半导体/分销": {
+      "count": 1,
+      "total_pct": 33.85,
+      "stocks": [
+        {
+          "ts_code": "300131.SZ",
+          "name": "英唐智控",
+          "industry": "元器件",
+          "pct_change": 33.85,
+          "category": "半导体/分销"
+        }
+      ]
+    },
+    "包装": {
+      "count": 1,
+      "total_pct": 33.66,
+      "stocks": [
+        {
+          "ts_code": "002787.SZ",
+          "name": "华源控股",
+          "industry": "广告包装",
+          "pct_change": 33.66,
+          "category": "包装"
+        }
+      ]
+    },
+    "化工/石油加工": {
+      "count": 1,
+      "total_pct": 33.36,
+      "stocks": [
+        {
+          "ts_code": "300839.SZ",
+          "name": "博汇股份",
+          "industry": "石油加工",
+          "pct_change": 33.36,
+          "category": "化工/石油加工"
+        }
+      ]
+    },
+    "军工": {
+      "count": 1,
+      "total_pct": 32.93,
+      "stocks": [
+        {
+          "ts_code": "688231.SH",
+          "name": "隆达股份",
+          "industry": "航空",
+          "pct_change": 32.93,
+          "category": "军工"
+        }
+      ]
+    },
+    "新材料/胶粘剂": {
+      "count": 1,
+      "total_pct": 32.66,
+      "stocks": [
+        {
+          "ts_code": "920012.BJ",
+          "name": "创达新材",
+          "industry": "元器件",
+          "pct_change": 32.66,
+          "category": "新材料/胶粘剂"
+        }
+      ]
+    },
+    "传媒/游戏": {
+      "count": 1,
+      "total_pct": 32.31,
+      "stocks": [
+        {
+          "ts_code": "300052.SZ",
+          "name": "中青宝",
+          "industry": "互联网",
+          "pct_change": 32.31,
+          "category": "传媒/游戏"
+        }
+      ]
+    },
+    "铜/有色": {
+      "count": 1,
+      "total_pct": 31.95,
+      "stocks": [
+        {
+          "ts_code": "601609.SH",
+          "name": "金田股份",
+          "industry": "铜",
+          "pct_change": 31.95,
+          "category": "铜/有色"
+        }
+      ]
+    },
+    "医药/保健": {
+      "count": 1,
+      "total_pct": 31.12,
+      "stocks": [
+        {
+          "ts_code": "600530.SH",
+          "name": "交大昂立",
+          "industry": "医疗保健",
+          "pct_change": 31.12,
+          "category": "医药/保健"
+        }
+      ]
+    },
+    "超硬材料/培育钻石": {
+      "count": 1,
+      "total_pct": 30.96,
+      "stocks": [
+        {
+          "ts_code": "600172.SH",
+          "name": "黄河旋风",
+          "industry": "矿物制品",
+          "pct_change": 30.96,
+          "category": "超硬材料/培育钻石"
+        }
+      ]
+    },
+    "稀有金属/锗": {
+      "count": 1,
+      "total_pct": 30.82,
+      "stocks": [
+        {
+          "ts_code": "002034.SZ",
+          "name": "旺能环境",
+          "industry": "环境保护",
+          "pct_change": 30.82,
+          "category": "稀有金属/锗"
+        }
+      ]
+    },
+    "环保/固废": {
+      "count": 1,
+      "total_pct": 30.61,
+      "stocks": [
+        {
+          "ts_code": "002428.SZ",
+          "name": "云南锗业",
+          "industry": "小金属",
+          "pct_change": 30.61,
+          "category": "环保/固废"
+        }
+      ]
+    },
+    "交运/航运": {
+      "count": 1,
+      "total_pct": 29.52,
+      "stocks": [
+        {
+          "ts_code": "603162.SH",
+          "name": "海通发展",
+          "industry": "水运",
+          "pct_change": 29.52,
+          "category": "交运/航运"
+        }
+      ]
+    },
+    "创新药": {
+      "count": 1,
+      "total_pct": 29.21,
+      "stocks": [
+        {
+          "ts_code": "688319.SH",
+          "name": "欧林生物",
+          "industry": "生物制药",
+          "pct_change": 29.21,
+          "category": "创新药"
+        }
+      ]
+    },
+    "消费电子/音响": {
+      "count": 1,
+      "total_pct": 29.14,
+      "stocks": [
+        {
+          "ts_code": "002888.SZ",
+          "name": "惠威科技",
+          "industry": "元器件",
+          "pct_change": 29.14,
+          "category": "消费电子/音响"
+        }
+      ]
+    },
+    "AI应用/数字创意": {
+      "count": 1,
+      "total_pct": 29.09,
+      "stocks": [
+        {
+          "ts_code": "301313.SZ",
+          "name": "凡拓数创",
+          "industry": "文教休闲",
+          "pct_change": 29.09,
+          "category": "AI应用/数字创意"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "key": "bond_four_factor",
+  "title": "国债期货四因子",
+  "desc": "",
+  "section": "futures",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "07:00",
+    "weekdays": [
+      6
+    ]
+  },
+  "cmd": "python3 -u main.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/skills/bond-futures-four-factor",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/skills/bond-futures-four-factor/main.py",
+  "imported_from": "case/_seed/tasks.json"
+}

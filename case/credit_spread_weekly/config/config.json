@@ -1,0 +1,27 @@
+{
+  "feishu_webhook": "",
+  "email": {
+    "smtp_server": "smtp.163.com",
+    "smtp_port": 465,
+    "sender": "songshang951@163.com",
+    "password": "",
+    "receiver": "410119229@qq.com"
+  },
+  "thresholds": {
+    "sofr_iorb_bp": 15,
+    "ig_4w_bp": 50,
+    "ig_1w_bp": 20,
+    "hy_4w_bp": 100,
+    "coreweave_cds_bp": 1000,
+    "oracle_cds_bp": 300,
+    "softbank_cds_bp": 400,
+    "repo_pressure_bp": 10,
+    "kbe_weekly_drop_pct": -7,
+    "dxy_weekly_rise_pct": 2,
+    "usdcnh_weekly_move_pct": 1.5,
+    "usdcnh_key_levels": [
+      7.0,
+      7.2
+    ]
+  }
+}

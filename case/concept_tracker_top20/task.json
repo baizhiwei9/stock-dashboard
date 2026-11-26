@@ -1,0 +1,25 @@
+{
+  "key": "concept_tracker_top20",
+  "title": "热点概念Top20",
+  "desc": "",
+  "section": "stock",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "08:00",
+    "weekdays": [
+      1
+    ]
+  },
+  "cmd": "python3 -u scripts/concept_tracker_top20.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话/热点概念追踪",
+  "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/热点概念追踪/scripts/concept_tracker_top20.py",
+  "imported_from": "case/_seed/tasks.json"
+}

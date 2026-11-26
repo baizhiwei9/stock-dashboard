@@ -1,0 +1,387 @@
+{
+  "config": {
+    "wide_screen_mode": true
+  },
+  "header": {
+    "tag": "header",
+    "template": "green",
+    "title": {
+      "tag": "plain_text",
+      "content": "🐕 土狗分析日报 - 2026-08-17"
+    }
+  },
+  "elements": [
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**📈 主要指数行情速览**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "| 指数 | 涨跌幅 | 均线位置 | 量变 |\n|------|------|------|------|\n| 沪深300 | <font color='red'>+1.50%</font> | 上方 | 放量 |"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**📊 9大核心指标仪表盘**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "column_set",
+      "flex_mode": "none",
+      "background_style": "default",
+      "columns": [
+        {
+          "tag": "column",
+          "width": "weighted",
+          "weight": 1,
+          "vertical_align": "top",
+          "elements": [
+            {
+              "tag": "markdown",
+              "content": "<font color='grey'>参照币种</font>\n** 人民币**\n🟢",
+              "text_align": "center"
+            }
+          ]
+        },
+        {
+          "tag": "column",
+          "width": "weighted",
+          "weight": 1,
+          "vertical_align": "top",
+          "elements": [
+            {
+              "tag": "markdown",
+              "content": "<font color='grey'>存单利率</font>\n** 1.65%**\n🟡",
+              "text_align": "center"
+            }
+          ]
+        },
+        {
+          "tag": "column",
+          "width": "weighted",
+          "weight": 1,
+          "vertical_align": "top",
+          "elements": [
+            {
+              "tag": "markdown",
+              "content": "<font color='grey'>十年国债</font>\n** 1.72%**\n🟢",
+              "text_align": "center"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "<font color='grey'>📖 **📖 指标说明**</font>\n<font color='grey'>• **一年存单利率**：准政策利率，稀缺准备金框架下核心利率</font>\n<font color='grey'>• **十年国债利率**：金融系统剩余流动性的价格指标，越低越充沛</font>\n<font color='grey'>• **两年美债利率**：美联储中长期资金缺口的直接反馈，不再是加息预期</font>\n<font color='grey'>• **CNH**：离岸人民币强弱，决定无风险利率参照币种</font>\n<font color='grey'>• **美元指数**：全球流动性松紧，走强=收紧，走弱=宽松</font>\n<font color='grey'>• **IV/VIX**：隐含波动率，市场恐慌程度</font>\n<font color='grey'>• **两融余额**：杠杆水平，大幅下降=去杠杆冲击</font>\n<font color='grey'>• **被动化率**：300ETF市值/沪深300流通市值，主力资金干预力度</font>\n<font color='grey'>• **OMO净投放**：央行公开市场操作，投放=宽松，回笼=收紧</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**📋 6大盘面要素（每日复盘模板）**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**要素一：增量资金与成交量**\n\n**全A成交量**: 28000亿 \n\n**小市值指数涨跌**: 1.5\n\n**成交量关口**: 正常活跃\n\n<font color='green'>🟢 增量资金入场意愿偏强</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**要素二：科技板块走势**\n\n**创业板指**: 2.1\n\n**科创50**: 3.2\n\n<font color='green'>🟢 科技板块偏强</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**要素三：央行公开市场操作**\n\n**净投放/回笼**: 100亿\n\n**未到期OMO余额**: 5000亿\n\n**一年存单利率**: 1.65%"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**要素四：主力资金ETF持仓**\n\n**300ETF净买入**: 10亿\n\n**被动化率变动**: 1bp\n\n**干预力度**: 中等"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**要素五：隐含波动率（IV）**\n\n**沪深300 IV**: 18.5%\n\n**区间**: 10-20\n\n**信号**: 市场平稳"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**要素六：两年美债利率**\n\n**两年美债利率**: 3.85%\n\n**变动**: "
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**⚖️ 大小盘分析**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**中证2000/沪深300比值**: 105.30（基期2021.12.31=100）\n\n**5日变化**: +2.50%　**20日变化**: +5.00%\n\n**风格趋势**: <font color='green'>**扩张**</font> → <font color='green'>**小盘占优**</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "<font color='grey'>📖 **📖 大小盘说明**</font>\n<font color='grey'>• **比值扩大**→小盘股估值溢价增加→小盘占优</font>\n<font color='grey'>• **比值收窄**→小盘股相对走弱→大盘占优</font>\n<font color='grey'>• **630分水岭**：630之前成长占优，630之后价值修复</font>\n<font color='grey'>• **场内增量资金**：集中在科技板块（双创），维稳股价</font>\n<font color='grey'>• **场外增量资金**：集中在非科技板块，增量建仓，不愿接盘高位筹码</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**🏦 债市分析**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**期限利差(10Y-1Y存单)**: <font color='grey'>**25.0bp**</font> → 正常\n　正常区间0-50bp，中值25bp；高于中值→内需较好，低于→内需较差\n\n**TL合约20日上涨占比**: <font color='green'>**55%**</font> → 配置区间\n　≥50%=配置区间（看多债券），<50%=配置价值下降\n\n**资金面(GC001/GC007)**: 1.8% / 1.9% → <font color='green'>**宽松**</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**国债收益率曲线**\n\n| 期限 | 收益率 |\n|------|------|\n| 1Y | 1.450% |\n| 2Y | 1.500% |\n| 3Y | 1.550% |\n| 5Y | 1.620% |\n| 7Y | 1.700% |\n| 10Y | 1.720% |\n| 30Y | 1.950% |"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**🔍 市场状态判断（核心）**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "## <font color='green'>**🔵 底部确认**</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**价值板块补跌**: <font color='green'>✅ 已完成</font> 各子板块站上20日均线\n\n**小市值板块补跌**: <font color='green'>✅ 已完成</font> 中证1000站上20日均线\n\n**科技/成长板块补跌**: <font color='red'>❌ 未完成</font> 创业板仍在补跌"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**流动性剥离信号**\n\n🟢 无显著去杠杆信号 (两融余额小幅下降)\n\n🟢 主力资金未大幅净卖出 (主力资金小幅净买入)"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "<font color='grey'>📖 **📋 判断依据**</font>\n<font color='grey'>• 价值板块已率先见底</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**📈 Hurst 指数（DFA-1）**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "> **数据截止**: 2026-08-17 | 短周期60日 / 长周期250日 | DFA-1去趋势波动分析"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "| 指数 | 短H | 长H | 短长差 | 波动H | 信号 | 操作建议 |\n|------|------|------|------|------|------|------|\n| 沪深300 | 0.299 | 0.518 | <font color='red'>-0.219</font> | 0.684 | 🔴 死叉 | 清仓或对冲 |\n| 中证1000 | 0.484 | 0.655 | <font color='red'>-0.171</font> | 0.706 | ⚪ 退相 | 观望为主 |\n| 科创50 ⚠️ | 0.620 | 0.671 | <font color='red'>-0.051</font> | 0.597 | 🟡 有序 | 顺势持有 |\n| 恒生指数 | 0.741 | 0.532 | <font color='green'>+0.209</font> | 0.427 | 🟡 有序 | 顺势持有 |\n| 恒生科技 | 0.644 | 0.508 | <font color='green'>+0.136</font> | 0.461 | 🟡 有序 | 顺势持有 |"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**今日信号分布**: 🔴 死叉 1　🟡 有序 3　⚪ 退相 1"
+      }
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "<font color='grey'>📖 **📖 Hurst 信号说明**</font>\n<font color='grey'>• **🟢 金叉**: 短H上穿长H，短H>0.55且长H>0.5 → 趋势刚形成，顺势开仓</font>\n<font color='grey'>• **🔴 死叉**: 短H下穿长H，短H<0.55且满足≥2条附加条件 → 趋势瓦解，清仓或对冲</font>\n<font color='grey'>• **🟠 临界预警**: 短H>0.7 且 波动率H>0.7 → 临界慢化，减仓或买Put</font>\n<font color='grey'>• **🟡 有序状态**: 短H>0.55 且 长H>0.5 → 趋势进行中，顺势持有</font>\n<font color='grey'>• **⚪ 退相状态**: 短H<0.5 或 长H<0.5 → 无序震荡，观望为主</font>\n<font color='grey'>• **优先级**: 临界 > 金叉/死叉 > 有序/退相</font>\n<font color='grey'>• **⚠️ 数据警告**: 窗口内有涨跌停断层或连续停牌，H值可能失真</font>"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**💡 操作建议**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**当前状态**: <font color='green'>**🔵 底部确认**</font>"
+      }
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "• 自有资金账户：可适度加仓"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**🤖 AI综合研判**"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "测试"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "note",
+      "elements": [
+        {
+          "tag": "plain_text",
+          "content": "框架：沧海一土狗方法论 | 数据：data_hub v1.5.0 | 生成：2026-08-18 17:38 | 案例分析学习材料，不构成投资建议"
+        }
+      ]
+    }
+  ]
+}
