@@ -101,11 +101,19 @@ def hub_candidates(start=None):
 
 
 def hub_root(start=None):
-    """第一个真实可用的 DataHub 根；都没有时返回兜底常量（不保证存在）。"""
+    """第一个真实可用的 DataHub 根；都没有时返回空串（调用方显式报错）。
+
+    2026-11-26（#115 回归修复）：这里原来 ``return CLOUD_DEFAULT``，而
+    ``CLOUD_DEFAULT`` 常量随「删云盘兜底」一起被删了 —— 只要候选全落空
+    （新机器、没设 DATA_HUB_PATH、也没有同级 checkout），每个 case 脚本的
+    prologue 都会在这里抛 ``NameError``，而不是给出「找不到 DataHub」的明确提示。
+    返回空串后，``ensure_hub_on_path()`` 不会往 sys.path 塞空串，脚本走到
+    ``import data_hub`` 时才是那条本意的报错。
+    """
     for p in hub_candidates(start):
         if _is_hub(p):
             return p
-    return CLOUD_DEFAULT
+    return ""
 
 
 def ensure_hub_on_path(start=None):
