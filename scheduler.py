@@ -1087,6 +1087,17 @@ def tick():
         if slot is not None and (now - slot).total_seconds() > GRACE_SEC:
             if slot.date() == now.date():
                 slotkey = slot.strftime("%Y-%m-%d %H:%M")
+                # 这个点今天已经跑过了（last_slot 记着它）：宽限到期后 compute_slot
+                # 还会把它回看回来，原来在这里补写「超过宽限未执行」，于是**成功**
+                # 任务的看板从宽限（6h）之后开始自相矛盾 —— last_status=ok、
+                # finished=08:34，note 却说「超过宽限未执行」，一直挂到次日 spawn
+                # 才被清掉（_finish 不碰 note）。
+                # 只能放在 `slot.date() == now.date()` 里面：外面那个分支的 slot 是
+                # 「昨天」的点，它必须落到下面 `slot = None` 才能进提前拉取，
+                # 提前 continue 会把 pull_forward 整个关掉（2026-11-26 实测：
+                # 16:00-22:00 该提前拉起的 12 个任务一个都不起）。
+                if ms.get("last_slot") == slotkey:
+                    continue
                 if ms.get("missed_slot") != slotkey:   # 今天到点却超宽限：只记一次
                     ms["missed_slot"] = slotkey
                     ms["note"] = "超过宽限未执行（计划 %s，一直没轮到空档）" % slotkey
