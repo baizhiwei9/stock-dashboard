@@ -7,6 +7,8 @@ pub/
 logs/
 __pycache__/
 *.pyc
+# pytest 缓存（跑一次测试就生成，属本机产物）
+.pytest_cache/
 scheduler.pid
 daily.log
 
