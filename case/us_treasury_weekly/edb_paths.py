@@ -148,6 +148,9 @@ def legacy_candidates() -> List[str]:
     if root:
         out.append(root)
     out += [
+        (os.environ.get("DATA_HUB_PATH") or os.environ.get("DATAHUB_DIR")
+         or os.environ.get("EDB_REPO") or ""),
+        os.path.join(os.path.dirname(_REPO_ROOT), "datahub-multi-tier"),
         "/opt/coze/.fuse_drive/dataHub_三级体系",
         os.path.join(_REPO_ROOT, "dataHub_三级体系"),
     ]

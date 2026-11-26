@@ -35,10 +35,43 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # ==================== DataHub 统一取数（禁止直连）====================
-_HUB_PATHS = [
-    '/opt/coze/.fuse_drive/dataHub_三级体系',
-    '/opt/coze/.fuse_drive/蓁宝/所有对话/主对话/codeact/scripts',
-]
+def _hub_candidates(_start):
+    """DataHub 根候选（唯一口径优先）。
+
+    先用仓库根的 ``datahub_path.py``（build.py / scheduler.py 用的同一份代码），
+    它不在时退回「同级 checkout」再退老云盘路径。刻意**不**从任意上层目录找
+    ``datahub-multi-tier`` —— 机器上可能有别人留下的同名旧副本（/tmp 下就有），
+    按目录存在性猜会静默连错库。
+    """
+    out = []
+    cur = os.path.abspath(_start)
+    for _ in range(8):
+        p = os.path.join(cur, 'datahub_path.py')
+        if os.path.isfile(p):
+            ns = {'__file__': p, '__name__': 'datahub_path'}
+            try:
+                with open(p, encoding='utf-8') as f:
+                    exec(compile(f.read(), p, 'exec'), ns)
+                out.append(ns['datahub_root']())
+            except Exception:                              # noqa: BLE001
+                pass
+            out.append(os.path.join(cur, 'datahub-multi-tier'))
+            out.append(os.path.join(os.path.dirname(cur), 'datahub-multi-tier'))
+            break
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    out += [os.environ.get('DATA_HUB_PATH') or os.environ.get('DATAHUB_DIR')
+            or os.environ.get('EDB_REPO') or '',
+            '/opt/coze/.fuse_drive/dataHub_三级体系']
+    seen, uniq = set(), []
+    for p in out:
+        if p and p not in seen:
+            seen.add(p)
+            uniq.append(p)
+    return uniq
+_HUB_PATHS = _hub_candidates(os.path.dirname(os.path.abspath(__file__)))
 for _hp in _HUB_PATHS:
     if os.path.isdir(os.path.join(_hp, 'data_hub')) and _hp not in sys.path:
         sys.path.insert(0, _hp)

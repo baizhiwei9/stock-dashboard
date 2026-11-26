@@ -18,7 +18,34 @@ for _p in (HERE, LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}/opt/coze/.fuse_drive/dataHub_三级体系/options:." PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u 中美期权风险释放汇总.py'
+def _hub_root():
+    """DataHub 根：环境变量 → 仓库根 datahub_path.py（与 build/scheduler 同口径）→ 同级 checkout。"""
+    env = (os.environ.get('DATA_HUB_PATH') or os.environ.get('DATAHUB_DIR')
+           or os.environ.get('EDB_REPO') or '')
+    if env:
+        return env
+    cur = HERE
+    for _ in range(6):
+        p = os.path.join(cur, 'datahub_path.py')
+        if os.path.isfile(p):
+            ns = {'__file__': p, '__name__': 'datahub_path'}
+            try:
+                with open(p, encoding='utf-8') as f:
+                    exec(compile(f.read(), p, 'exec'), ns)
+                return ns['datahub_root']()
+            except Exception:                      # noqa: BLE001
+                break
+        nxt = os.path.dirname(cur)
+        if nxt == cur:
+            break
+        cur = nxt
+    return os.path.normpath(os.path.join(HERE, '..', '..', '..', 'datahub-multi-tier'))
+
+
+_HUB = _hub_root()
+CMD_FETCH = ('PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}%s/options:." '
+             'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." '
+             'python3 -u 中美期权风险释放汇总.py' % _HUB)
 CMD_SEND = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u 中美期权风险释放汇总.py --send'
 SEC = 'CN.STOCK'
 TIMEOUT = 1800

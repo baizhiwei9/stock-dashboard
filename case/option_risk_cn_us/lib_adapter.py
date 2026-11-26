@@ -53,6 +53,10 @@ _BASE_CANDS = [
     _P_WS or "",
     _P_HUB or "",
     "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace",
+    (os.environ.get("DATA_HUB_PATH") or os.environ.get("DATAHUB_DIR")
+     or os.environ.get("EDB_REPO") or ""),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))), "datahub-multi-tier"),
     "/opt/coze/.fuse_drive/dataHub_三级体系",
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__)))), "dataHub_三级体系"),

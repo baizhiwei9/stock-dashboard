@@ -19,7 +19,33 @@ for _p in (HERE, LIB):
         sys.path.insert(0, _p)
 
 # commodities_strategies 与 bond_three_factor 共用一份，靠 PYTHONPATH 前置引用
-CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}../bond_three_factor:/opt/coze/.fuse_drive/dataHub_三级体系:." python3 -u bond_yield_daily/run_daily.py'
+def _hub_root():
+    """DataHub 根：环境变量 → 仓库根 datahub_path.py（与 build/scheduler 同口径）→ 同级 checkout。"""
+    env = (os.environ.get('DATA_HUB_PATH') or os.environ.get('DATAHUB_DIR')
+           or os.environ.get('EDB_REPO') or '')
+    if env:
+        return env
+    cur = HERE
+    for _ in range(6):
+        p = os.path.join(cur, 'datahub_path.py')
+        if os.path.isfile(p):
+            ns = {'__file__': p, '__name__': 'datahub_path'}
+            try:
+                with open(p, encoding='utf-8') as f:
+                    exec(compile(f.read(), p, 'exec'), ns)
+                return ns['datahub_root']()
+            except Exception:                      # noqa: BLE001
+                break
+        nxt = os.path.dirname(cur)
+        if nxt == cur:
+            break
+        cur = nxt
+    return os.path.normpath(os.path.join(HERE, '..', '..', '..', 'datahub-multi-tier'))
+
+
+_HUB = _hub_root()
+CMD_FETCH = ('PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}'
+             '../bond_three_factor:%s:." python3 -u bond_yield_daily/run_daily.py' % _HUB)
 CMD_SEND = ''
 SEC = 'CN.BOND'
 TIMEOUT = 1800

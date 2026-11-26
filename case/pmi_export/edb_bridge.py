@@ -27,12 +27,27 @@ def _find_edb_repo() -> str:
     if ok(env):
         return env
 
-    cands = [
-        "/opt/coze/.fuse_drive/dataHub_三级体系",
-        os.path.join(WORKSPACE, "dataHub_三级体系"),
-        os.path.join(WORKSPACE, "datahub-multi-tier"),
+    # 从本文件向上逐级找 datahub_path.py（build.py / scheduler.py 用的同一口径），
+    # 找到就以它为准；找不到再退回「同级 checkout」候选。刻意不按目录存在性
+    # 在任意上层目录里猜 —— 机器上可能残留同名旧副本，猜错会静默连错库。
+    cands = [env, (os.environ.get("DATA_HUB_PATH") or os.environ.get("DATAHUB_DIR")
+                   or os.environ.get("EDB_REPO") or "")]
+    _cur = HERE
+    for _ in range(6):
+        if os.path.isfile(os.path.join(_cur, "datahub_path.py")):
+            cands.append(os.path.join(_cur, "datahub-multi-tier"))
+            cands.append(os.path.join(os.path.dirname(_cur), "datahub-multi-tier"))
+            break
+        _nxt = os.path.dirname(_cur)
+        if _nxt == _cur:
+            break
+        _cur = _nxt
+    cands += [
         os.path.join(os.path.dirname(WORKSPACE), "datahub-multi-tier"),
+        os.path.join(WORKSPACE, "datahub-multi-tier"),
+        os.path.join(WORKSPACE, "dataHub_三级体系"),
         _LEGACY_REPO,
+        "/opt/coze/.fuse_drive/dataHub_三级体系",
     ]
     try:
         for name in sorted(os.listdir(WORKSPACE)):
