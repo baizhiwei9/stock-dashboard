@@ -377,6 +377,67 @@ export CASE_EXTRA_DIRS=/path/to/precious-task/case
 | SQLite 单写锁 | 并发跑两个任务时，后启动的会卡在 EDB 库锁上直到超时（rc=124） | **严格串行**。等前一个任务 `status.json` 落盘后再起下一个 |
 | 无 swap | 7GB 机器上并发 → OOM → 进程被静默 kill，日志只有一行空错误 | 串行 + 单任务 `timeout` 给足 |
 | 云盘 `.git` 只读 | 在云盘目录里跑 `git` / `gh` 报 `not a git repository` | 在 `/tmp` 单独 clone 一份做 git 操作 |
+| 云盘（FUSE）目录操作极慢 | `listdir case/` 0.6~1.3s，`_case_modules()` 6~14s，`tick()` 实测间隔 29s（名义 15s），`/api/state` 9~12s | **不要把运行目录放云盘**：代码/配置/`state.json`/数据库放本机盘，云盘只做备份，见 §7.1 |
+| 云盘 mtime 不可靠 | `registry.json` / `state.json` 的 mtime 时而是 `1970-01-01`、时而真实时间；同一文件隔 2 秒 `stat` 两次结果不同 | 任何依赖 mtime 的缓存 / 增量判断在云盘上都会失效；本机盘没这个问题 |
+
+---
+
+## 7.1 跑在本机盘、云盘只做备份（推荐）
+
+**不要直接在 FUSE 云盘目录里跑调度器。** 实测（2026-11-26，云盘 `/Coze/Drive/...`）：
+
+| 操作 | 云盘 | 本机盘 |
+|---|---|---|
+| `listdir case/` | 0.6 ~ 1.3 s | ~0 ms |
+| `_case_modules()`（`listdir` × 16） | 6 ~ 14 s | ~ ms |
+| `GET /api/state` | 9 ~ 12 s | ~ ms |
+| `tick()` 实测间隔（名义 15s） | **29 s** | 15 s |
+
+`all_modules()` 每个 tick 都要跑一次，云盘上光扫目录就吃掉十几秒 —— 调度精度整体退化，
+控制台也打不开。所以：**代码、配置、`state.json`、数据库全部放本机盘跑；云盘只当备份。**
+
+```
+/root/work/                     # 本机盘（ext4）：跑在这里
+├── stock-dashboard/            #   git clone 到本机，不要 clone 到云盘
+├── datahub-multi-tier/
+└── data/
+
+/Coze/Drive/股市监控画布/backup/  # 云盘：只放同步上来的副本
+```
+
+```bash
+# ① 本机盘部署（云盘上那份原件先留着，不删）
+rsync -a --exclude logs --exclude __pycache__ \
+      /Coze/Drive/股市监控画布/stock-dashboard/ /root/work/stock-dashboard/
+rsync -a --exclude __pycache__ \
+      /Coze/Drive/股市监控画布/datahub-multi-tier/ /root/work/datahub-multi-tier/
+
+# ② 按本文第 2~3 节重跑依赖与凭据（凭据在 ~/.config 下，不随目录搬）
+cd /root/work/stock-dashboard && ./install.sh
+
+# ③ 起调度器，确认 47 个模块都在
+python3 scheduler.py fg          # 前台看几秒，没问题 Ctrl-C
+bash sd_watchdog.sh              # 带 CASE_EXTRA_DIRS 拉起常驻实例
+python3 scheduler.py health      # 0 = 健康
+curl -s -o /dev/null -w '%{time_total}\n' http://127.0.0.1:8767/api/state   # 应 < 0.1s
+```
+
+> **重启必须带 `CASE_EXTRA_DIRS`**。裸 `python3 scheduler.py restart` 会把私有任务
+> （`precious-task/case` 下那 18 个）整个漏掉 —— `sd_watchdog.sh` 会自动导出这个变量，
+> 所以**统一走 `bash sd_watchdog.sh`**，别手敲 restart。
+
+**定时把本机盘备份回云盘**（脚本：`scripts/sync_to_drive.sh`）：
+
+```bash
+bash scripts/sync_to_drive.sh --dry-run     # 先看要同步什么
+bash scripts/sync_to_drive.sh               # 同步一次
+# crontab：每小时一次
+0 * * * * cd /root/work/stock-dashboard && bash scripts/sync_to_drive.sh >/dev/null 2>&1
+```
+
+脚本默认排除 `logs/`、`__pycache__/`、`state.json`、`scheduler.pid`、`*.bak*`，
+不加 `--prune` 就不会删云盘上的东西。数据全是从公开源抓的，丢了重跑一遍就有，
+**不需要做主从/双写/一致性那一套**。
 
 ---
 
