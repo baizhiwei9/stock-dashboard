@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "case task metadata",
+  "description": "dumate 分支 case/<key>/task.json 的字段契约，调度器与看板共用。有 pipeline 时由 case/_lib/runner.py 按阶段驱动；没有 pipeline 才用 cmd 直跑（兼容旧任务）",
+  "type": "object",
+  "required": [
+    "key",
+    "title",
+    "metrics",
+    "sched"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]{2,40}$",
+      "description": "唯一任务键，必须与目录名一致"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "面板显示标题"
+    },
+    "desc": {
+      "type": "string",
+      "description": "一句话说明"
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "private"
+      ],
+      "default": "public",
+      "description": "public：跑完写指标仓并按 section 上牌面；private：跑完只写指标仓，不展示（私有任务用）。旧值 internal 是 private 的别名，过渡期内照常认，但不要再新写"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]{2,40}$"
+      },
+      "description": "上游任务 key 列表；fetch 前检查上游 out/latest.json 的存在、新鲜度与 ok 占比，不满足则报警并停止"
+    },
+    "section": {
+      "type": "string",
+      "enum": [
+        "stock",
+        "watch",
+        "pick",
+        "futures",
+        "realestate",
+        "macro",
+        "liquidity",
+        "bond",
+        "modules",
+        "option",
+        "risk"
+      ],
+      "description": "面板标签，对应 sections.json 的 key；visibility=private 时必须为空或不写，visibility=public 时必填"
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 0,
+      "description": "要在面板展示的指标；首跑后由 publish.py 从产出回填（首次 publish 前允许为空）",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "sec"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "指标键，如 chanlun.bull_score"
+          },
+          "sec": {
+            "type": "string",
+            "description": "证券/对象 id，如 000300.SH / AU.SHF / CN.MACRO"
+          },
+          "name": {
+            "type": "string",
+            "description": "展示名"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "dec": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "color": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sched": {
+      "type": "object",
+      "required": [
+        "mode",
+        "at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "daily",
+            "weekly",
+            "monthly"
+          ]
+        },
+        "at": {
+          "description": "本地时间 HH:MM。一天多个时间点（如早报 07:50 + 晚报 19:55）写数组，元素为 HH:MM 字符串，1-6 个；字符串写法行为与旧版完全一致",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              }
+            }
+          ]
+        },
+        "weekdays": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "description": "ISO 星期：1=周一 … 7=周日；daily/weekly 使用"
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "description": "每月第几天；monthly 使用"
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "description": "框架生命周期声明；有 pipeline 时由 runner.py 分阶段执行，cmd 不再直接使用",
+      "required": [
+        "stages"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "on_fail": {
+          "type": "string",
+          "enum": [
+            "stop",
+            "continue"
+          ],
+          "default": "stop",
+          "description": "某阶段失败后是否继续后面的阶段"
+        },
+        "freshness_days": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 3,
+          "description": "指标 obs_date 允许落后的天数"
+        },
+        "min_ok_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "quality=ok 的最低占比"
+        },
+        "require_data": {
+          "type": "boolean",
+          "default": true,
+          "description": "检查 data/ 是否有非空取数产物"
+        },
+        "require_report": {
+          "type": "boolean",
+          "default": true,
+          "description": "检查 out/ 是否本次生成了报告"
+        },
+        "require_metrics": {
+          "type": "boolean",
+          "default": true,
+          "description": "检查 out/latest.json 是否存在且合法"
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "data": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "取数产物 glob（相对任务目录）"
+            },
+            "report": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "报告产物 glob（相对任务目录）"
+            }
+          }
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "description": "按顺序执行；同名阶段在任务目录的 pipeline.py 里有钩子时优先用钩子",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": [
+                  "fetch",
+                  "check",
+                  "render",
+                  "emit",
+                  "dispatch"
+                ]
+              },
+              "cmd": {
+                "type": "string",
+                "minLength": 1,
+                "description": "该阶段的命令（相对任务目录）"
+              },
+              "builtin": {
+                "type": "string",
+                "enum": [
+                  "artifacts",
+                  "emit"
+                ],
+                "description": "内置实现：artifacts=通用产物校验，emit=写 latest.json 并落库"
+              },
+              "hook": {
+                "type": "boolean",
+                "default": false,
+                "description": "该阶段由任务目录 pipeline.py 的同名函数实现"
+              },
+              "timeout": {
+                "type": "integer",
+                "minimum": 60
+              },
+              "optional": {
+                "type": "boolean",
+                "default": false,
+                "description": "失败只报警、不中断（如分发阶段）"
+              },
+              "as_of": {
+                "type": "string",
+                "description": "emit 阶段固定 as_of；不填则取各指标 obs_date 最大值"
+              }
+            }
+          }
+        }
+      }
+    },
+    "cmd": {
+      "type": "string",
+      "minLength": 1,
+      "description": "执行命令（没有 pipeline 时的直跑入口）；有 pipeline 时由 registry 覆盖为 runner 入口"
+    },
+    "cwd": {
+      "type": "string",
+      "description": "运行目录，默认 case/<key>"
+    },
+    "timeout": {
+      "type": "integer",
+      "minimum": 60,
+      "default": 1800
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "deliver": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "report": {
+          "type": "boolean",
+          "description": "任务自身是否会发报告"
+        },
+        "email": {
+          "type": "boolean",
+          "description": "任务自身是否会发邮件"
+        }
+      }
+    },
+    "original_cwd": {
+      "type": "string",
+      "description": "迁移前源目录，仅溯源"
+    }
+  }
+}
