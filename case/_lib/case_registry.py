@@ -24,8 +24,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CASE_DIR = os.path.dirname(HERE)
 ROOT = os.path.dirname(CASE_DIR)
 
-SECTIONS = ("stock", "futures", "realestate", "macro", "liquidity", "bond",
-            "option", "risk", "modules")
+SECTIONS = ("stock", "watch", "pick", "futures", "realestate", "macro",
+            "liquidity", "bond", "option", "risk", "modules")
+# watch=自选股、pick=选股：只在私有页出图的两个板块（公开页只取 visibility=public，
+# 这里加白名单不会让它们跑到公开页去）。
 # 没写 section / section_domain 的私有任务不丢，归到「未分板块」（私有页专用）。
 UNSORTED = "unsorted"
 KEY_RE = re.compile(r"^[a-z0-9_]{2,40}$")

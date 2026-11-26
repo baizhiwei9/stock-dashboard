@@ -39,12 +39,17 @@ import build as B                                            # noqa: E402  复�
 
 # task.json 没写 section / section_domain 的任务：不丢，单独归到「未分板块」
 UNSORTED = "unsorted"
-SECTION_ORDER = ("stock", "futures", "realestate", "macro",
+SECTION_ORDER = ("stock", "watch", "pick", "futures", "realestate", "macro",
                  "liquidity", "bond", "option", "risk", "modules", UNSORTED)
 # 板块别名只维护一份，在 case/_lib/case_registry.py 的 SECTION_ALIAS，
 # 这里不再平行维护（credit/credit_spread→bond、macro_watch→macro 都在那边）。
 # sections.json 里没有的板块（未归类）在本页的标题
 EXTRA_SECTIONS = {
+    # watch / pick 只在本页出现，sections.json（公开看板导航）里没有这两个 key
+    "watch": {"num": "—", "title": "自选股",
+              "sub": "我的实盘 / 自选股（默尔根、亚丽）：持仓风险与机会"},
+    "pick": {"num": "—", "title": "选股",
+             "sub": "选股 / 选行业 / 选概念：策略给出的标的池"},
     UNSORTED: {"num": "—", "title": "未分板块",
                "sub": "私有仓里没写 section / section_domain 的任务，先按原样列出"},
 }
@@ -348,12 +353,13 @@ def build_private(out_path: str, with_images: bool = True,
         nav.append('<a href="#p_%s">%s</a>' % (sec, html.escape(m.get("title") or sec)))
         cards = []
         for w in items:
-            cards.append(B.render_registered_model(w, latest, {})[0])
+            # 大佬要求配图在前：先出图、再出指标卡（图在上、卡片在下）
             if with_images:
                 shots = _shots_html(w, assets_root, page_dir, max_images)
                 if shots:
                     n_img += shots.count('class="shot"')
                     cards.append(shots)
+            cards.append(B.render_registered_model(w, latest, {})[0])
         blocks.append(
             '<div class="sec-wrap" data-sec="p_%s" id="p_%s">'
             '<div class="sec-head"><span class="sec-num">%s</span>'
