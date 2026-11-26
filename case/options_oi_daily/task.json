@@ -9,49 +9,49 @@
       "key": "opt.oi.basis_abs.IF",
       "sec": "OPT.OI",
       "name": "沪深300绝对基差",
-      "unit": "",
+      "unit": "点",
       "dec": 2
     },
     {
       "key": "opt.oi.basis_abs.IC",
       "sec": "OPT.OI",
       "name": "中证500绝对基差",
-      "unit": "",
+      "unit": "点",
       "dec": 2
     },
     {
       "key": "opt.oi.basis_abs.IM",
       "sec": "OPT.OI",
       "name": "中证1000绝对基差",
-      "unit": "",
+      "unit": "点",
       "dec": 2
     },
     {
       "key": "opt.oi.basis_abs.T",
       "sec": "OPT.OI",
       "name": "10年国债绝对基差",
-      "unit": "",
+      "unit": "%",
       "dec": 2
     },
     {
       "key": "opt.oi.basis_abs.TF",
       "sec": "OPT.OI",
       "name": "5年国债绝对基差",
-      "unit": "",
+      "unit": "%",
       "dec": 2
     },
     {
       "key": "opt.oi.basis_abs.TS",
       "sec": "OPT.OI",
       "name": "2年国债绝对基差",
-      "unit": "",
+      "unit": "%",
       "dec": 2
     },
     {
       "key": "opt.oi.basis_abs.TL",
       "sec": "OPT.OI",
       "name": "30年国债绝对基差",
-      "unit": "",
+      "unit": "%",
       "dec": 2
     }
   ],

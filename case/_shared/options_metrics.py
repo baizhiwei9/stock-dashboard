@@ -94,20 +94,22 @@ def _basis_pct(root: str) -> List[Dict]:
 
 
 def _oi_basis(root: str) -> List[Dict]:
-    """期权OI日报：各品种绝对基差（股指=点数，国债=收益率差%）。"""
-    f = _newest(root, "oi_abnormal")
+    """期权OI日报：各品种绝对基差（股指=点数，国债=收益率差%）。
+
+    `oi_abnormal.json` 只有期权持仓，没有基差；基差是 oi_daily.py 现算的，
+    由 `case_summary.write_summary('oi_basis', ...)` 单独落一份汇总。
+    """
+    f = _newest(root, "oi_basis")
     d = _load(f) or {}
-    obs = _date_of(f)
+    obs = (d.get("date") if isinstance(d, dict) else "") or _date_of(f)
     out = []
-    for sym, info in (d.items() if isinstance(d, dict) else []):
-        if not isinstance(info, dict) or info.get("error"):
-            continue
-        out.append(_p("opt.oi.basis_abs.%s" % sym, info.get("basis_abs"), obs))
+    for sym, val in ((d.get("items") or {}).items() if isinstance(d, dict) else []):
+        out.append(_p("opt.oi.basis_abs.%s" % sym, val, obs))
     return [x for x in out if x]
 
 
 def _close_skew(root: str) -> List[Dict]:
-    """收盘期权监控：各标的 SKEW 指数（百分点）+ 分位。"""
+    """收盘期权监控：各标的 SKEW 指数（百分点）。"""
     f = _newest(root, "close_option")
     d = _load(f) or {}
     obs = _date_of(f)
@@ -116,7 +118,6 @@ def _close_skew(root: str) -> List[Dict]:
         if not isinstance(info, dict):
             continue
         out.append(_p("opt.skew.close.%s" % name, info.get("skew_pct"), obs))
-        out.append(_p("opt.skew.close.pctile.%s" % name, info.get("skew_pct_pct"), obs))
     return [x for x in out if x]
 
 

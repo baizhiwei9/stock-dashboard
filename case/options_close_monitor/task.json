@@ -6,9 +6,9 @@
   "visibility": "public",
   "metrics": [
     {
-      "key": "opt.skew.close.沪深300",
+      "key": "opt.skew.close.300ETF",
       "sec": "OPT.SKEW",
-      "name": "沪深300 SKEW",
+      "name": "300ETF SKEW",
       "unit": "",
       "dec": 2
     },
