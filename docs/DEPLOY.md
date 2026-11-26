@@ -186,11 +186,22 @@ python3 scheduler.py status
 ./start_all.sh down        # 停
 ./start_all.sh restart     # 重启
 ./start_all.sh doctor      # 只体检：路径 / 凭据 / 任务分布 / 公私归属失配
+
+# 只跑其中几个任务（本次进程生效，不改任何配置）：
+./start_all.sh up --only rmt_daily,risk_daily
+./start_all.sh up          # 不带 --only 再起一次 = 恢复全部
+# 纯后台调度，不监听端口：
+./start_all.sh up --no-api
 ```
 
-`up` 是幂等的：已在跑就只补齐没起的部分。第一次会按需生成 `modules.json`
-（空 `modules`，任务全部来自 `case/` + `CASE_EXTRA_DIRS`），并做凭据门禁
-（缺项直接拒绝启动，先跑 `./install.sh`）。
+`up` 是幂等的：已在跑且过滤条件相同就只补齐没起的部分；过滤条件变了（例如从
+全部切到 `--only`，或反过来）会先停再起——**这会打断当时正在跑的任务**。
+第一次会按需生成 `modules.json`（空 `modules`，任务全部来自 `case/` +
+`CASE_EXTRA_DIRS`），并做凭据门禁（缺项直接拒绝启动，先跑 `./install.sh`）。
+
+`--only` 的 key 必须与 `task.json` / `modules.json` 里的 key 完全一致，拼错会
+拒绝启动并列出未知 key（静默忽略会变成「一个都不跑」）。过滤只影响自动调度，
+`python3 scheduler.py run <key>` 手动跑不受限。
 
 只想手工看调度器输出时：
 
@@ -203,7 +214,12 @@ python3 scheduler.py status        # 看状态表
 python3 scheduler.py health        # 0=健康 / 1=未运行 / 2=僵死
 ```
 
-- 控制台：`http://<host>:8767`（端口读 `modules.json` 的 `api.port`）。
+- 控制台：`http://127.0.0.1:8767`（端口读 `modules.json` 的 `api.port`；
+  没写 `api.host` 时只听回环。**本仓 `modules.json` 目前显式写 `0.0.0.0`**，
+  只在本机用时建议改成 `127.0.0.1`；`up` 检测到 `0.0.0.0` 会打警告）。
+- 不需要任何端口：`api.enabled=false` 或 `./start_all.sh up --no-api`。调度本身
+  不依赖端口（到点起任务、心跳都是本地文件）；但容器里若跨命名空间看不到 pid，
+  别关——health/stop 靠 HTTP 兜底。
 - `start` 是幂等的：已经在跑就直接返回，不会起第二个实例（先查 `scheduler.pid`，再校验进程命令行，再用端口探活兜底）。
 - 首次启动会创建 `state.json` 与 `logs/`，两者都在 `.gitignore` 里。
 

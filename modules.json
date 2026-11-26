@@ -2,9 +2,10 @@
   "version": 2,
   "note": "由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。cwd/cmd 里的 {{DATAHUB_ROOT}} / {{REPO_ROOT}} / {{FEISHU_CLI_DIR}} 由 datahub_path.expand_module() 在启动任务时展开，本文件不写任何本机绝对路径。task_tags_notify 的 cmd 里有飞书群 chat_id 和告警邮箱，那是「通知对象」不是凭据（没有 app_secret 也用不了），换人用就改这两处。",
   "api": {
-    "host": "0.0.0.0",
+    "host": "127.0.0.1",
     "port": 8767,
-    "_note": "password / registry_key 已移至 ~/.config/stock-dashboard/secrets.json 的 scheduler 段（见 DEPLOY.md §3.3）"
+    "enabled": true,
+    "_note": "password / registry_key 已移至 ~/.config/stock-dashboard/secrets.json 的 scheduler 段（见 DEPLOY.md §3.3）。默认只听本机回环；要局域网访问管理页把 host 改成 0.0.0.0；纯后台调度可设 enabled=false（或 SD_NO_API=1），此时不监听任何端口。"
   },
   "modules": [
     {
