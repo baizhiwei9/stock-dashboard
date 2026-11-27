@@ -3994,6 +3994,200 @@ def _generate_margin_markdown(margin_data):
 #  报告生成
 # ============================================================
 
+# ========== 海外波动预警（美元指数 / 恒生期货 / 富时中国A50期货）==========
+# 唯一真源：data_hub.overseas_vol（取数 data_hub.collectors.futures.overseas_index_vol）
+# 两层预警：① 波动性 HV20 年化近一年分位 ≥90% / ≤10%
+#           ② 当日涨跌幅近一年分位 ≥90% / ≤10%
+# 叠加绝对阈值：股指期货 ±2% 强预警；美元指数 +0.6%/+0.7%/+1.0% 三档，急跌仅记录不预警
+# 2026-11-27 新增，口径与阈值依据见 data_hub/overseas_vol.py 模块文档
+
+_OV_LEVEL_META = {
+    'critical': ('🔴', 'red', '强预警'),
+    'warning': ('🟠', 'orange', '预警'),
+    'notice': ('🟡', 'yellow', '提示'),
+    'info': ('🔵', 'blue', '记录'),
+    'none': ('🟢', 'green', '正常'),
+}
+
+
+def _ov_level_meta(level):
+    """预警等级 → (emoji, 卡片模板色, 中文标签)"""
+    return _OV_LEVEL_META.get(level or 'none', _OV_LEVEL_META['none'])
+
+
+def _ov_level_text(level):
+    emoji, _, text = _ov_level_meta(level)
+    return f"{emoji} {text}"
+
+
+def load_overseas_vol_snapshot():
+    """从 data_hub 取三标的波动预警快照；不可用时返回 None（不阻断主报告）"""
+    try:
+        from data_hub.overseas_vol import get_overseas_vol_snapshot
+    except Exception as e:  # noqa: BLE001
+        print(f"  ⚠️  data_hub.overseas_vol 不可用: {e}")
+        return None
+    try:
+        return get_overseas_vol_snapshot()
+    except Exception as e:  # noqa: BLE001
+        print(f"  ⚠️  海外波动预警取数异常: {e}")
+        return None
+
+
+def format_overseas_vol_md(snap):
+    """海外波动预警 → Markdown 章节"""
+    if not snap or not snap.get('targets'):
+        return ''
+
+    lines = []
+    lines.append("## 🌐 海外波动预警（美元指数 / 恒指期货 / A50期货）")
+    lines.append("")
+    lines.append("> **两层预警**：① 波动性 — HV20 年化处近一年 ≥90% 分位＝波动升温，≤10% 分位＝波动收敛；"
+                 "② 涨跌幅 — 当日涨跌幅处近一年 ≥90% 分位＝急涨，≤10% 分位＝急跌。")
+    lines.append("> **绝对阈值**：恒指期货 / A50 期货单日 ±2% 强预警（±1.5% 提示）；"
+                 "美元指数 +0.6% 提示 / +0.7% 正式预警 / +1.0% 强预警，急跌仅记录不预警。")
+    lines.append("")
+    lines.append("| 标的 | 最新 | 当日 | 涨跌幅分位 | HV20(年化) | HV20分位 | 一年涨跌幅区间(10~90%) | MACD | MA250偏离 | 状态 |")
+    lines.append("|------|------|------|-----------|-----------|---------|----------------------|------|----------|------|")
+
+    for t in snap['targets']:
+        if not t.get('ok'):
+            lines.append(f"| {t.get('name') or t.get('symbol')} | — | — | — | — | — | — | — | — | ⚠️ 数据缺失 |")
+            continue
+        m = t.get('metrics') or {}
+        px = t.get('latest')
+        if px is None:
+            px_s = '—'
+        elif px < 100:
+            px_s = f"{px:.4f}"
+        else:
+            px_s = f"{px:.2f}"
+        pct = m.get('pct_chg')
+        pct_s = f"{pct:+.2f}%" if pct is not None else '—'
+        rk = m.get('chg_rank')
+        rk_s = f"{rk:.0f}%" if rk is not None else '—'
+        hv = m.get('hv20')
+        hv_s = f"{hv:.2f}%" if hv is not None else '—'
+        hvr = m.get('hv20_rank')
+        hvr_s = f"{hvr:.0f}%" if hvr is not None else '—'
+        p10, p90 = m.get('chg_p10'), m.get('chg_p90')
+        rng_s = f"{p10:+.2f}% ~ {p90:+.2f}%" if (p10 is not None and p90 is not None) else '—'
+        macd_s = (m.get('macd') or {}).get('text') or '—'
+        dev = m.get('ma250_dev')
+        dev_s = f"{dev:+.1f}%" if dev is not None else '—'
+        lines.append(
+            f"| {t.get('name')} | {px_s} | {pct_s} | {rk_s} | {hv_s} | {hvr_s} | {rng_s} | {macd_s} | {dev_s} | {_ov_level_text(t.get('level'))} |"
+        )
+    lines.append("")
+
+    alerts = []
+    for t in snap['targets']:
+        for a in (t.get('alerts') or []):
+            alerts.append(a)
+    if alerts:
+        lines.append("**预警明细**")
+        lines.append("")
+        for a in alerts:
+            emoji, _, text = _ov_level_meta(a.get('level'))
+            lines.append(f"- {emoji} **[{text}]** {a.get('msg')}")
+        lines.append("")
+    else:
+        lines.append("**预警明细**：三标的均未触发阈值。")
+        lines.append("")
+
+    lines.append("> 📌 **美元指数阈值依据**（DXY × 恒指对齐回测）：DXY 单日涨超 0.7% 后恒指未来 5 日均 -0.78%（胜率 41%）、"
+                 "涨超 1.0% 后 -1.08%（胜率 35%）；而 DXY 单日跌超 0.7% 后恒指 5 日 +0.12%（无稳定负向），故急跌仅记录。"
+                 "HV20 分位与恒指未来 5 日收益相关仅 +0.089，波动率水平只作状态描述、不单独构成风险结论。")
+    lines.append("")
+    lines.append(f"> 数据源：DataHub `data_hub.overseas_vol` ｜ 快照 {snap.get('generated_at')} ｜ 行情日期 {snap.get('as_of')}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_overseas_vol_card(snap, date_display):
+    """海外波动预警 → 飞书卡片（独立一张，不侵入原有卡片结构）"""
+    if not snap or not snap.get('targets'):
+        return None
+    try:
+        from feishu_card_utils import build_card_header, build_markdown, build_hr, wrap_card
+    except Exception as e:  # noqa: BLE001
+        print(f"  ⚠️  卡片工具不可用，跳过海外波动卡片: {e}")
+        return None
+
+    level = snap.get('max_level') or 'none'
+    emoji, template, level_text = _ov_level_meta(level)
+    prefix = f"{emoji} " if level in ('critical', 'warning') else ""
+    header = build_card_header(
+        f"{prefix}🌐 海外波动预警 | {date_display} · {level_text}",
+        template=template,
+    )
+
+    els = []
+    els.append(build_markdown(
+        "**两层预警**\n"
+        "① 波动性：HV20 年化近一年 **≥90% 分位＝升温** / **≤10% 分位＝收敛**\n"
+        "② 涨跌幅：当日涨跌幅近一年 **≥90% 分位＝急涨** / **≤10% 分位＝急跌**\n"
+        "**绝对阈值**：恒指/A50 期货 ±2% 强预警；美元指数 +0.6%/+0.7%/+1.0% 三档，急跌仅记录"
+    ))
+    els.append(build_hr())
+
+    for t in snap['targets']:
+        name = t.get('name') or t.get('symbol')
+        if not t.get('ok'):
+            els.append(build_markdown(f"**{name}** ⚠️ 数据缺失（日线全部源失败）"))
+            continue
+        m = t.get('metrics') or {}
+        px = t.get('latest')
+        if px is None:
+            px_s = '—'
+        elif px < 100:
+            px_s = f"{px:.4f}"
+        else:
+            px_s = f"{px:.2f}"
+        pct = m.get('pct_chg')
+        pct_s = f"{pct:+.2f}%" if pct is not None else '—'
+        hv = m.get('hv20')
+        hv_s = f"{hv:.2f}%" if hv is not None else '—'
+        hvr = m.get('hv20_rank')
+        hvr_s = f"{hvr:.0f}%分位" if hvr is not None else '—'
+        rk = m.get('chg_rank')
+        rk_s = f"{rk:.0f}%分位" if rk is not None else '—'
+        p10, p90 = m.get('chg_p10'), m.get('chg_p90')
+        rng_s = f"{p10:+.2f}% ~ {p90:+.2f}%" if (p10 is not None and p90 is not None) else '—'
+        macd_s = (m.get('macd') or {}).get('text') or '—'
+        dev = m.get('ma250_dev')
+        dev_s = f"{dev:+.1f}%" if dev is not None else '—'
+        em2, _, txt2 = _ov_level_meta(t.get('level'))
+        block = (
+            f"**{name}** {px_s} `{pct_s}` {em2} {txt2}\n"
+            f"HV20 {hv_s}（{hvr_s}） · 涨跌幅 {rk_s} · {macd_s}\n"
+            f"一年区间 {rng_s} ｜ MA250偏离 {dev_s}"
+        )
+        els.append(build_markdown(block))
+
+    els.append(build_hr())
+    alerts = [a for t in snap['targets'] for a in (t.get('alerts') or [])]
+    if alerts:
+        body = "**预警明细**\n" + "\n".join(
+            f"{_ov_level_meta(a.get('level'))[0]} **[{_ov_level_meta(a.get('level'))[2]}]** {a.get('msg')}"
+            for a in alerts
+        )
+        els.append(build_markdown(body))
+    else:
+        els.append(build_markdown("**预警明细**：三标的均未触发阈值 🟢"))
+
+    els.append(build_markdown(
+        "<font color='grey'>📌 美元指数阈值依据：DXY 单日涨>0.7% 后恒指未来 5 日均 -0.78%（胜率 41%），"
+        ">1.0% 后 -1.08%（35%）；跌>0.7% 后恒指 5 日 +0.12%，故急跌仅记录。"
+        "HV20 分位与恒指 5 日收益相关仅 +0.089，波动率水平只作状态描述。</font>"
+    ))
+    els.append(build_markdown(
+        f"<font color='grey'>数据源：DataHub overseas_vol ｜ 行情 {snap.get('as_of')} ｜ 快照 {snap.get('generated_at')}</font>"
+    ))
+
+    return wrap_card(header, els)
+
+
 def generate_markdown_report(trade_date, indices, top_risks, top_opps, conclusion, data_date_info=None, is_midday=False, timing_data=None, margin_data=None):
     """生成Markdown格式风险预测日报
     
@@ -4305,6 +4499,16 @@ def main():
     # ========== 3. 生成报告 ==========
     print("\n\n📝 生成报告...")
     
+    # 海外波动预警（美元指数 / 恒生期货 / A50期货）—— 唯一真源 data_hub.overseas_vol
+    print("\n🌐 海外波动预警（美元指数/恒指期货/A50期货）...")
+    overseas_snap = load_overseas_vol_snapshot()
+    if overseas_snap:
+        print(f"  {overseas_snap.get('summary')}（缺失: {overseas_snap.get('missing') or '无'}）")
+        for _t in overseas_snap.get('targets', []):
+            print(f"    {_t.get('headline')}")
+    else:
+        print("  ⚠️  海外波动预警数据不可用（不阻断主报告）")
+
     md_report = generate_markdown_report(
         trade_date, indices, top_risks, top_opps, conclusion,
         data_date_info=data_date_info,
@@ -4313,6 +4517,19 @@ def main():
         margin_data=margin_data,
     )
     
+    # 海外波动预警：章节追加到报告末尾；等级高时在报告顶部加一行醒目提示
+    if overseas_snap:
+        _ov_md = format_overseas_vol_md(overseas_snap)
+        if _ov_md:
+            md_report = md_report.rstrip() + "\n\n---\n\n" + _ov_md
+        if overseas_snap.get('max_level') in ('warning', 'critical'):
+            _ov_flag = f"> 🌐 **海外波动预警：{overseas_snap.get('summary')}**（详见文末「海外波动预警」章节）\n"
+            _ov_anchor = "> 📎 此消息来自 Coze Agent 蓁宝\n"
+            if _ov_anchor in md_report:
+                md_report = md_report.replace(_ov_anchor, _ov_anchor + _ov_flag, 1)
+            else:
+                md_report = _ov_flag + md_report
+
     report_suffix = '_风险预测日报_午盘版.md' if is_midday else '_风险预测日报.md'
     report_path = os.path.join(OUTPUT_DIR, f'{date_display}{report_suffix}')
 
@@ -4374,6 +4591,9 @@ def main():
             if vol_ok < 3:
                 data_warnings.append(f"⚠️ 六大宽基量能分位数据缺失（仅{vol_ok}/6个指数取到）")
 
+            if overseas_snap and overseas_snap.get('missing'):
+                data_warnings.append(f"⚠️ 海外波动标的数据缺失: {','.join(overseas_snap['missing'])}")
+
             if data_warnings:
                 print(f"  ⚠️ 数据缺失告警: {len(data_warnings)}项")
                 for w in data_warnings:
@@ -4392,6 +4612,13 @@ def main():
                 is_midday=is_midday,
                 data_warnings=data_warnings,
             )
+
+            # 海外波动预警：独立一张卡，不侵入原有三张卡结构
+            if overseas_snap:
+                _ov_card = build_overseas_vol_card(overseas_snap, date_display)
+                if _ov_card:
+                    cards.append(_ov_card)
+                    print(f"  🌐 已追加海外波动预警卡片（等级 {overseas_snap.get('max_level')}）")
 
             # 午盘版：每张卡片顶部插入实时估算提示
             if is_midday:
