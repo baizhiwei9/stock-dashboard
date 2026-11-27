@@ -46,10 +46,17 @@ from notify_init import chat_id, chat_hint
 chat = chat_id("stocks")        # 具名群；缺配返回空串，调用方如实报缺（chat_hint 给指引）
 ```
 
-取值顺序：`NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID[_<KEY>]` → 本应用 secrets 的
-`feishu.chats.<key>` → DataHub 通知模块 app profile（部署 `notify.json` 的
-`apps.stock-dashboard.feishu.chat_id`）→ secrets 的 `feishu.chat_id` → 调用方默认值。
-具名群（`stocks` / `tugou` / `tags`）没配时**不回落到默认群**。
+取值顺序：`NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID[_<KEY>]` → secrets 的
+`feishu.chats.<key>` → 默认群（`NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID` →
+DataHub 通知模块 app profile 的 `apps.stock-dashboard.feishu.chat_id` → secrets 的
+`feishu.chat_id`）。具名群（`stocks` / `tugou` / `tags`）没配时**回落到默认群** ——
+宁可发错群也要把报告发出去；只有连默认群都没有才跳过并报缺。
+
+排查「这条发到哪个群」用 `resolve_chat(key)`，或在命令行看 `status`：
+
+```bash
+python3 case/_lib/notify_init.py status        # 各群的来源（不打印 id 明文）
+```
 
 shell 与 `modules.json` 里取（缺配退出码 1，错误提示写 stderr）：
 

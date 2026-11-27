@@ -19,8 +19,13 @@ import notify_init  # noqa: E402
 _ENV_BASE = "NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID"
 
 
+_SEQ = [0]
+
+
 def _write_secrets(tmp_path, data):
-    p = tmp_path / "secrets.json"
+    # 每次换文件名：app_secrets 按 (路径, mtime) 缓存，同一路径连续重写可能读到上一轮
+    _SEQ[0] += 1
+    p = tmp_path / ("secrets-%d.json" % _SEQ[0])
     p.write_text(json.dumps(data), encoding="utf-8")
     return str(p)
 
@@ -46,11 +51,23 @@ def test_named_chat_from_secrets(tmp_path, monkeypatch):
     assert notify_init.chat_id("TUGOU") == "oc_tugou"
 
 
-def test_named_chat_never_falls_back_to_default(tmp_path, monkeypatch):
-    """具名群没配时如实返回空，绝不借用默认群。"""
+def test_named_chat_falls_back_to_default(tmp_path, monkeypatch):
+    """具名群没配时必须回落到默认群 —— 宁可发错群也发出去。"""
     _isolate(monkeypatch, tmp_path, {"feishu": {"chat_id": "oc_default"}})
+    assert notify_init.chat_id("tugou") == "oc_default"
+    assert notify_init.resolve_chat("tugou")[1] == "secrets:feishu.chat_id"
+    # 具名群配了就用具名群，优先级高于默认群
+    _isolate(monkeypatch, tmp_path,
+             {"feishu": {"chat_id": "oc_default", "chats": {"tugou": "oc_tugou"}}})
+    assert notify_init.chat_id("tugou") == "oc_tugou"
+
+
+def test_nothing_configured_returns_default(tmp_path, monkeypatch):
+    """连默认群都没有时才返回空（调用方据此报缺）。"""
+    _isolate(monkeypatch, tmp_path, {"feishu": {}})
     assert notify_init.chat_id("tugou") == ""
     assert notify_init.chat_id("tugou", "fallback") == "fallback"
+    assert notify_init.resolve_chat("tugou") == ("", "")
 
 
 def test_env_suffix_wins_over_secrets(tmp_path, monkeypatch):
@@ -80,6 +97,13 @@ def test_cli_chat_prints_id_and_exits_nonzero_when_missing(tmp_path, monkeypatch
     assert notify_init._cli(["notify_init.py", "chat", "stocks"]) == 0
     assert capsys.readouterr().out.strip() == "oc_stocks"
 
+    # 具名群缺配 → 默认群
+    _isolate(monkeypatch, tmp_path, {"feishu": {"chat_id": "oc_default"}})
+    assert notify_init._cli(["notify_init.py", "chat", "tugou"]) == 0
+    assert capsys.readouterr().out.strip() == "oc_default"
+
+    # 连默认群都没有 → 报缺
+    _isolate(monkeypatch, tmp_path, {"feishu": {}})
     assert notify_init._cli(["notify_init.py", "chat", "tugou"]) == 1
     err = capsys.readouterr().err
     assert "feishu.chats.tugou" in err

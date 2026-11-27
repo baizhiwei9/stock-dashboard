@@ -29,6 +29,7 @@ import sys
 APP = "stock-dashboard"
 _PREFIX_ENV = "DASHBOARD_NOTIFY_SUBJECT_PREFIX"
 _CHAT_ENV = "NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID"
+_CHAT_KEYS = ("stocks", "tugou", "tags")
 _CHANNELS = ("feishu", "email")
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -95,40 +96,65 @@ def webhook(default: str = "") -> str:
     return _feishu_field("webhook_url", default)
 
 
+def _default_chat() -> str:
+    """默认群：环境变量 → DataHub 通知模块 app profile → 本应用 secrets。"""
+    val = (os.environ.get(_CHAT_ENV) or "").strip()
+    if val:
+        return val
+    return _feishu_field("chat_id") or _secret("feishu.chat_id")
+
+
+def resolve_chat(key: str = ""):
+    """返回 ``(chat_id, source)``，供排查「这条到底发到哪个群」。
+
+    取值顺序（``key`` 为空＝只要默认群）：
+
+    1. 具名群环境变量 ``NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID_<KEY>``；
+    2. 具名群 secrets ``feishu.chats.<key>``；
+    3. **回落默认群**（宁可发错群也要发）：默认群环境变量
+       ``NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID`` → app profile 的
+       ``feishu.chat_id``（部署 ``notify.json``）→ secrets 的 ``feishu.chat_id``；
+    4. 都没有 → ``("", "")``，由调用方如实报缺（不会静默换成别的应用）。
+    """
+    key = (key or "").strip().lower()
+    if key:
+        name = "%s_%s" % (_CHAT_ENV, key.upper().replace("-", "_"))
+        val = (os.environ.get(name) or "").strip()
+        if val:
+            return val, "env:%s" % name
+        val = _secret("feishu.chats.%s" % key)
+        if val:
+            return val, "secrets:feishu.chats.%s" % key
+    val = (os.environ.get(_CHAT_ENV) or "").strip()
+    if val:
+        return val, "env:%s" % _CHAT_ENV
+    val = _feishu_field("chat_id")
+    if val:
+        return val, "profile:apps.%s.feishu.chat_id" % APP
+    val = _secret("feishu.chat_id")
+    if val:
+        return val, "secrets:feishu.chat_id"
+    return "", ""
+
+
 def chat_id(key: str = "", default: str = "") -> str:
     """飞书目标群 chat_id —— 唯一取值口径，仓库里不写死。
 
-    取值顺序（``key`` 为空＝本应用默认群）：
-
-    1. 环境变量 ``NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID``（具名群加后缀
-       ``_<KEY>``，如 ``..._CHAT_ID_TUGOU``）—— DataHub 通知模块的应用级口径；
-    2. 具名群（``key`` 非空）：本应用 secrets 的 ``feishu.chats.<key>``；
-    3. 默认群：``data_hub.notify`` app profile 的 ``feishu.chat_id``
-       （部署 ``notify.json`` 的 ``apps.stock-dashboard`` 段）；
-    4. 默认群：本应用 secrets 的 ``feishu.chat_id``；
-    5. ``default``。
-
-    ``key`` 非空时**不回落到默认群** —— 把土狗群 / 标签群误发到主群，比
-    如实报缺更难发现。
+    具名群（``stocks`` / ``tugou`` / ``tags``）没配时**回落到默认群**：宁可发错
+    群也必须把报告发出去。「这条到底发到哪个群」用 :func:`resolve_chat` 查。
+    连默认群都没有时才返回 ``default``（通常是空串），由调用方如实报缺。
     """
-    key = (key or "").strip().lower()
-    names = ["%s_%s" % (_CHAT_ENV, key.upper().replace("-", "_"))] if key else [_CHAT_ENV]
-    for name in names:
-        val = (os.environ.get(name) or "").strip()
-        if val:
-            return val
-    if key:
-        return _secret("feishu.chats.%s" % key) or default
-    return _feishu_field("chat_id") or _secret("feishu.chat_id") or default
+    return resolve_chat(key)[0] or default
 
 
 def chat_hint(key: str = "") -> str:
-    """缺群目标时给部署侧的中文指引（只写字段名，不含任何真实 id）。"""
+    """连默认群都没配时给部署侧的中文指引（只写字段名，不含任何真实 id）。"""
     env = _CHAT_ENV + (("_" + key.upper().replace("-", "_")) if key else "")
     where = ("feishu.chats.%s" % key) if key else "feishu.chat_id"
-    return ("未配置飞书群目标 %s：可设环境变量 %s，或在 "
-            "~/.config/stock-dashboard/secrets.json 写 %s，或在 data_hub.notify "
-            "部署配置的 apps.%s.feishu.chat_id 里指定" % (key or "default", env, where, APP))
+    return ("未配置任何飞书群目标（具名群 %s 与默认群都没有）：可设环境变量 %s，或在 "
+            "~/.config/stock-dashboard/secrets.json 写 %s / feishu.chat_id，或在 "
+            "data_hub.notify 部署配置的 apps.%s.feishu.chat_id 里指定"
+            % (key or "default", env, where, APP))
 
 
 def subject(title: str) -> str:
@@ -157,8 +183,11 @@ def _cli(argv) -> int:
         return 1
     if cmd == "status":
         print("app=%s active=%s" % (APP, active()))
-        print("webhook=%s chat_id=%s" % ("有值" if webhook() else "缺失",
-                                         "有值" if chat_id() else "缺失"))
+        print("webhook=%s" % ("有值" if webhook() else "缺失"))
+        for k in ("",) + _CHAT_KEYS:
+            cid, src = resolve_chat(k)
+            print("chat[%-7s] %s ← %s" % (k or "default", "有值" if cid else "缺失",
+                                         src or "未配置"))
         return 0
     sys.stderr.write("用法：notify_init.py [chat [key] | status]\n")
     return 2
