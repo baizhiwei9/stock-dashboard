@@ -36,12 +36,12 @@ import cloud_paths  # noqa: E402
 #: 与 scripts/switch_crontab.sh 的 KEYS 保持一致（顺序也要一致，末尾对账）。
 SWITCH_KEYS = [
     "midline_preference", "circulation_daily", "unified_screener",
-    "sector_screening_v4", "risk_release_monitor", "risk_forecast_daily",
-    "liquidity_risk_monitor", "merged_analysis", "top200_concept",
-    "concept_tracker_top20", "cycle_monitor", "oil_monitor",
-    "style_drift_monitor", "vol_monitor_daily", "bond_four_factor",
-    "credit_spread_weekly", "margin_season_weekly", "hurst_daily",
-    "tugou_archive", "weekly_stock_monitor", "tech_consensus_daily",
+    "sector_screening_v4", "risk_forecast_daily", "liquidity_risk_monitor",
+    "merged_analysis", "top200_concept", "concept_tracker_top20",
+    "bond_four_factor", "cycle_monitor", "oil_monitor",
+    "style_drift_monitor", "vol_monitor_daily", "credit_spread_weekly",
+    "margin_season_weekly", "hurst_daily", "tugou_archive",
+    "weekly_stock_monitor", "tech_consensus_daily",
 ]
 
 #: 改造前的历史快照，原样留档，不参与本轮收口。
