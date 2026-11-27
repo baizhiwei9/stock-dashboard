@@ -5,6 +5,24 @@ A股板块筛选v4 - 并发加速版
 输出: 板块 | 类型 | 龙头股(近5日涨幅最高的那只)
 数据源: 东方财富API
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
 import requests, json, time, random, sys, os
 from datetime import datetime
 from requests.adapters import HTTPAdapter
@@ -21,7 +39,7 @@ except:
     pass
 
 TODAY = datetime.now().strftime("%Y-%m-%d")
-OUTPUT = f"/Coze/Drive/蓁宝/所有对话/主对话/板块筛选v4_{TODAY}.md"
+OUTPUT = _cp(f"/Coze/Drive/蓁宝/所有对话/主对话/板块筛选v4_{TODAY}.md")
 
 LIST_URL = "https://push2delay.eastmoney.com/api/qt/clist/get"
 KLINE_URL = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
@@ -265,7 +283,7 @@ def main():
     # 1. 优先推送交互式卡片
     try:
         import sys as _sys
-        _sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+        _sys.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or _cp('/Coze/Drive/蓁宝/所有对话/主对话'))
         from feishu_card_utils import build_sector_screening_card
         from feishu_push import push_card_to_feishu
         from datetime import datetime as _dt
@@ -307,7 +325,7 @@ def main():
     if not push_success and os.path.exists(OUTPUT):
         try:
             import sys as _sys2
-            _sys2.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+            _sys2.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or _cp('/Coze/Drive/蓁宝/所有对话/主对话'))
             from feishu_push import push_to_feishu
             push_success = push_to_feishu(file_path=OUTPUT)
             if push_success:
@@ -319,7 +337,7 @@ def main():
     if not push_success:
         try:
             import sys as _sys3
-            _sys3.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话')
+            _sys3.path.insert(0, __import__('os').environ.get('CASE_WORKSPACE') or _cp('/Coze/Drive/蓁宝/所有对话/主对话'))
             from feishu_push import push_to_feishu
             err_msg = f"[主人](at://owner) ⚠️ 板块筛选日报推送失败\n错误: {push_error or '未知原因'}\n本地文件: {OUTPUT}"
             push_to_feishu(text=err_msg)

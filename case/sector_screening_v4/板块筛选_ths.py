@@ -4,6 +4,24 @@
 板块筛选 - 同花顺数据源版本
 由于东方财富API临时不可用，改用同花顺数据源
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
 
 import os
 os.environ['TQDM_DISABLE'] = '1'
@@ -217,7 +235,7 @@ def main():
     print(report)
     
     # 保存文件
-    filename = f'/app/data/所有对话/主对话/板块筛选_ths_{today}.md'
+    filename = _cp(f'/app/data/所有对话/主对话/板块筛选_ths_{today}.md')
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(report)
     print(f"\n报告已保存: {filename}")
