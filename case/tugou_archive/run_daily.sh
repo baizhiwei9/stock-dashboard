@@ -21,16 +21,24 @@ export LARKSUITE_CLI_CONFIG_DIR="$CLI_DIR"
 export LARKSUITE_CLI_DATA_DIR="$CLI_DIR"
 export LARKSUITE_CLI_LOG_DIR="/tmp"
 
-# 飞书通知群
-ALERT_CHAT="oc_5971f823bf987081f722f2942bbc8d71"
-# 土狗群chat_id
-CHAT_ID="oc_0ca59fa0674e77c608e843d9d55a6757"
 # 测试用wiki文章（用于API预检）
 TEST_WIKI="https://my.feishu.cn/wiki/GBdWwKTCyioHGkkPNntcEfernSd"
 
 # 日志文件
 LOG_FILE="$HERE/logs/daily_$(date +%Y%m%d).log"
 mkdir -p logs
+
+# 飞书群目标：统一配置口径（case/_lib/notify_init.py → DataHub 通知模块 / 本应用 secrets），
+# 仓库里不写死。缺配时 notify_init 会把「该填哪个字段」写进日志。
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+_chat_id() { "$PYTHON_BIN" "$HERE/../_lib/notify_init.py" chat "$1"; }
+ALERT_CHAT="$(_chat_id stocks 2>>"$LOG_FILE")"   # AI股票消息群（告警）
+CHAT_ID="$(_chat_id tugou 2>>"$LOG_FILE")"        # 土狗群
+if [ -z "$ALERT_CHAT" ] || [ -z "$CHAT_ID" ]; then
+    echo "[配置] 飞书群目标缺失（stocks / tugou），见上面的提示" >> "$LOG_FILE"
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') 执行结束（群目标未配置） ===" >> "$LOG_FILE"
+    exit 1
+fi
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') 开始执行 ===" >> "$LOG_FILE"
 

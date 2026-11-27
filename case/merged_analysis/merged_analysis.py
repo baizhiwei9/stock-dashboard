@@ -54,7 +54,9 @@ GENERAL_SCRIPT = BASE_DIR / "将军分析" / "general_analysis.py"
 TUGOU_DB = BASE_DIR / "codeact" / "output" / "tugou_state.db"
 GENERAL_DB = BASE_DIR / "codeact" / "output" / "general_state.db"
 
-CHAT_ID = "oc_5971f823bf987081f722f2942bbc8d71"
+# 飞书目标群走统一配置（DataHub 通知模块 app profile → 本应用 secrets），不在仓库写死
+from notify_init import chat_id as _chat_id  # noqa: E402
+CHAT_ID = _chat_id("stocks")  # AI股票消息群
 
 # 导入飞书卡片工具
 sys.path.insert(0, str(BASE_DIR))

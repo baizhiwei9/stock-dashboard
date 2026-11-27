@@ -81,7 +81,9 @@ sys.path.insert(0, str(FEISHU_DIR))
 sys.path.insert(0, str(SCRIPT_DIR))
 
 # ===== 常量 =====
-CHAT_ID = "oc_5971f823bf987081f722f2942bbc8d71"
+# 飞书目标群走统一配置（DataHub 通知模块 app profile → 本应用 secrets），不在仓库写死
+from notify_init import chat_id as _chat_id  # noqa: E402
+CHAT_ID = _chat_id("stocks")  # AI股票消息群
 STATE_DB = SCRIPT_DIR / "hurst_state.db"
 
 # Hurst 标的配置

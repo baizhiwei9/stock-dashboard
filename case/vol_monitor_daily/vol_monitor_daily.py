@@ -1382,7 +1382,9 @@ def generate_markdown_report(data: dict, judgments: dict) -> str:
     return "\n".join(lines)
 
 
-LARK_CHAT_ID = "oc_5971f823bf987081f722f2942bbc8d71"  # AI股票消息群
+# 飞书目标群走统一配置（case/_lib/notify_init.py → DataHub 通知模块 / 本应用 secrets）
+from notify_init import chat_id as _chat_id  # noqa: E402
+LARK_CHAT_ID = _chat_id("stocks")  # AI股票消息群
 LARK_CLI = "lark-cli"
 # lark-cli配置目录（项目目录下，确保cron沙箱也能找到）
 def _pick_lark_config_dir() -> Path:

@@ -29,6 +29,15 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 import pandas as pd
 
+# 飞书群目标：统一配置口径（case/_lib/notify_init.py → DataHub 通知模块 / 本应用 secrets），
+# 仓库里不写死。本文件在 case/margin_season_weekly/codeact/scripts/，往上四级即 case/_lib。
+_LIB_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))))), "_lib")
+if _LIB_DIR not in sys.path:
+    sys.path.insert(0, _LIB_DIR)
+from notify_init import chat_id as _chat_id, chat_hint as _chat_hint  # noqa: E402
+
 warnings.filterwarnings('ignore')
 
 # ============================================================
@@ -1531,9 +1540,12 @@ def push_to_feishu(report_path, report_text, header_text=""):
         except Exception as e:
             print(f"  ⚠️ feishu_push失败: {e}")
 
-    # 降级：lark-cli
+    # 降级：lark-cli（目标群走统一配置，不写死）
     try:
-        chat_id = "oc_5971f823bf987081f722f2942bbc8d71"
+        chat_id = _chat_id("stocks")
+        if not chat_id:
+            print("  ❌ " + _chat_hint("stocks"))
+            return False
         push_text = header_text if header_text else report_text[:3000]
         cmd = ['lark-cli', 'im', '+messages-send', '--chat-id', chat_id,
                '--text', push_text, '--as', 'bot']

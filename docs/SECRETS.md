@@ -22,6 +22,7 @@
 | `feishu.app_secret` | 否 | 飞书应用 App Secret。 |
 | `feishu.webhook` | 否 | 群机器人 Webhook。 |
 | `feishu.chat_id` | 否 | 发送目标会话（`oc_...`）。 |
+| `feishu.chats.<key>` | 否 | 具名群（`stocks` / `tugou` / `tags`）。由 `case/_lib/notify_init.py:chat_id(key)` 读取；缺配时**不回落到** `feishu.chat_id`。 |
 | `tushare.token` | 否 | Tushare Pro token。 |
 | `tushare.official_token` | 否 | Tushare 官方站 token（备用通道）。 |
 | `email.smtp_host` | 否 | SMTP 主机，默认 `smtp.163.com`。 |
@@ -34,6 +35,35 @@
 | `treasury.client_id` | 否 | 美财政部回购结果 API 的 client_id（缺省跳过回购明细）。 |
 | `treasury.client_secret` | 否 | 同上，client_secret。 |
 | `alert.webhook` | 否 | 任务失败/告警 webhook。 |
+
+## 飞书群目标（chat_id）
+
+仓库里**不写死** chat_id —— 写死等于把「发哪个群」进了公开仓。所有发送入口统一调
+`case/_lib/notify_init.py`：
+
+```python
+from notify_init import chat_id, chat_hint
+chat = chat_id("stocks")        # 具名群；缺配返回空串，调用方如实报缺（chat_hint 给指引）
+```
+
+取值顺序：`NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID[_<KEY>]` → secrets 的
+`feishu.chats.<key>` → 默认群（`NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID` →
+DataHub 通知模块 app profile 的 `apps.stock-dashboard.feishu.chat_id` → secrets 的
+`feishu.chat_id`）。具名群（`stocks` / `tugou` / `tags`）没配时**回落到默认群** ——
+宁可发错群也要把报告发出去；只有连默认群都没有才跳过并报缺。
+
+排查「这条发到哪个群」用 `resolve_chat(key)`，或在命令行看 `status`：
+
+```bash
+python3 case/_lib/notify_init.py status        # 各群的来源（不打印 id 明文）
+```
+
+shell 与 `modules.json` 里取（缺配退出码 1，错误提示写 stderr）：
+
+```bash
+python3 case/_lib/notify_init.py chat stocks   # 打印 chat_id
+python3 case/_lib/notify_init.py status        # 只看通道有没有值
+```
 
 ## 配置文件查找顺序（含兼容位）
 
