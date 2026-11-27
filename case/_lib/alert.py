@@ -64,6 +64,13 @@ def _write_json(path: str, obj) -> None:
 def _post_webhook(rec: Dict) -> Optional[str]:
     url = (os.environ.get("CASE_ALERT_WEBHOOK") or "").strip()
     if not url.startswith(("http://", "https://")):
+        try:                       # 按应用绑定（apps.stock-dashboard 的群机器人 webhook）
+            import notify_init
+            notify_init.init()
+            url = (notify_init.webhook("") or "").strip()
+        except Exception:
+            url = ""
+    if not url.startswith(("http://", "https://")):
         return None
     text = "[%s] %s\n%s" % (rec["level"], rec["title"], "\n".join(rec["lines"]))
     body = json.dumps({"msg_type": "text", "content": {"text": text}},
