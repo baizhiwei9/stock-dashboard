@@ -127,5 +127,3 @@ DASH_BASE=/data/reports ./run_daily.sh
 
 `facts.db` / `data.json` / `index.html` / `daily.log` / `site/` 都是运行产物，走 `.gitignore`。
 仓库里只有代码和模板。
-
-<!-- sync test 1795742543 -->
