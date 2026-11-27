@@ -2,7 +2,9 @@
 # Stock Dashboard · 发布到 Pages 固定网址
 # 由 run_daily.sh 在 build 成功后调用；也可单独执行。纯脚本零 token。
 set -uo pipefail
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# 补 PATH 而不是覆盖：pyenv/venv/自建 Python 的解释器目录要保留，
+# 否则下面 python3 找不到（2026-11-27 迁机后 /usr/bin/python3 不一定存在）。
+export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export LANG=C.UTF-8
 export TZ=Asia/Shanghai
 # scheduler 起的子进程偶尔拿不到登录态（AUTH_REQUIRED），显式固定 HOME
@@ -10,7 +12,14 @@ export HOME="${HOME:-/root}"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CLI=/usr/bin/coze-dev
+CLI="${COZE_DEV_CLI:-$CLI}"
 LOG="$HERE/daily.log"
+
+# 解释器：PYTHON > python3 > python（发布结果解析用）
+if [ -n "${PYTHON:-}" ]; then PY="$PYTHON"
+elif command -v python3 >/dev/null 2>&1; then PY=python3
+elif command -v python >/dev/null 2>&1; then PY=python
+else PY=""; fi
 APP_ID=7711640577216921642
 APP_NAME="Stock Dashboard"
 
@@ -43,6 +52,14 @@ diag() {
 }
 
 [ -f "$HERE/index.html" ] || { echo "$(ts) 发布跳过：index.html 不存在" >> "$LOG"; exit 1; }
+if [ ! -x "$CLI" ]; then
+    echo "$(ts) 发布跳过：未找到 $CLI（非 Coze 平台属正常，设 COZE_DEV_CLI 指向可执行文件）" >> "$LOG"
+    exit 0
+fi
+if [ -z "$PY" ]; then
+    echo "[publish] 发布失败：找不到 python（设 PYTHON 或把 python3 放进 PATH）" >&2
+    exit 1
+fi
 
 cd "$HERE" || exit 1
 
@@ -55,7 +72,7 @@ cp -f "$HERE/index.html" "$PUB/index.html"
 
 OUT=$("$CLI" deploy --format json --source-root "$PUB" --application-type pages \
         --app-id "$APP_ID" --name "$APP_NAME" --yes 2>&1)
-DID=$(printf '%s' "$OUT" | python3 -c "
+DID=$(printf '%s' "$OUT" | "$PY" -c "
 import json,sys
 try: print(json.load(sys.stdin).get('deploy_history_id',''))
 except Exception: print('')
@@ -66,7 +83,7 @@ if [ -z "$DID" ]; then
     sleep 5
     OUT=$("$CLI" deploy --format json --source-root "$PUB" --application-type pages \
             --app-id "$APP_ID" --name "$APP_NAME" --yes 2>&1)
-    DID=$(printf '%s' "$OUT" | python3 -c "
+    DID=$(printf '%s' "$OUT" | "$PY" -c "
 import json,sys
 try: print(json.load(sys.stdin).get('deploy_history_id',''))
 except Exception: print('')
@@ -81,7 +98,7 @@ fi
 for i in $(seq 1 40); do
     sleep 5
     ST=$("$CLI" deploy --format json status --app-id "$APP_ID" --deploy-id "$DID" 2>/dev/null \
-         | python3 -c "
+         | "$PY" -c "
 import json,sys
 try: print(json.load(sys.stdin).get('status',''))
 except Exception: print('')
@@ -89,7 +106,7 @@ except Exception: print('')
     case "$ST" in
         Succeeded)
             URL=$("$CLI" deploy --format json status --app-id "$APP_ID" --deploy-id "$DID" 2>/dev/null \
-                  | python3 -c "
+                  | "$PY" -c "
 import json,sys
 try:
     d=json.load(sys.stdin).get('domains') or []

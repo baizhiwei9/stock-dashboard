@@ -85,5 +85,11 @@ vmdpy==0.2
 webencodings==0.6.1
 websocket-client==1.9.2
 wrapt==2.5.0
+
+# —— 2026-11-27 补：precious-task/case/_shared 新搬入的模块直接 import ——
+# topolib 顶层 import networkx；xq_pdf 顶层 import reportlab。
+# 这两个不在原 pylibs 快照里，换机装机时必须一起装，否则 import 就崩。
+networkx>=3.0
+reportlab>=4.0
 xgboost==3.4.1
 xlrd==2.0.2
