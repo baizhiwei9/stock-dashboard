@@ -98,7 +98,9 @@ def fetch_indices(trade_date):
     end = trade_date
     start = (datetime.date(int(end[:4]), int(end[4:6]), int(end[6:]))
              - datetime.timedelta(days=LOOKBACK)).strftime("%Y%m%d")
-    codes = [c for c, _n in INDICES] + TURNOVER_CODES
+    # 除宽基 + 两市成交额外，还拉 399001.SZ（深证成指）——analyze.py 的「当日涨跌」
+    # 读它，不拉就永远取不到数。
+    codes = [c for c, _n in INDICES] + TURNOVER_CODES + ["399001.SZ"]
     res = dh.edb.get_dataset_result("CN.MARKET.INDEX.DAILY",
                                     codes=codes, start_date=start, end_date=end)
     if not res.get("ok"):

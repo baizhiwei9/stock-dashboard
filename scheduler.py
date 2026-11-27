@@ -2095,6 +2095,9 @@ def main(argv):
         print(__doc__)
         return 0
     cmd = argv[1]
+    if cmd in ("--help", "-h", "help"):
+        print(__doc__)
+        return 0
     if cmd == "_daemon":
         _daemon()
         return 0

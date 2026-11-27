@@ -279,6 +279,9 @@ def emit(ctx):
         # 其余（中枢外但闸门未放行）→ 观望 0
         if pred is None:
             sig, sig_q = None, "missing"
+        elif r.get("pred_std") is None:
+            # pred_std 为空 = 预测退回旧面板/模型没算出来，信号不可用，不能落 ok。
+            sig, sig_q = None, "missing"
         elif gate == "PASS" or chan == "inside":
             sig, sig_q = (1 if pred > 0 else -1), "ok"
         else:

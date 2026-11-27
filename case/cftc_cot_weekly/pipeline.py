@@ -8,7 +8,7 @@
 
     1. ``_refresh_cftc_zips()``          重下 CFTC 年度 zip（直连 cftc.gov）
     2. ``cftc_qr_robust.load_panel()``   解 zip + 对齐 akshare 价格 → 周频面板
-    3. COT104 = 管理基金净持仓 104 周分位；≥0.90 做多 / ≤0.10 做空
+    3. COT104 = 管理基金净持仓 104 周 min-max 区间位置；≥0.90 做多 / ≤0.10 做空
     4. ``make_chart()``                  4 品种 × COT 走势 + 分位带（matplotlib）
     5. 推飞书卡片 + 可选 QQ
 
@@ -16,13 +16,13 @@
 ======
     fetch     DataHub ``get_cftc_cot()``（采集器已含年度包下载/缓存/解包/价格对齐）
               → data/cot_panel.csv，**不再直连 cftc.gov**
-    render    COT104 分位 + episode 判定 + out/report.md + out/cot.png
+    render    COT104 区间位置 + episode 判定 + out/report.md + out/cot.png
     emit      4 品种 × 3 指标（cot.index / cot.weeks_left / cot.direction）
     dispatch  推送（默认关，COTC_PUSH=1 才发）
 
 口径保持不变（这是被回测验证过的部分，不动）
 =============================================
-    COT104   = mm_net 在**过去 104 周（不含未来）**的经验分位，0~1
+    COT104   = mm_net 在**过去 104 周（不含未来）**的min-max 区间位置（非统计分位），0~1
     ≥ 0.90   → 做多；≤ 0.10 → 做空；其余 → 观望
     持有窗口 = 4~8 周（历史极值停留：中位 4 周、P75 6 周）
     剩余周数 = max(0, 8 − 已持续周数)
@@ -205,7 +205,7 @@ for m in MARKETS:
 
 VERDICT = {1: ('做多', '#c0392b'), -1: ('做空', '#1e8449'), 0: ('观望', '#7f8c8d')}
 md = ['# CFTC COT 极值持仓周报 · %s' % (rows[0]['week'] if rows else ''), '',
-      '**COT104** = 管理基金净持仓在过去 104 周的经验分位（不含未来）。'
+      '**COT104** = 管理基金净持仓在过去 104 周的min-max 区间位置（非统计分位）（不含未来）。'
       '≥0.90 做多 / ≤0.10 做空 / 其余观望；目标持有 4~8 周。', '',
       '| 品种 | COT104 | 动作 | 已持续 | 起始周 | 剩余窗口 | 期间累计 | 历史均值 |',
       '|---|---|---|---|---|---|---|---|']
@@ -221,7 +221,7 @@ for r in rows:
         ('%dbp' % r['avg_bp']) if r['avg_bp'] else '—'))
 md += ['', '## 口径', '', '| 项 | 说明 |', '|---|---|',
        '| 样本 | 2019 年起周频（COT 报告日对齐到周五收盘） |',
-       '| 分位 | 104 周滚动经验分位，`min_periods=30`，无未来函数 |',
+       '| 区间 | 104 周滚动 min-max 区间位置（非统计分位），`min_periods=30`，无未来函数 |',
        '| 持有窗口 | 4~8 周（历史极值停留中位 4 周、P75 6 周） |',
        '| 数据源 | DataHub `get_cftc_cot()`（采集器自带年度包与价格对齐） |', '']
 open(os.path.join(OD, 'report.md'), 'w', encoding='utf-8').write('\\n'.join(md))
@@ -313,7 +313,7 @@ def emit(ctx):
             continue
         nm = r.get("name") or r["market"]
         points.append({"key": "cot.index", "sec": sec, "obs_date": as_of,
-                       "name": "%s COT104 分位" % nm, "value": r.get("cot"),
+                       "name": "%s COT104 区间位置" % nm, "value": r.get("cot"),
                        "dec": 3, "quality": "ok" if r.get("cot") is not None else "missing",
                        "meta_json": {"window_weeks": COT_LB, "hi": HI, "lo": LO,
                                      "n_weeks": r.get("n"), "market": r["market"]}})

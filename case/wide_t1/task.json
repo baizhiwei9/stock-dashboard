@@ -41,7 +41,7 @@
     "require_report": true,
     "require_metrics": true,
     "artifacts": {
-      "data": ["data/gate.json", "data/stage_*.json", "data/today_dual_raw.json"],
+      "data": ["data/gate.json", "data/stage_*.json", "data/today_dual.json"],
       "report": ["out/report.md"]
     },
     "stages": [

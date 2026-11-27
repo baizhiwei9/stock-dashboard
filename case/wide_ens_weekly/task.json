@@ -6,33 +6,113 @@
   "section_domain": "",
   "visibility": "public",
   "metrics": [
-    {"key": "wd.ens.t1_best", "sec": "000300.SH", "name": "沪深300 T+1 最优模型"},
-    {"key": "wd.ens.t5_best", "sec": "000300.SH", "name": "沪深300 T+5 最优模型"},
-    {"key": "wd.ens.acc", "sec": "000300.SH", "name": "沪深300 选模覆盖率", "dec": 1},
-    {"key": "wd.ens.t1_best", "sec": "000905.SH", "name": "中证500 T+1 最优模型"},
-    {"key": "wd.ens.t5_best", "sec": "000905.SH", "name": "中证500 T+5 最优模型"},
-    {"key": "wd.ens.acc", "sec": "000905.SH", "name": "中证500 选模覆盖率", "dec": 1},
-    {"key": "wd.ens.t1_best", "sec": "000852.SH", "name": "中证1000 T+1 最优模型"},
-    {"key": "wd.ens.t5_best", "sec": "000852.SH", "name": "中证1000 T+5 最优模型"},
-    {"key": "wd.ens.acc", "sec": "000852.SH", "name": "中证1000 选模覆盖率", "dec": 1},
-    {"key": "wd.ens.t1_best", "sec": "000688.SH", "name": "科创50 T+1 最优模型"},
-    {"key": "wd.ens.t5_best", "sec": "000688.SH", "name": "科创50 T+5 最优模型"},
-    {"key": "wd.ens.acc", "sec": "000688.SH", "name": "科创50 选模覆盖率", "dec": 1},
-    {"key": "wd.ens.t1_best", "sec": "399006.SZ", "name": "创业板指 T+1 最优模型"},
-    {"key": "wd.ens.t5_best", "sec": "399006.SZ", "name": "创业板指 T+5 最优模型"},
-    {"key": "wd.ens.acc", "sec": "399006.SZ", "name": "创业板指 选模覆盖率", "dec": 1}
+    {
+      "key": "wd.ens.t1_best",
+      "sec": "000300.SH",
+      "name": "沪深300 T+1 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.t5_best",
+      "sec": "000300.SH",
+      "name": "沪深300 T+5 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.acc",
+      "sec": "000300.SH",
+      "name": "沪深300 选模覆盖率",
+      "dec": 1
+    },
+    {
+      "key": "wd.ens.t1_best",
+      "sec": "000905.SH",
+      "name": "中证500 T+1 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.t5_best",
+      "sec": "000905.SH",
+      "name": "中证500 T+5 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.acc",
+      "sec": "000905.SH",
+      "name": "中证500 选模覆盖率",
+      "dec": 1
+    },
+    {
+      "key": "wd.ens.t1_best",
+      "sec": "000852.SH",
+      "name": "中证1000 T+1 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.t5_best",
+      "sec": "000852.SH",
+      "name": "中证1000 T+5 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.acc",
+      "sec": "000852.SH",
+      "name": "中证1000 选模覆盖率",
+      "dec": 1
+    },
+    {
+      "key": "wd.ens.t1_best",
+      "sec": "000688.SH",
+      "name": "科创50 T+1 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.t5_best",
+      "sec": "000688.SH",
+      "name": "科创50 T+5 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.acc",
+      "sec": "000688.SH",
+      "name": "科创50 选模覆盖率",
+      "dec": 1
+    },
+    {
+      "key": "wd.ens.t1_best",
+      "sec": "399006.SZ",
+      "name": "创业板指 T+1 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.t5_best",
+      "sec": "399006.SZ",
+      "name": "创业板指 T+5 最优模型",
+      "text": true
+    },
+    {
+      "key": "wd.ens.acc",
+      "sec": "399006.SZ",
+      "name": "创业板指 选模覆盖率",
+      "dec": 1
+    }
   ],
   "sched": {
     "mode": "weekly",
     "at": "15:30",
-    "weekdays": [7]
+    "weekdays": [
+      7
+    ]
   },
   "cmd": "python3 -u pipeline.py",
   "cwd": ".",
   "timeout": 10800,
   "enabled": false,
   "needs_llm": false,
-  "deliver": {"report": true, "email": false},
+  "deliver": {
+    "report": true,
+    "email": false
+  },
   "pipeline": {
     "on_fail": "stop",
     "freshness_days": 9,
@@ -41,15 +121,39 @@
     "require_report": true,
     "require_metrics": true,
     "artifacts": {
-      "data": ["data/stage_*.json"],
-      "report": ["out/report.md"]
+      "data": [
+        "data/stage_*.json"
+      ],
+      "report": [
+        "out/report.md"
+      ]
     },
     "stages": [
-      {"name": "fetch", "hook": true, "timeout": 1800},
-      {"name": "check", "builtin": "artifacts"},
-      {"name": "render", "hook": true, "timeout": 9000},
-      {"name": "emit", "hook": true, "builtin": "emit"},
-      {"name": "dispatch", "hook": true, "timeout": 600, "optional": true}
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "render",
+        "hook": true,
+        "timeout": 9000
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 600,
+        "optional": true
+      }
     ]
   }
 }

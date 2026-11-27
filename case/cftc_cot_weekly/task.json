@@ -1,7 +1,7 @@
 {
   "key": "cftc_cot_weekly",
   "title": "CFTC COT 极值持仓周报",
-  "desc": "四个境外商品的管理基金净持仓 104 周分位，判断极值方向、已持续周数与剩余持有窗口",
+  "desc": "四个境外商品的管理基金净持仓 104 周 min-max 区间位置，判断极值方向、已持续周数与剩余持有窗口",
   "section": "futures",
   "section_domain": "",
   "visibility": "public",
@@ -9,7 +9,7 @@
     {
       "key": "cot.index",
       "sec": "CU.SHF",
-      "name": "COMEX铜 COT104 分位",
+      "name": "COMEX铜 COT104 区间位置",
       "dec": 3
     },
     {
@@ -28,7 +28,7 @@
     {
       "key": "cot.index",
       "sec": "AU.SHF",
-      "name": "COMEX黄金 COT104 分位",
+      "name": "COMEX黄金 COT104 区间位置",
       "dec": 3
     },
     {
@@ -47,7 +47,7 @@
     {
       "key": "cot.index",
       "sec": "AG.SHF",
-      "name": "COMEX白银 COT104 分位",
+      "name": "COMEX白银 COT104 区间位置",
       "dec": 3
     },
     {
@@ -74,7 +74,7 @@
   "cmd": "python3 -u pipeline.py",
   "cwd": ".",
   "timeout": 3600,
-  "enabled": true,
+  "enabled": false,
   "needs_llm": false,
   "deliver": {
     "report": true,

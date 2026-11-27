@@ -182,6 +182,19 @@ _PARSERS = {
     "options_skew10": _skew10,
 }
 
+# 各期权任务的指标 sec（与各自 task.json 里 metrics[].sec 一致）。
+# _p() 只产出 key/value/obs，sec 由这里统一补——否则 publish 以空 sec 落库，
+# 面板按 (key, sec) 取不到，永远显示「—」。
+_SEC_BY_TASK = {
+    "options_basis_daily": "OPT.BASIS",
+    "options_oi_daily": "OPT.OI",
+    "options_close_monitor": "OPT.SKEW",
+    "options_midday": "OPT.IV",
+    "options_pcr_close": "OPT.PCR",
+    "options_pcr_macd": "OPT.PCRMACD",
+    "options_skew10": "OPT.SKEW10",
+}
+
 
 def points_for(task_key: str) -> List[Dict]:
     """按任务键取点；没装 options_utility 或今天没产物 → 返回空列表（不报错）。"""
@@ -192,6 +205,12 @@ def points_for(task_key: str) -> List[Dict]:
     if not root:
         return []
     try:
-        return fn(root)
+        pts = fn(root)
     except Exception:                              # noqa: BLE001
         return []
+    sec = _SEC_BY_TASK.get(task_key)
+    if sec:
+        for p in pts:
+            if isinstance(p, dict):
+                p.setdefault("sec", sec)
+    return pts
