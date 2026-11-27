@@ -85,13 +85,18 @@ parse_run_flags() {
 
 # 当前进程实际在跑的过滤条件（由 scheduler loop 启动时写入 state.json）。
 current_only() {
+  # 输出「only 列表|api 是否开启」：--no-api 也是本次运行参数，只比 only 会让
+  # 「up 已经在跑 → up --no-api」被当成无变化，旧进程继续监听端口。
   "$PY" - "$HERE/state.json" <<'PYEOF'
 import json, sys
 try:
     st = json.load(open(sys.argv[1], encoding="utf-8"))
 except (OSError, ValueError):
     st = {}
-print(",".join((st.get("scheduler") or {}).get("only") or []))
+sc = st.get("scheduler") or {}
+api = sc.get("api")
+print("%s|%s" % (",".join(sc.get("only") or []),
+                 "" if api is None else int(bool(api))))
 PYEOF
 }
 
@@ -116,11 +121,19 @@ PYEOF
 # up 的核心语义：启动脚本决定「这一轮跑哪些」。已经在跑且过滤条件不同 → 先停再起，
 # 否则 scheduler.py start 只会打印「已在运行」，--only 被静默忽略。
 ensure_only_filter() {
-  local cur
+  local cur cur_only cur_api want want_api
   cur="$(current_only 2>/dev/null || true)"
-  [ "${SD_ONLY:-}" = "$cur" ] && return 0
+  cur_only="${cur%%|*}"
+  cur_api="${cur#*|}"
+  want="${SD_ONLY:-}"
+  want_api=1
+  [ "${SD_NO_API:-0}" = "1" ] && want_api=0
+  # 老版本 state.json 没有 api 字段（cur_api 为空）：只比 only，不误杀。
+  if [ "$want" = "$cur_only" ] && { [ -z "$cur_api" ] || [ "$want_api" = "$cur_api" ]; }; then
+    return 0
+  fi
   if sched_running; then
-    say "过滤条件变化：运行中=${cur:-全部} → 本次=${SD_ONLY:-全部}，重启 TaskManager 生效"
+    say "过滤条件变化：运行中=${cur_only:-全部}/api=${cur_api:-?} → 本次=${want:-全部}/api=${want_api}，重启 TaskManager 生效"
     if [ "${SD_DRY_RUN:-0}" = 1 ]; then
       say "dry-run：不重启；正式启动会先 down 再 up"
       return 0
