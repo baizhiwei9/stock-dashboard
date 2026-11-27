@@ -35,6 +35,19 @@ cd "$DASH" || { echo "cd 失败" >> "$LOG"; exit 1; }
 "$PY" ingest.py >> "$LOG" 2>&1
 RC1=$?
 
+# 1.5 事实库为空时明确告警（换机后 DASH_BASE 没指向报告目录时，页面会「成功生成但全空」）
+FACTS=$("$PY" - <<'PYEOF' 2>/dev/null || echo 0
+import sqlite3
+try:
+    print(sqlite3.connect("facts.db").execute("select count(*) from facts").fetchone()[0])
+except Exception:
+    print(0)
+PYEOF
+)
+if [ "${FACTS:-0}" -eq 0 ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [warn] facts 为 0：DASH_BASE 未指向报告目录或报告还没同步，本次生成的是空看板" >> "$LOG"
+fi
+
 # 2. 重新渲染看板
 "$PY" build_html.py >> "$LOG" 2>&1
 RC2=$?

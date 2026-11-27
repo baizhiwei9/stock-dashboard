@@ -102,5 +102,10 @@ def main() -> int:
     return 0
 
 
+def test_page_link():
+    """pytest 入口：pytest 只收集 test_* 函数，main() 里的 4 条断言照样跑。"""
+    assert main() == 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
