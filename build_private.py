@@ -135,6 +135,17 @@ PRIVATE_CSS = """
 .task-gal>summary span{color:var(--tx3);margin-left:6px}
 .task-gal .shots{padding:0 12px 12px}
 
+/* 图库入口：头部按钮 + 跳转条高亮 */
+.gal-cta{display:inline-flex;flex-direction:column;gap:2px;align-self:center;
+  padding:9px 16px;border:1px solid #2a6df5;border-radius:12px;
+  background:linear-gradient(135deg,#14306b,#0e1a33);color:#dbe7ff;
+  text-decoration:none;white-space:nowrap}
+.gal-cta span{font-size:14px;font-weight:600;letter-spacing:.3px}
+.gal-cta small{font-size:11px;color:#9db7e8}
+.gal-cta:hover{border-color:#4b8bff;background:linear-gradient(135deg,#1a3d85,#10203f);
+  color:#fff}
+nav.jump a.gal-link{font-weight:600;border-color:#2a6df5;color:#dbe7ff}
+
 .excerpt{margin:12px 0 20px;padding:12px 14px;border:1px solid var(--line);
   border-radius:10px;background:var(--card)}
 .excerpt .ex-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;
@@ -745,7 +756,8 @@ def build_private(out_path: str, with_images: bool = True,
 
     nav, blocks, n_img, n_rep, n_card = [], [], len(gallery_entries), 0, 0
     if gallery_html:
-        nav.append('<a href="#gallery">图库</a>')
+        nav.append('<a class="gal-link" href="#gallery">图库 · %d 张</a>'
+                   % len(gallery_entries))
     for sec in SECTION_ORDER:
         items = by_sec.get(sec) or []
         if not items:
@@ -785,6 +797,14 @@ def build_private(out_path: str, with_images: bool = True,
     dates = [r.get("obs_date") for r in latest.values() if r.get("obs_date")]
     asof = max(dates) if dates else "—"
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    gal_btn = ""
+    if with_images:
+        _today = datetime.now().strftime("%Y-%m-%d")
+        _n_today = sum(1 for e in gallery_entries
+                       if str(e.get("time") or "").startswith(_today))
+        gal_btn = ('  <a class="gal-cta" href="#gallery"><span>图库 · 图片流</span>'
+                   '<small>今日 %d 张 / 近 %d 天 %d 张 →</small></a>\n'
+                   % (_n_today, gallery_days, len(gallery_entries)))
 
     head = (
         '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n'
@@ -802,7 +822,7 @@ def build_private(out_path: str, with_images: bool = True,
         '    <div><b>' + str(n_card) + '</b><span>卡片</span></div>\n'
         '    <div><b>' + str(n_rep) + '</b><span>报告摘录</span></div>\n'
         '    <div><b><a href="index.html">公开看板 →</a></b><span>另一套页面</span></div>\n'
-        '  </div>\n</header>\n\n'
+        '  </div>\n' + gal_btn + '</header>\n\n'
         '<nav class="jump">' +
         ("".join(nav) or '<span class="sm">（没有可显示的板块）</span>') +
         '</nav>\n\n'
