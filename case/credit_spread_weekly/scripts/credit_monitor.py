@@ -16,6 +16,31 @@
 """
 
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import csv
 import io
@@ -295,9 +320,9 @@ def load_config():
             "email": {
                 "smtp_server": "smtp.163.com",
                 "smtp_port": 465,
-                "sender": "songshang951@163.com",
+                "sender": _dh_secret('MAIL_USER'),
                 "password": "",
-                "receiver": "410119229@qq.com"
+                "receiver": _dh_secret('MAIL_DEFAULT_TO')
             },
             "alert_thresholds": {
                 "sofr_iorb_bp": 15,

@@ -41,7 +41,7 @@
 
 ## 运行频率
 - **时间**：每周一 上午8:00
-- **推送渠道**：飞书（openid: ou_be3bb77349431267abd594b7817ff97a）
+- **推送渠道**：飞书（openid: {{FEISHU_USER_OPEN_ID}}（取值见 DataHub 配置））
 
 ## 产出文件
 - 路径：`热点概念追踪/outputs/`

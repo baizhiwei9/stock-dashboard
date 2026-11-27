@@ -9,12 +9,37 @@
   ok = send_mail(img_path, subject, markdown_body, inline_img=True)
 """
 import json
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import os
 import subprocess
 
 # 钉钉企业邮箱（用户已授权，无额外凭据）
-EMAIL_FROM = "baizhiwei9492@dingtalk.com"   # 发件人
-EMAIL_TO = "410119229@qq.com"               # 收件人
+EMAIL_FROM = _dh_secret("DINGTALK_MAIL_USER")   # 发件人
+EMAIL_TO = _dh_secret("MAIL_DEFAULT_TO")               # 收件人
 
 DWS_CLI = os.path.expanduser("~/.local/bin/dws")
 

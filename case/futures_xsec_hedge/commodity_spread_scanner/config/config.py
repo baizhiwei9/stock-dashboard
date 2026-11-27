@@ -5,6 +5,31 @@
 合约乘数、成本模型、阈值参数
 """
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 from pathlib import Path
 
@@ -121,7 +146,7 @@ STATE_FILE = os.environ.get("SPREAD_STATE_FILE") or str(
 # chat_id 是群标识、不是密钥，但同样不进仓库：优先环境变量 SPREAD_FEISHU_CHAT_ID，
 # 其次 case/_lib/feishu_creds 的 chat_id；都取不到就留空，调用方据此跳过群推送。
 def _resolve_chat_id() -> str:
-    env = os.environ.get("SPREAD_FEISHU_CHAT_ID", "").strip()
+    env = _dh_secret("FEISHU_CHAT_ID", "").strip()
     if env:
         return env
     _lib = str(_CASE_DIR.parent / "_lib")

@@ -6,6 +6,31 @@
 """
 
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import json
 import smtplib
@@ -35,9 +60,9 @@ from hub_root import smtp_password as _smtp_password  # noqa: E402
 EMAIL_CONFIG = {
     'smtp_server': 'smtp.163.com',
     'smtp_port': 465,
-    'sender': 'songshang951@163.com',
+    'sender': _dh_secret('MAIL_USER'),
     'password': _smtp_password(),
-    'receiver': '410119229@qq.com'
+    'receiver': _dh_secret('MAIL_DEFAULT_TO')
 }
 
 # 回测结论的阈值（PE用动态PE口径统一）
@@ -214,7 +239,7 @@ def fetch_tushare(index_name):
     """tushare获取指数估值（需要设置TUSHARE_TOKEN环境变量）"""
     try:
         import tushare as ts
-        token = os.environ.get('TUSHARE_TOKEN', '')
+        token = _dh_tushare()
         if not token:
             print(f"  [tushare] 未设置TUSHARE_TOKEN环境变量，跳过")
             return None

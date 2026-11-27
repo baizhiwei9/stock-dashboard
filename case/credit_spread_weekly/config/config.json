@@ -3,9 +3,9 @@
   "email": {
     "smtp_server": "smtp.163.com",
     "smtp_port": 465,
-    "sender": "songshang951@163.com",
+    "sender": "",
     "password": "",
-    "receiver": "410119229@qq.com"
+    "receiver": ""
   },
   "thresholds": {
     "sofr_iorb_bp": 15,

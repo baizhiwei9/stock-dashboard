@@ -26,6 +26,31 @@ _cp = _cloud_translate()
 
 
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import re
 import json
@@ -1680,8 +1705,8 @@ def check_overnight_repo_info(current_omo):
 
 def send_omo_alert_email(omo_data, alert_reason, percentile, overnight_ops, history_count):
     """发送OMO异常告警邮件
-    发件人: songshang951@163.com (163邮箱)
-    收件人: 410119229@qq.com
+    发件人: {{MAIL_USER}} (163邮箱)
+    收件人: {{MAIL_DEFAULT_TO}}
     """
     import smtplib
     from email.mime.text import MIMEText
@@ -1691,10 +1716,10 @@ def send_omo_alert_email(omo_data, alert_reason, percentile, overnight_ops, hist
     # 163邮箱配置
     smtp_server = 'smtp.163.com'
     smtp_port = 465
-    sender = 'songshang951@163.com'
+    sender = _dh_secret('MAIL_USER')
     password = _smtp_password()
     sender_name = '环流日报告警'
-    receiver = '410119229@qq.com'
+    receiver = _dh_secret('MAIL_DEFAULT_TO')
     
     today_net = omo_data.get('today_net', 0)
     today_inj = omo_data.get('today_injection', 0)

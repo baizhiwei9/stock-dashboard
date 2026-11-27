@@ -1,5 +1,30 @@
 """波动率日报邮件发送模块"""
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -13,7 +38,7 @@ log = logging.getLogger("vol_monitor")
 
 SMTP_HOST = "smtp.163.com"
 SMTP_PORT = 465
-SMTP_USER = "songshang951@163.com"
+SMTP_USER = _dh_secret("MAIL_USER")
 def _hub_lib_dir(_f=__file__):
     _d = os.path.dirname(os.path.abspath(_f))
     for _ in range(6):
@@ -33,7 +58,7 @@ SMTP_PASS = _smtp_password()
 
 def send_daily_report_email(data, judgments, target_date, md_report, wavelet_image=None,
                             options_cfg=None, futures_cfg=None, underlyings_cfg=None,
-                            to_addr="410119229@qq.com"):
+                            to_addr=None):
     """发送完整波动率日报邮件（HTML格式）"""
     date_str = target_date.strftime("%Y-%m-%d")
     data_date = data.get("data_date", date_str)

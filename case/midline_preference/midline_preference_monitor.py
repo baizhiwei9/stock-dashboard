@@ -35,6 +35,31 @@ _cp = _cloud_translate()
 
 
 import sys
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import os
 import json
 import asyncio
@@ -154,7 +179,7 @@ HEARTBEAT_CHECK_INTERVAL = int(os.environ.get('MIDLINE_HEARTBEAT_INTERVAL', '30'
 # 正常全流程 29 分钟会连推 2~3 条中间态消息，纯打扰。改成「卡死告警」语义：
 # 阈值提到 1800 秒（超过正常全流程），每个阶段最多告警 1 次，文案明确是异常而非进度。
 HEARTBEAT_THRESHOLD = int(os.environ.get('MIDLINE_HEARTBEAT_THRESHOLD', '1800'))
-HEARTBEAT_USER_ID = os.environ.get('MIDLINE_HEARTBEAT_USER_ID', 'ou_be3bb77349431267abd594b7817ff97a')
+HEARTBEAT_USER_ID = _dh_secret('FEISHU_PRIVATE_USER_ID')
 
 # lark-cli 环境变量（cron 环境需要显式注入）
 _LARK_CLI_ENV = {

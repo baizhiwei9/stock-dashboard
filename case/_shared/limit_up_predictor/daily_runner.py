@@ -17,6 +17,31 @@
 """
 
 import warnings
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 warnings.filterwarnings('ignore')
 
 from trading_day_check import check_trading_day
@@ -631,7 +656,7 @@ def format_report(predictions: pd.DataFrame, mode: str, top_n: int = 20,
 
 def send_to_feishu(report_content: str, mode: str) -> bool:
     """发送报告到飞书"""
-    env_webhook = os.environ.get('FEISHU_WEBHOOK_URL', '')
+    env_webhook = _dh_secret('FEISHU_WEBHOOK', '')
     webhook = env_webhook if env_webhook else FEISHU_WEBHOOK_URL
     
     if not webhook:

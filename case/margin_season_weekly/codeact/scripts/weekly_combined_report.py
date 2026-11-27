@@ -39,6 +39,31 @@ _cp = _cloud_translate()
 
 
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import json
 import time
@@ -64,8 +89,8 @@ DEFAULT_OUTPUT_DIR = PROJECT_DIR / "reports"
 FEISHU_PUSH_SCRIPT = SCRIPT_DIR / "feishu_push.py"
 
 # 邮件配置
-EMAIL_TO = "410119229@qq.com"
-EMAIL_FROM = "moergen@coze.email"
+EMAIL_TO = _dh_secret('MAIL_DEFAULT_TO')
+EMAIL_FROM = _dh_secret('COZE_EMAIL_TO')
 SMTP_HOST = "smtp.coze.email"
 SMTP_PORT = 465
 
@@ -803,7 +828,7 @@ def markdown_to_html(md_text):
 
 def send_switch_alert_email(subject, body):
     """发送邮件通知（信号切换时）"""
-    password = os.environ.get("COZE_EMAIL_PASSWORD")
+    password = _dh_secret('COZE_EMAIL_PASSWORD', '')
     if not password:
         print("  ⚠️ COZE_EMAIL_PASSWORD 未设置，跳过邮件")
         return False

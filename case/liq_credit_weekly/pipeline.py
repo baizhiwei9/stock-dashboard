@@ -50,6 +50,31 @@ sec 用 ``CN.LIQ`` / ``GLOBAL.MACRO``（DataHub tech catalog 里实际登记的�
 """
 from __future__ import annotations
 
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
+
 import datetime as dt
 import json
 import os
@@ -345,7 +370,7 @@ def dispatch(ctx):
     if os.environ.get("LIQ_PUSH", "").strip() not in ("1", "true", "yes"):
         ctx.log("dispatch 跳过飞书推送：未设 LIQ_PUSH=1（迁移期默认不发）")
         return 0
-    if not (os.environ.get("CREDIT_FEISHU_HOOK") or "").strip():
+    if not (_dh_secret("CREDIT_FEISHU_HOOK", "") or "").strip():
         ctx.log("dispatch 跳过推送：未配置 CREDIT_FEISHU_HOOK（凭据走 case/_lib/feishu_creds）")
         return 0
 

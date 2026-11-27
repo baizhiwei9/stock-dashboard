@@ -249,7 +249,7 @@
         ]
       },
       "cwd": "{{DATAHUB_ROOT}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat $(python3 {{REPO_ROOT}}/case/_lib/notify_init.py chat tags) --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; PYTHONPATH={{DATAHUB_ROOT}} python3 {{REPO_ROOT}}/scripts/task_tags_alert_fallback.py --to 410119229@qq.com --days 7'",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat $(python3 {{REPO_ROOT}}/case/_lib/notify_init.py chat tags) --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; PYTHONPATH={{DATAHUB_ROOT}} python3 {{REPO_ROOT}}/scripts/task_tags_alert_fallback.py --to $(PYTHONPATH={{DATAHUB_ROOT}} python3 -c \"from data_hub import get_secret;print(get_secret('MAIL_DEFAULT_TO',''))\") --days 7'",
       "timeout": 300,
       "enabled": true,
       "depends": [

@@ -24,8 +24,8 @@
 
 用法
 ────
-    python3 scripts/task_tags_alert_fallback.py --to 410119229@qq.com          # 判定 + 兜底发送
-    python3 scripts/task_tags_alert_fallback.py --to 410119229@qq.com --dry-run # 只打印判定，不发
+    python3 scripts/task_tags_alert_fallback.py --to {{MAIL_DEFAULT_TO}}          # 判定 + 兜底发送
+    python3 scripts/task_tags_alert_fallback.py --to {{MAIL_DEFAULT_TO}} --dry-run # 只打印判定，不发
 
 退出码：0=跳过或已发送成功；非 0=发送失败（交给 health_run 判失败）。
 """

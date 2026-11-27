@@ -36,6 +36,31 @@ _cp = _cloud_translate()
 
 
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import json
 import smtplib
@@ -57,8 +82,8 @@ SCRIPT_DIR = BASE_DIR / "codeact" / "scripts"
 CACHE_DIR = BASE_DIR / "codeact" / "output" / "micro_timing_cache"
 
 # Email config
-EMAIL_TO = "410119229@qq.com"
-EMAIL_FROM = "moergen@coze.email"
+EMAIL_TO = _dh_secret('MAIL_DEFAULT_TO')
+EMAIL_FROM = _dh_secret('COZE_EMAIL_TO')
 SMTP_HOST = "smtp.coze.email"
 SMTP_PORT = 465  # SSL
 
@@ -322,7 +347,7 @@ def send_email(subject, body):
     Send email via SMTP SSL.
     Returns True on success, False on failure.
     """
-    password = os.environ.get("COZE_EMAIL_PASSWORD")
+    password = _dh_secret('COZE_EMAIL_PASSWORD', '')
     if not password:
         print("[WARN] 环境变量 COZE_EMAIL_PASSWORD 未设置，跳过邮件发送")
         return False
