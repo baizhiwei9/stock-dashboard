@@ -69,6 +69,19 @@ if [ -d "$PRIV_CASE" ]; then
   [ "$_dup" = 1 ] || export CASE_EXTRA_DIRS="${CASE_EXTRA_DIRS:+$CASE_EXTRA_DIRS:}$PRIV_CASE"
 fi
 
+# 独立脚本目录（不参与调度）：precious-task/standalone 只挂 PYTHONPATH，不挂
+# CASE_EXTRA_DIRS —— 挂进去会被 case_registry 当任务目录扫，缺 task.json 的任务
+# 会污染调度状态。挂 PYTHONPATH 是为了让任务代码能直接 import 里面的工具模块
+# （如 llm_utils），不用写跨仓相对路径。目录不存在就不设，不制造空路径。
+STANDALONE_DIR="${SD_STANDALONE_DIR:-$HERE/../precious-task/standalone}"
+if [ -d "$STANDALONE_DIR" ]; then
+  STANDALONE_DIR="$(cd "$STANDALONE_DIR" && pwd -P)"
+  case ":$PYTHONPATH:" in
+    *":$STANDALONE_DIR:"*) : ;;
+    *) export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$STANDALONE_DIR" ;;
+  esac
+fi
+
 say() { echo "$TS $*" >> "$LOG"; }
 
 # 告警通道按顺序找：SD_ALERT_WEBHOOK → 凭据文件 alert.webhook → 只写日志
