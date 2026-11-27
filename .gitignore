@@ -31,13 +31,23 @@ case/_shared/limit_up_predictor/catboost_info/
 # 只忽略目录内容 —— 任务目录里的 daily_reports 符号链接要入库
 case/*/daily_reports/*
 case/*/logs/
+# 运行期缓存 / 内存态（2026-11-27 补）：wide_ens_lib、liq_lib、market_momentum 等
+# 会把模型/抓数缓存写进任务目录、甚至 case/_shared/<pkg>/cache，跑一轮就在 git status
+# 冒一批未跟踪文件。此前 case/foo/cache、case/_shared/wide_ens_lib/cache 都未被忽略。
+# 注意：这里只忽略“以后新产生”的缓存，已入库的历史文件不受影响（tracked 文件不被 .gitignore 影响）。
+case/*/.cache/
+case/*/memory/
+case/*/cache/
+case/_shared/*/.cache/
+case/_shared/*/cache/
 
-# ===== 本地安装配置（不入库）=====
-# modules.json 是「这台机器怎么跑」的配置：含本机绝对路径、端口、要启用的模块，
-# 以及历史遗留的 api.password / registry_key。它属于本地安装数据，不是框架代码。
-# 仓库里只放 modules.example.json 模板；新装机器复制成 modules.json 再改。
-# 详见 DEPLOY.md「敏感配置」一节。
-modules.json
+# ===== 安装配置 =====
+# modules.json 已入库（2026-11-26 起）：cwd/cmd 全部改成
+# {{DATAHUB_ROOT}} / {{REPO_ROOT}} / {{FEISHU_CLI_DIR}} 占位符，由
+# datahub_path.expand_module() 在拉起任务时展开，文件内不再有本机绝对路径，
+# 新机器 clone 下来直接能用（见 DEPLOY_PORTABLE.md §3）。
+# modules.example.json 仅作字段参考保留。
+modules.json.bak_*
 
 # 云平台部署元数据
 .coze
@@ -55,9 +65,6 @@ feishu_secret.json
 .env.*
 !.env.example
 
-# 本机安装数据（含绝对路径 / 端口 / 启停状态，因机器而异）
-modules.json
-modules.json.bak_*
 
 # 运行时状态
 case/_lib/.alert_quota.json

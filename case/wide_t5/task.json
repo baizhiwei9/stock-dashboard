@@ -1,0 +1,129 @@
+{
+  "key": "wide_t5",
+  "title": "宽基 T+5 周报",
+  "desc": "五只宽基下周方向：四家族候选统一按滚动分位选模，OOS 验收后给方向、胜率与稳定性",
+  "section": "stock",
+  "section_domain": "",
+  "visibility": "public",
+  "metrics": [
+    {
+      "key": "wd.t5.signal",
+      "sec": "000300.SH",
+      "name": "沪深300 T+5 方向",
+      "dec": 0
+    },
+    {
+      "key": "wd.t5.conviction",
+      "sec": "000300.SH",
+      "name": "沪深300 T+5 信心度",
+      "dec": 1
+    },
+    {
+      "key": "wd.t5.signal",
+      "sec": "000905.SH",
+      "name": "中证500 T+5 方向",
+      "dec": 0
+    },
+    {
+      "key": "wd.t5.conviction",
+      "sec": "000905.SH",
+      "name": "中证500 T+5 信心度",
+      "dec": 1
+    },
+    {
+      "key": "wd.t5.signal",
+      "sec": "000852.SH",
+      "name": "中证1000 T+5 方向",
+      "dec": 0
+    },
+    {
+      "key": "wd.t5.conviction",
+      "sec": "000852.SH",
+      "name": "中证1000 T+5 信心度",
+      "dec": 1
+    },
+    {
+      "key": "wd.t5.signal",
+      "sec": "000688.SH",
+      "name": "科创50 T+5 方向",
+      "dec": 0
+    },
+    {
+      "key": "wd.t5.conviction",
+      "sec": "000688.SH",
+      "name": "科创50 T+5 信心度",
+      "dec": 1
+    },
+    {
+      "key": "wd.t5.signal",
+      "sec": "399006.SZ",
+      "name": "创业板指 T+5 方向",
+      "dec": 0
+    },
+    {
+      "key": "wd.t5.conviction",
+      "sec": "399006.SZ",
+      "name": "创业板指 T+5 信心度",
+      "dec": 1
+    }
+  ],
+  "sched": {
+    "mode": "weekly",
+    "at": "20:00",
+    "weekdays": [
+      7
+    ]
+  },
+  "cmd": "python3 -u pipeline.py",
+  "cwd": ".",
+  "timeout": 7200,
+  "enabled": false,
+  "needs_llm": false,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "pipeline": {
+    "on_fail": "stop",
+    "freshness_days": 9,
+    "min_ok_ratio": 0.5,
+    "require_data": true,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "data": [
+        "data/stage_*.json"
+      ],
+      "report": [
+        "out/report.md"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "render",
+        "hook": true,
+        "timeout": 5400
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 600,
+        "optional": true
+      }
+    ]
+  }
+}

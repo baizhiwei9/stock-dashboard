@@ -22,6 +22,25 @@
 """
 
 from __future__ import annotations
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
+
 
 import os
 import sys
@@ -30,8 +49,8 @@ from typing import Any, Dict, List, Optional, Tuple
 # data_hub 主根在不同会话里的挂载点不一样：有的会话挂在 /Coze/Drive/<卷名>，
 # 有的只在 /opt/coze/.fuse_drive/<卷名> 下可见。逐个探测，取第一个真实存在的。
 EDB_ROOT_CANDIDATES = [
-    '/Coze/Drive/外汇掉期点',
-    '/opt/coze/.fuse_drive/外汇掉期点',
+    _cp('/Coze/Drive/外汇掉期点'),
+    _cp('/opt/coze/.fuse_drive/外汇掉期点'),
 ]
 EDB_ROOT = next((r for r in EDB_ROOT_CANDIDATES if os.path.isdir(os.path.join(r, 'data_hub'))),
                 EDB_ROOT_CANDIDATES[0])

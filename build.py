@@ -30,7 +30,7 @@ from typing import Dict, List, Optional, Tuple
 from datahub_path import datahub_root
 
 DATAHUB_ROOT = datahub_root()
-if DATAHUB_ROOT not in sys.path:
+if DATAHUB_ROOT and DATAHUB_ROOT not in sys.path:
     sys.path.insert(0, DATAHUB_ROOT)
 
 from data_hub.tech import (                                   # noqa: E402
@@ -2540,7 +2540,16 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
         o = d.get("obs_date") or "—"
         unit = it.get("unit") or ""
         dec = int(it.get("dec", 2))
-        vs = "—" if vnum is None else (("%." + str(dec) + "f") % vnum) + unit
+        # 2026-11-27：枚举型指标（如 cot.direction = -1/0/1）光看数字没法读。
+        # 指标声明里写 "text": true 时优先渲染 value_text（"做多"/"做空"/"观望"），
+        # 拿不到 text 再退回数字，两个都没有就 —。
+        _vtxt = (d.get("value_text") or "").strip() if d.get("quality") == "ok" else ""
+        if it.get("text") and _vtxt:
+            vs = html.escape(_vtxt) + unit
+        elif vnum is None:
+            vs = "—"
+        else:
+            vs = (("%." + str(dec) + "f") % vnum) + unit
         rows.append(kv(nm, '<b>%s</b> <span class="sm">%s</span>' % (vs, o)))
         sv = series.get((k, sc))
         if sv and _n_valid(sv) >= 3:

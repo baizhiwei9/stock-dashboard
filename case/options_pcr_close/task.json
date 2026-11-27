@@ -1,0 +1,95 @@
+{
+  "key": "options_pcr_close",
+  "title": "期权PCR收盘",
+  "desc": "期权 PCR 收盘；算法在 options_utility 仓，本任务只做薄包装",
+  "section": "option",
+  "visibility": "public",
+  "metrics": [
+    {
+      "key": "opt.pcr.close.300ETF",
+      "sec": "OPT.PCR",
+      "name": "300ETF 持仓PCR",
+      "unit": "",
+      "dec": 3
+    },
+    {
+      "key": "opt.pcr.close.500ETF",
+      "sec": "OPT.PCR",
+      "name": "500ETF 持仓PCR",
+      "unit": "",
+      "dec": 3
+    },
+    {
+      "key": "opt.pcr.close.创业板ETF",
+      "sec": "OPT.PCR",
+      "name": "创业板ETF 持仓PCR",
+      "unit": "",
+      "dec": 3
+    },
+    {
+      "key": "opt.pcr.close.科创50ETF",
+      "sec": "OPT.PCR",
+      "name": "科创50ETF 持仓PCR",
+      "unit": "",
+      "dec": 3
+    },
+    {
+      "key": "opt.pcr.close.中证1000",
+      "sec": "OPT.PCR",
+      "name": "中证1000 持仓PCR",
+      "unit": "",
+      "dec": 3
+    }
+  ],
+  "sched": {
+    "mode": "daily",
+    "at": "14:55",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cmd": "python3 -u run.py",
+  "cwd": ".",
+  "timeout": 900,
+  "enabled": true,
+  "deliver": {
+    "report": false,
+    "email": false
+  },
+  "source_repo": "baizhiwei9/options_utility",
+  "source_entry": "alert/tasks/oi_pcr.py",
+  "original_cron_name": "期权PCR收盘",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": false,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/latest.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "cmd": "python3 -u run.py",
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      }
+    ]
+  }
+}

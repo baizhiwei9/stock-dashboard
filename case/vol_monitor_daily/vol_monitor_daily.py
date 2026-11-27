@@ -14,6 +14,25 @@
 用法：
   python3 vol_monitor_daily.py [--date YYYYMMDD] [--push]
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
+
 
 import json
 import math
@@ -61,7 +80,7 @@ def _hub_root_path(_f=__file__):
             from hub_root import hub_root
             return hub_root(_d)
         _d = os.path.dirname(_d)
-    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+    return _cp('/opt/coze/.fuse_drive/dataHub_三级体系')
 
 _HUB_ROOT = _hub_root_path()
 
@@ -70,7 +89,7 @@ _HUB_ROOT = _hub_root_path()
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = SCRIPT_DIR / "output"
-SKILLS_DIR = Path("/Coze/Drive/股指波动率/.skills")
+SKILLS_DIR = Path(_cp("/Coze/Drive/股指波动率/.skills"))
 
 AK_OPTIONS_CLI = SKILLS_DIR / "skill_akshare-futures-options/bin/_cli_wrapper.py"
 STOCK_DATA_CLI = SKILLS_DIR / "skill_stock-data-skill/bin/_cli_wrapper.py"
@@ -121,7 +140,7 @@ log = logging.getLogger("vol_monitor")
 # data_hub 代码根目录（兼容 /Coze/Drive 与 fuse 别名两种挂载）
 for _dh_cand in (
     _HUB_ROOT,
-    "/opt/coze/.fuse_drive/蓁宝/所有对话/主对话/codeact/scripts",
+    _cp("/opt/coze/.fuse_drive/蓁宝/所有对话/主对话/codeact/scripts"),
 ):
     if os.path.isdir(os.path.join(_dh_cand, "data_hub")) and _dh_cand not in sys.path:
         sys.path.insert(0, _dh_cand)
@@ -1373,11 +1392,11 @@ def _pick_lark_config_dir() -> Path:
     （会让 lark-cli 认不到登录态），所以要求目录内至少有一个条目。
     """
     for _c in (
-        "/opt/coze/.fuse_drive/股指波动率/.feishu_cli",
-        "/Coze/Drive/股指波动率/.feishu_cli",
-        "/app/data/所有对话/主对话/.feishu_cli",
-        "/Coze/Drive/蓁宝/所有对话/主对话/.feishu_cli",
-        "/opt/coze/.fuse_drive/蓁宝/所有对话/主对话/.feishu_cli",
+        _cp("/opt/coze/.fuse_drive/股指波动率/.feishu_cli"),
+        _cp("/Coze/Drive/股指波动率/.feishu_cli"),
+        _cp("/app/data/所有对话/主对话/.feishu_cli"),
+        _cp("/Coze/Drive/蓁宝/所有对话/主对话/.feishu_cli"),
+        _cp("/opt/coze/.fuse_drive/蓁宝/所有对话/主对话/.feishu_cli"),
     ):
         _p = Path(_c)
         try:
@@ -1385,7 +1404,7 @@ def _pick_lark_config_dir() -> Path:
                 return _p
         except OSError:
             continue
-    return Path("/app/data/所有对话/主对话/.feishu_cli")
+    return Path(_cp("/app/data/所有对话/主对话/.feishu_cli"))
 
 
 LARK_CONFIG_DIR = _pick_lark_config_dir()
@@ -1402,7 +1421,7 @@ def _load_feishu_push():
     """加载统一推送模块 feishu_push（交互式卡片实现，全系统唯一出口）"""
     for _cand in (
         os.path.join(_HUB_ROOT, "options", "alert", "notifier"),
-        "/Coze/Drive/dataHub_三级体系/options/alert/notifier",
+        _cp("/Coze/Drive/dataHub_三级体系/options/alert/notifier"),
     ):
         if os.path.isdir(_cand) and _cand not in sys.path:
             sys.path.insert(0, _cand)

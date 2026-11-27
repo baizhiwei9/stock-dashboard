@@ -1,0 +1,318 @@
+{
+  "version": 2,
+  "note": "由 scheduler.py 读取并执行，不依赖 crontab。sched.at 是本地时间 HH:MM，weekdays 用 ISO 编号（1=周一 … 7=周日）。改完 scheduler 会自动重载，无需重启。cwd/cmd 里的 {{DATAHUB_ROOT}} / {{REPO_ROOT}} / {{FEISHU_CLI_DIR}} 由 datahub_path.expand_module() 在启动任务时展开，本文件不写任何本机绝对路径。task_tags_notify 的 cmd 里有飞书群 chat_id 和告警邮箱，那是「通知对象」不是凭据（没有 app_secret 也用不了），换人用就改这两处。",
+  "api": {
+    "host": "127.0.0.1",
+    "port": 8767,
+    "enabled": true,
+    "_note": "password / registry_key 已移至 ~/.config/stock-dashboard/secrets.json 的 scheduler 段（见 DEPLOY.md §3.3）。默认只听本机回环；要局域网访问管理页把 host 改成 0.0.0.0；纯后台调度可设 enabled=false（或 SD_NO_API=1），此时不监听任何端口。"
+  },
+  "modules": [
+    {
+      "key": "macro",
+      "title": "宏观与美元环流",
+      "desc": "M2 / GDP / CPI / PPI / 社融 / M1-M2剪刀差 + 美元指数 / 离岸在岸人民币",
+      "domains": [
+        "macro"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:00",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"宏观与美元环流\" --timeout 2400 -- python3 -u -m data_hub.tech.producers.macro_daily --days 500",
+      "timeout": 2400,
+      "enabled": true
+    },
+    {
+      "key": "liquidity",
+      "title": "流动性与两融",
+      "desc": "DR001 / DR007 / SHIBOR3M / OMO净投放 / GC001 / 国债10Y·2Y / 中美利差 + 两融余额·维持担保比例",
+      "domains": [
+        "liquidity",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"流动性与两融\" --timeout 2400 -- python3 -u -m data_hub.tech.producers.liquidity_daily --days 500",
+      "timeout": 2400,
+      "enabled": true
+    },
+    {
+      "key": "rmt",
+      "title": "RMT 随机矩阵",
+      "desc": "全成分股收益率矩阵 → 吸收率 AR5 / 特征值比 λ1λ2 / 最优熵 oe / 秩相关 RC",
+      "domains": [
+        "rmt"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:10",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"RMT随机矩阵\" --timeout 3600 -- python3 -u -m data_hub.tech.producers.rmt_daily --lookback 300 --max-comps 150",
+      "timeout": 3600,
+      "enabled": true
+    },
+    {
+      "key": "chanlun",
+      "title": "缠论结构 + 趋势动量",
+      "desc": "笔/线段/中枢/买卖点/多头评分 + MA20斜率 / MA60偏离 / 20日涨幅 / 20日波动",
+      "domains": [
+        "chanlun",
+        "trend"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:25",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"缠论结构+趋势动量\" --timeout 1800 -- python3 -u -m data_hub.tech.producers.chanlun_daily",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "dfa",
+      "title": "DFA / Hurst",
+      "desc": "短长周期 Hurst 指数 + 波动率 Hurst + 临界/金叉/死叉信号",
+      "domains": [
+        "dfa"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:28",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"DFA/Hurst\" --timeout 1800 -- python3 -u -m data_hub.tech.producers.dfa_daily",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "option",
+      "title": "期权定价（IV/偏度/PCR/VIX）",
+      "desc": "5 个指数对应期权的平值IV / 25D偏度 / 持仓与成交PCR / VIX，收盘后算，看板只读缓存",
+      "domains": [
+        "option"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "18:10",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"期权定价(IV/偏度/PCR/VIX)\" --timeout 1800 -- python3 -u -m data_hub.tech.producers.option_daily --days 3",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "bond",
+      "title": "债券与理财",
+      "desc": "中债国债 8 期限曲线 / 期限利差与曲线形态 / 企业债AAA·同业存单AAA 信用利差 / 货币基金 7 日年化（类理财收益锚）",
+      "domains": [
+        "bond"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "18:40",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"债券与理财\" --timeout 1800 -- python3 -u -m data_hub.tech.producers.bond_daily --days 12",
+      "timeout": 1800,
+      "enabled": true
+    },
+    {
+      "key": "risk",
+      "title": "风险与机会标签",
+      "desc": "转录风险预测日报（综合得分/评级/三维风险/各指数评级/核心风险信号TOP3/潜在机会）+ 流动性风险偏好（评分/SHIBOR/集中度/北向/AR/DAR/PC1·PC3），数据点自带 alert·risk·opportunity 标签",
+      "domains": [
+        "risk"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "21:50",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"风险与机会标签\" --timeout 1200 -- python3 -u -m data_hub.tech.producers.risk_daily --days 3",
+      "timeout": 1200,
+      "enabled": true
+    },
+    {
+      "key": "task_tags",
+      "title": "任务结论转录（带风险标签）",
+      "desc": "把风格漂移/中线偏好/杨康平顶底/风险释放/CFC/波动率/掉期/原油/信用利差/涨停预测/xgboost/板块筛选/四选股器/技术共识/挖地兔/涨幅榜/热点概念/小波/两融季节等任务的已有产出，原样转录成带 alert·risk·opportunity 标签的数据点；判断与通知仍由各任务自己完成",
+      "domains": [
+        "risk",
+        "option",
+        "macro",
+        "bond",
+        "stock",
+        "trend",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"任务结论转录\" --timeout 600 -- python3 -u -m data_hub.tech.producers.task_tags_daily",
+      "timeout": 600,
+      "enabled": true,
+      "depends": []
+    },
+    {
+      "key": "task_tags_notify",
+      "title": "任务标签汇总推送",
+      "desc": "读库里的 risk_level 标签，按 alert→risk→opportunity 排序发飞书；alert 级另发邮件。只转发任务侧判断，不重算阈值；同一 (指标,标的,日期,通道) 只发一次",
+      "domains": [
+        "risk",
+        "option",
+        "macro",
+        "bond",
+        "stock",
+        "trend",
+        "margin"
+      ],
+      "sched": {
+        "mode": "daily",
+        "at": "22:35",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{DATAHUB_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel email --to 410119229@qq.com --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】'",
+      "timeout": 300,
+      "enabled": true,
+      "depends": [
+        "task_tags"
+      ]
+    },
+    {
+      "key": "tech_snapshot",
+      "title": "指标仓云盘快照",
+      "desc": "把 tech 指标仓压成云盘 gzip 快照（换机/换会话恢复用）。落点由 data_hub.tech.store.cloud_dir() 决定，现在是 <DataHub>/output/tech_metrics.db.gz。放在 build 之前，页面才能显示当天快照的大小/时间。",
+      "domains": [],
+      "sched": {
+        "mode": "daily",
+        "at": "22:37",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "cwd": "{{REPO_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"指标仓云盘快照\" --timeout 900 -- python3 case/_tools/push_snapshot.py",
+      "timeout": 900,
+      "enabled": true,
+      "not_before": "22:37",
+      "depends": [],
+      "note": "快照失败必须能看见：push_snapshot.py 在 store.snapshot() 返回空时 exit 1（`python -m data_hub.tech.store --snapshot` 只打印 None 就 exit 0，health 记不到失败）。"
+    },
+    {
+      "key": "build",
+      "title": "看板构建与发布",
+      "desc": "读指标仓 → 生成 index.html → 发布 Pages",
+      "domains": [],
+      "sched": {
+        "mode": "daily",
+        "at": "22:40",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "depends": [
+        "macro",
+        "liquidity",
+        "rmt",
+        "chanlun",
+        "dfa",
+        "risk",
+        "task_tags",
+        "task_tags_notify",
+        "tech_snapshot"
+      ],
+      "cwd": "{{REPO_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"看板构建发布\" --timeout 1800 -- bash -c \"python3 build.py && ./publish.sh\"",
+      "timeout": 1800,
+      "enabled": true,
+      "not_before": "22:40"
+    }
+  ],
+  "_note": "本文件入库，是全部机器的默认模块清单。私有任务（risk_v52 / vol_surface_vix 等）不在本文件里，它们由 precious-task 仓的 case/*/task.json 提供，启动时用 SD_CASE_EXTRA_DIRS=../precious-task/case 挂载。"
+}
