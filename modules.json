@@ -227,7 +227,7 @@
     {
       "key": "task_tags_notify",
       "title": "任务标签汇总推送",
-      "desc": "读库里的 risk_level 标签，按 alert→risk→opportunity 排序发飞书汇总；严重预警邮件已由各任务/适配器跑完当场发出，这里不再统一发邮件",
+      "desc": "读库里的 risk_level 标签，按 alert→risk→opportunity 排序发飞书汇总；严重预警邮件优先由各任务/适配器跑完当场发出（一个任务一封，notify_log 幂等），本模块末尾的兜底脚本只在「库里还有没发过 email 的 alert 行」时补发一封汇总，避免逐任务发送器缺席时静默丢邮件",
       "domains": [
         "risk",
         "option",
@@ -249,7 +249,7 @@
         ]
       },
       "cwd": "{{DATAHUB_ROOT}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】'",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat oc_a2ed4ec3a45ea32fa3456a60fa3c91de --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; PYTHONPATH={{DATAHUB_ROOT}} python3 {{REPO_ROOT}}/scripts/task_tags_alert_fallback.py --to 410119229@qq.com --days 7'",
       "timeout": 300,
       "enabled": true,
       "depends": [
