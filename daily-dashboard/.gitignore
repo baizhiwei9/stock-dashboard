@@ -1,0 +1,12 @@
+# 运行产物（每天覆盖，不入库）
+facts.db
+facts.db-shm
+facts.db-wal
+data.json
+index.html
+daily.log
+daily.log.*
+site/
+__pycache__/
+*.pyc
+*.bak*
