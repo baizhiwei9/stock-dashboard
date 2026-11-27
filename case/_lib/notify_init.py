@@ -36,7 +36,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
-__all__ = ["APP", "init", "subject", "webhook", "chat_id", "chat_hint", "active"]
+__all__ = ["APP", "init", "subject", "webhook", "chat_id", "resolve_chat",
+           "chat_hint", "active"]
 
 
 def _profile_inputs():
@@ -96,14 +97,6 @@ def webhook(default: str = "") -> str:
     return _feishu_field("webhook_url", default)
 
 
-def _default_chat() -> str:
-    """默认群：环境变量 → DataHub 通知模块 app profile → 本应用 secrets。"""
-    val = (os.environ.get(_CHAT_ENV) or "").strip()
-    if val:
-        return val
-    return _feishu_field("chat_id") or _secret("feishu.chat_id")
-
-
 def resolve_chat(key: str = ""):
     """返回 ``(chat_id, source)``，供排查「这条到底发到哪个群」。
 
@@ -149,12 +142,19 @@ def chat_id(key: str = "", default: str = "") -> str:
 
 def chat_hint(key: str = "") -> str:
     """连默认群都没配时给部署侧的中文指引（只写字段名，不含任何真实 id）。"""
-    env = _CHAT_ENV + (("_" + key.upper().replace("-", "_")) if key else "")
-    where = ("feishu.chats.%s" % key) if key else "feishu.chat_id"
-    return ("未配置任何飞书群目标（具名群 %s 与默认群都没有）：可设环境变量 %s，或在 "
+    key = (key or "").strip().lower()
+    if key:
+        env = "%s_%s" % (_CHAT_ENV, key.upper().replace("-", "_"))
+        field = "feishu.chats.%s" % key
+        missing = "具名群 %s 与默认群都没有" % key
+    else:
+        env = _CHAT_ENV
+        field = "feishu.chat_id"
+        missing = "默认群与具名群（%s）都没有" % " / ".join(_CHAT_KEYS)
+    return ("未配置任何飞书群目标（%s）：可设环境变量 %s，或在 "
             "~/.config/stock-dashboard/secrets.json 写 %s / feishu.chat_id，或在 "
             "data_hub.notify 部署配置的 apps.%s.feishu.chat_id 里指定"
-            % (key or "default", env, where, APP))
+            % (missing, env, field, APP))
 
 
 def subject(title: str) -> str:

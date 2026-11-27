@@ -22,7 +22,7 @@
 | `feishu.app_secret` | 否 | 飞书应用 App Secret。 |
 | `feishu.webhook` | 否 | 群机器人 Webhook。 |
 | `feishu.chat_id` | 否 | 发送目标会话（`oc_...`）。 |
-| `feishu.chats.<key>` | 否 | 具名群（`stocks` / `tugou` / `tags`）。由 `case/_lib/notify_init.py:chat_id(key)` 读取；缺配时**不回落到** `feishu.chat_id`。 |
+| `feishu.chats.<key>` | 否 | 具名群（`stocks` / `tugou` / `tags`）。由 `case/_lib/notify_init.py:chat_id(key)` 读取；缺配时**回落到** `feishu.chat_id`（默认群）。 |
 | `tushare.token` | 否 | Tushare Pro token。 |
 | `tushare.official_token` | 否 | Tushare 官方站 token（备用通道）。 |
 | `email.smtp_host` | 否 | SMTP 主机，默认 `smtp.163.com`。 |
@@ -43,7 +43,7 @@
 
 ```python
 from notify_init import chat_id, chat_hint
-chat = chat_id("stocks")        # 具名群；缺配返回空串，调用方如实报缺（chat_hint 给指引）
+chat = chat_id("stocks")        # 具名群；缺配回落默认群，连默认群都没有才返回空串（chat_hint 给指引）
 ```
 
 取值顺序：`NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID[_<KEY>]` → secrets 的

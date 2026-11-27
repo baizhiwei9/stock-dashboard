@@ -255,7 +255,7 @@
         ]
       },
       "cwd": "{{DATAHUB_ROOT}}",
-      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat {{FEISHU_CHAT_ID}} --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel email --to {{ALERT_EMAIL}} --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】'",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"任务标签汇总推送\" --timeout 300 -- bash -c 'LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel feishu --chat $(python3 {{REPO_ROOT}}/case/_lib/notify_init.py chat tags) --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签】 ; LARKSUITE_CLI_CONFIG_DIR={{FEISHU_CLI_DIR}} python3 -u -m data_hub.tech.notify --channel email --to {{ALERT_EMAIL}} --level alert --days 7 --title 任务结论标签汇总 --subject-prefix 【任务标签·严重】'",
       "timeout": 300,
       "enabled": false,
       "depends": [
@@ -450,7 +450,6 @@
     "{{WORKSPACE_A}}": "运行 risk_v52 / vol_surface_vix 的工作目录",
     "{{WORKSPACE_B}}": "运行 five_strategy / factor_daily / limit_up_* 的工作目录",
     "{{FEISHU_CLI_DIR}}": "lark-cli 配置目录（含凭据，勿入库）",
-    "{{FEISHU_CHAT_ID}}": "推送目标群 chat_id（oc_ 开头）",
     "{{ALERT_EMAIL}}": "alert 级通知的收件邮箱"
   }
 }

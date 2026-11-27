@@ -2,9 +2,9 @@
 """``notify_init.chat_id`` 的取值口径回归（2026-11-28）。
 
 飞书目标群不再写死在仓库里：默认群走 DataHub 通知模块的 app profile，再退本应用
-secrets 的 ``feishu.chat_id``；具名群（stocks / tugou / tags）只认自己的
+secrets 的 ``feishu.chat_id``；具名群（stocks / tugou / tags）先认自己的
 ``feishu.chats.<key>`` 或 ``NOTIFY_APP_STOCK_DASHBOARD_FEISHU_CHAT_ID_<KEY>``，
-**不回落到默认群** —— 把土狗群、标签群的推送误发到主群，比如实报缺更难发现。
+没配就**回落到默认群** —— 宁可发错群也要把报告发出去；只有连默认群都没有才报缺。
 """
 import json
 import os
@@ -34,7 +34,8 @@ def _isolate(monkeypatch, tmp_path, data):
     """把凭据来源钉到临时 secrets，并关掉部署侧 notify.json 与相关环境变量。"""
     monkeypatch.setenv("APP_SECRETS_FILE", _write_secrets(tmp_path, data))
     monkeypatch.setenv("NOTIFY_CONFIG", str(tmp_path / "no-such-notify.json"))
-    for name in (_ENV_BASE, _ENV_BASE + "_TUGOU", _ENV_BASE + "_TAGS"):
+    for name in (_ENV_BASE, _ENV_BASE + "_STOCKS",
+                 _ENV_BASE + "_TUGOU", _ENV_BASE + "_TAGS"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -90,6 +91,20 @@ def test_hint_names_the_field(tmp_path, monkeypatch):
     assert "feishu.chats.tugou" in hint
     assert _ENV_BASE + "_TUGOU" in hint
     assert "apps.%s" % notify_init.APP in hint
+
+
+def test_hint_normalizes_key(tmp_path, monkeypatch):
+    """``chat_hint("TUGOU")`` 也要指向小写字段名，和 resolve_chat 的规范化一致。"""
+    _isolate(monkeypatch, tmp_path, {"feishu": {}})
+    hint = notify_init.chat_hint("TUGOU")
+    assert "feishu.chats.tugou" in hint
+    assert "feishu.chats.TUGOU" not in hint
+    assert _ENV_BASE + "_TUGOU" in hint
+    # 空 key 的提示要提到具名群，别只说「default」
+    default_hint = notify_init.chat_hint()
+    assert "feishu.chat_id" in default_hint
+    for k in ("stocks", "tugou", "tags"):
+        assert k in default_hint
 
 
 def test_cli_chat_prints_id_and_exits_nonzero_when_missing(tmp_path, monkeypatch, capsys):
