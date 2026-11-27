@@ -1,0 +1,216 @@
+{
+  "key": "kiley_analysis",
+  "title": "Kiley数据分析",
+  "desc": "美债维度三块：10Y 拆成预期短端+期限溢价（四口径并列长期锚）/ 期货曲线隐含政策路径 / FCI-G 金融条件。数据源 michaeltkiley.github.io 公开产物。",
+  "section": "bond",
+  "metrics": [
+    {
+      "key": "kiley.y10",
+      "sec": "KILEY",
+      "name": "美债10Y",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.tp.discounted",
+      "sec": "KILEY",
+      "name": "期限溢价·贴现VAR(Kiley2024)",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.tp.acm",
+      "sec": "KILEY",
+      "name": "期限溢价·ACM",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.tp.kim_wright",
+      "sec": "KILEY",
+      "name": "期限溢价·Kim-Wright",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.tp.recursive",
+      "sec": "KILEY",
+      "name": "期限溢价·递归VAR",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.exp_short",
+      "sec": "KILEY",
+      "name": "10Y隐含预期短端均值",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.sep_longrun",
+      "sec": "KILEY",
+      "name": "SEP长期联邦基金利率",
+      "unit": "%",
+      "dec": 1,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.longrun.discounted",
+      "sec": "KILEY",
+      "name": "长期利率锚·贴现VAR",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.longrun.recursive",
+      "sec": "KILEY",
+      "name": "长期利率锚·递归VAR",
+      "unit": "%",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.gap_vs_sep",
+      "sec": "KILEY",
+      "name": "预期短端均值−SEP",
+      "unit": "pp",
+      "dec": 2,
+      "group": "期限溢价与长期锚"
+    },
+    {
+      "key": "kiley.policy.mode_3m",
+      "sec": "KILEY",
+      "name": "3M合约最可能落点",
+      "unit": "%",
+      "dec": 3,
+      "group": "政策预期路径"
+    },
+    {
+      "key": "kiley.policy.mode_3m_prob",
+      "sec": "KILEY",
+      "name": "3M合约峰值概率",
+      "unit": "%",
+      "dec": 1,
+      "group": "政策预期路径"
+    },
+    {
+      "key": "kiley.policy.mode_dec",
+      "sec": "KILEY",
+      "name": "DEC27最可能落点",
+      "unit": "%",
+      "dec": 3,
+      "group": "政策预期路径"
+    },
+    {
+      "key": "kiley.policy.mode_dec_prob",
+      "sec": "KILEY",
+      "name": "DEC27峰值概率",
+      "unit": "%",
+      "dec": 1,
+      "group": "政策预期路径"
+    },
+    {
+      "key": "kiley.policy.path_12m",
+      "sec": "KILEY",
+      "name": "期货隐含12个月后利率",
+      "unit": "%",
+      "dec": 3,
+      "group": "政策预期路径"
+    },
+    {
+      "key": "kiley.policy.path_12m_chg",
+      "sec": "KILEY",
+      "name": "较上次定价变化",
+      "unit": "bp",
+      "dec": 1,
+      "group": "政策预期路径"
+    },
+    {
+      "key": "kiley.fcig",
+      "sec": "KILEY",
+      "name": "FCI-G金融条件",
+      "unit": "pp",
+      "dec": 2,
+      "group": "金融条件 FCI-G"
+    },
+    {
+      "key": "kiley.fcig.chg1m",
+      "sec": "KILEY",
+      "name": "FCI-G近1月变化",
+      "unit": "pp",
+      "dec": 2,
+      "group": "金融条件 FCI-G"
+    },
+    {
+      "key": "kiley.fcig.chg3m",
+      "sec": "KILEY",
+      "name": "FCI-G近3月变化",
+      "unit": "pp",
+      "dec": 2,
+      "group": "金融条件 FCI-G"
+    },
+    {
+      "key": "kiley.policy.contract",
+      "sec": "KILEY",
+      "name": "近月期货合约",
+      "text": true
+    }
+  ],
+  "sched": {
+    "mode": "weekly",
+    "at": "08:40",
+    "weekdays": [
+      7
+    ]
+  },
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 8,
+    "min_ok_ratio": 0.4,
+    "require_data": true,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "data": [
+        "data/kiley_raw.json"
+      ],
+      "report": [
+        "out/report.md",
+        "out/kiley_points.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 600
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      }
+    ]
+  },
+  "enabled": true,
+  "timeout": 900,
+  "queue": "default",
+  "deliver": {
+    "report": false,
+    "email": false
+  },
+  "visibility": "public",
+  "build_workers": true,
+  "not_before": "08:00"
+}
