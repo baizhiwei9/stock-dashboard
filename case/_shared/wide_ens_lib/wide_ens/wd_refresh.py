@@ -47,11 +47,18 @@ def main():
         len(jobs), len(CH.C.INDICES), hs, a.procs), flush=True)
     t0 = time.time()
     ok = 0
+    failed = 0
     with Pool(a.procs) as pool:
         for r in pool.imap_unordered(CH.train_one, jobs):
-            ok += 1
-    print('[wd_refresh] 完成 %d/%d，%.0fs' % (ok, len(jobs), time.time() - t0), flush=True)
-    return 0 if ok == len(jobs) else 1
+            # train_one 数据不足/取数失败时返回 None —— 不能当成功计数，
+            # 否则「全部没数据」也会打印 完成 N/N、rc=0，把失败抹成成功。
+            if r is None:
+                failed += 1
+            else:
+                ok += 1
+    print('[wd_refresh] 完成 %d/%d（失败 %d），%.0fs'
+          % (ok, len(jobs), failed, time.time() - t0), flush=True)
+    return 0 if (ok == len(jobs) and failed == 0) else 1
 
 
 if __name__ == '__main__':

@@ -620,9 +620,20 @@ def main(argv: List[str]) -> int:
                      ["%s：%s" % (it.get("name"), it.get("detail"))
                       for it in final_check["items"] if not it["ok"]], "error")
 
+    # 防「空转」：声明了 pipeline 却没有任何阶段真正执行（既无 pipeline.py 钩子、
+    # 也无 stages[].cmd），旧逻辑是五阶段全「未配置，跳过」并记 ok —— 任务空转还报成功。
+    # 这里把它判成硬失败，宁可报错也不要静默通过（dry-run 只打印阶段，不参与）。
+    ran_stage = any(r.get("name") in STAGES and not r.get("skipped") for r in results)
+    pipeline_idle = bool(pipe) and not ran_stage and not a.dry_run
+    if pipeline_idle:
+        ctx.warn("流水线空转", ["pipeline 已声明，但没有任何阶段真正执行",
+                                "要么补 pipeline.py 钩子 / stages[].cmd，"
+                                "要么去掉 pipeline 块走 legacy 直跑"], "error")
+
     # 没有任何指标产出也算"面板不会有东西"，但不能覆盖其它失败判定
     hard_fail = any((not r.get("ok")) and not r.get("soft") and not r.get("skipped")
-                    for r in results) or bool(final_check and not final_check["ok"])
+                    for r in results) or bool(final_check and not final_check["ok"]) \
+        or pipeline_idle
     check_fail = any(r.get("name") == "check" and not r.get("ok") for r in results) \
         or bool(final_check and not final_check["ok"])
     status = {

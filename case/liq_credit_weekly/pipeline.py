@@ -123,7 +123,12 @@ def _sides(ctx) -> list:
         return [env]
     if env == "all":
         return ["cn", "us"]
-    now = dt.datetime.now()
+    # 按北京时间判时点：宿主机若为 UTC，11:00 CST = 03:00 UTC，
+    # 用无时区的 now() 会把美国半张误判成 cn，且不报错。
+    try:
+        now = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    except Exception:                                         # noqa: BLE001
+        now = dt.datetime.now()
     # 11:00 那一轮 vs 08:30 那一轮：以 09:45 为界
     if now.hour * 60 + now.minute >= 9 * 60 + 45:
         return ["us"]

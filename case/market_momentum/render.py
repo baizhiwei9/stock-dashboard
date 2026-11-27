@@ -118,27 +118,22 @@ def build_chart(per, secs, as_of, out_path):
     import matplotlib.pyplot as plt
     from matplotlib import font_manager
 
-    # 中文字体：框架的 assets 在 _lib 里，取不到就退回默认（图上会没有中文，但不报错）
-    fpath = None
-    try:
-        import sys
-        import os as _os
-        _lib = _os.path.normpath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
-                                               "..", "_lib"))
-        if _lib not in sys.path:
-            sys.path.insert(0, _lib)
-        from assets import ensure_cjk_font
-        fpath = ensure_cjk_font(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
-                                              "fonts", "SimHei.ttf"))
-    except Exception:                                            # noqa: BLE001
-        fpath = None
+    # 中文字体：框架 assets.ensure_cjk_font 找不到可用字体时会抛 RuntimeError。
+    # 这里不再吞异常静默降级——找不到中文字体就让任务失败、进缺口表，
+    # 而不是画一张中文全豆腐块的图发出去当成功。
+    import sys
+    import os as _os
+    _lib = _os.path.normpath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                           "..", "_lib"))
+    if _lib not in sys.path:
+        sys.path.insert(0, _lib)
+    from assets import ensure_cjk_font
+    fpath = ensure_cjk_font(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                          "fonts", "SimHei.ttf"))
     if fpath and os.path.isfile(fpath):
-        try:
-            font_manager.fontManager.addfont(fpath)
-            name = font_manager.FontProperties(fname=fpath).get_name()
-            plt.rcParams["font.family"] = name
-        except Exception:                                        # noqa: BLE001
-            pass
+        font_manager.fontManager.addfont(fpath)
+        name = font_manager.FontProperties(fname=fpath).get_name()
+        plt.rcParams["font.family"] = name
     plt.rcParams["axes.unicode_minus"] = False
 
     items = [per[c] for c, _n in secs if c in per]

@@ -31,15 +31,20 @@ KEYS=(
   top200_concept concept_tracker_top20 cycle_monitor oil_monitor
   style_drift_monitor vol_monitor_daily bond_four_factor credit_spread_weekly margin_season_weekly
   hurst_daily tugou_archive weekly_stock_monitor tech_consensus_daily
+  wide_t1 wide_t5 wide_ens_weekly liq_credit_weekly cftc_cot_weekly
 )
 
 # crontab 里 --name "xxx" 的 xxx（与 KEYS 一一对应，顺序无关）
+# 注意：wide_* / liq_credit_weekly / cftc_cot_weekly 的 --name 是迁移时的命名，
+# 若旧 crontab 用了不同名字，切换前先核一遍（preflight 会按此对账并报 mismatch）。
 NAMES=(
   "中线偏好监控" "环流日报" "多头排列选股" "板块筛选v4" "风险释放监控"
   "风险预测·日终" "风险预测·午间" "流动性风险监控" "合并分析" "涨幅Top200概念" "热点概念Top20"
   "库存信贷周期" "油价月报" "风格漂移监控" "股指波动率监控"
   "国债期货四因子" "信用利差周报" "两融季节同比(周五)" "Hurst指数" "土狗归档" "自选股周报"
   "科技共识日报"
+  "宽基 T+1 双轨预测" "宽基 T+5 周报" "宽基集成周报（统一选模）"
+  "流动性 · 信用风险周报（中国 / 美国）" "CFTC COT 极值持仓周报"
 )
 
 # 一个 key 对应多条 crontab 时，声明每条 cron 的时间点。

@@ -162,7 +162,7 @@ def render(ctx):
         "                print('  live %%-7s %%-4s d%%s 失败：%%s' %% (code, fam, d,\n"
         "                      (r.stderr or '').strip().splitlines()[-1:] or ''))\n"
         "print('unified_live 完成，失败 %%d/20' %% bad)\n"
-        "sys.exit(0)     # 失败不致命：候选曲线 csv 仍在，只是尾部少一天\n"
+        "sys.exit(1 if bad else 0)   # 有失败就让 rc 非零，外层 ctx.warn 才不是死代码\n"
     ) % (P.lib_dir(), P.lib_dir()), timeout=2400, tag="live")
     if rc != 0:
         ctx.warn("unified_live 异常", ["个别组合失败，候选曲线尾部可能少一天"], "warn")
