@@ -13,9 +13,29 @@ except ImportError:
     import requests
 
 # DeepSeek API配置
-DEEPSEEK_API_KEY = "***REMOVED-DEEPSEEK-KEY***"
-DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
-DEEPSEEK_MODEL = "deepseek-v4-flash"
+# 仓库公开，禁止写死 key。读取顺序：环境变量 > app_secrets（仓库外 secrets.json）
+DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+
+
+def _load_api_key():
+    k = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if k:
+        return k
+    try:
+        from case._lib.app_secrets import get as _get
+        k = (_get("deepseek.api_key", "") or "").strip()
+        if k:
+            return k
+    except Exception:
+        pass
+    raise RuntimeError(
+        "缺少 DeepSeek API Key：请设置环境变量 DEEPSEEK_API_KEY，"
+        "或在 ~/.config/stock-dashboard/secrets.json 里配置 deepseek.api_key"
+    )
+
+
+DEEPSEEK_API_KEY = _load_api_key()
 
 def llm_analyze(system_prompt: str, user_content: str, max_tokens: int = 2000) -> str:
     """
