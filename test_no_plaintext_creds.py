@@ -13,12 +13,14 @@
 它们曾经以明文进过 git 历史（见 docs/SECRETS.md），轮换前等于裸奔。现在统一走
 ``case/_lib/hub_root.py``：环境变量 → ``~/.config/stock-dashboard/secrets.json``。
 
-本用例守三件事：
-  1. 仓库里（除 datahub_refactor 的历史快照）不再出现这三个字面量；
-  2. ``hub_root`` 的三个取值函数真能从环境变量读到；
-  3. 读不到时返回空串而不是抛异常 —— 老脚本按「空=没配」降级，不能因此崩。
+本用例守四件事：
+  1. 仓库里（含 datahub_refactor 历史快照）不再出现已泄漏的字面量；
+  2. 任意 56 位十六进制 token 字面量都算回退（通用兜底，防止换了个 token 又写死）；
+  3. ``hub_root`` 的三个取值函数真能从环境变量读到；
+  4. 读不到时返回空串而不是抛异常 —— 老脚本按「空=没配」降级，不能因此崩。
 """
 import os
+import re
 import subprocess
 import sys
 
@@ -33,35 +35,57 @@ import hub_root  # noqa: E402
 #: 这里拆成片段拼接 —— 否则本文件自己就成了「仓库里有明文」的那一个。
 LEAKED = [
     "a7c1ab22" + "e3162aac" + "86bf7732" + "3755b2d9" + "9e9cadfa" + "d4ae631a" + "50574265",
+    "1f7d5d32" + "5804a92b" + "86996303" + "6fab5e5c" + "b71e7820" + "e7d60903" + "ee9952b1",
     "TBmy7D" + "Asj9aN" + "Jdxb",
     "6d34534a" + "-af18-48" + "ba-be77-" + "a30c5247" + "34a8",
 ]
 
-#: 历史快照（datahub_refactor/e2e_*）是改造前的原样留档，不参与本轮收口。
-EXCLUDE_DIRS = ("datahub_refactor",)
+#: Tushare token 是 56 位十六进制；出现任意一段连续 56 位都按明文回退处理。
+_HEX56 = re.compile(r"\b[0-9a-f]{56}\b")
+
+#: 二进制/压缩包不读文本。
+_SKIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".gz", ".db", ".zip",
+                  ".xlsx", ".xls", ".parquet", ".pdf", ".woff", ".woff2")
 
 
 def _tracked_files():
     out = subprocess.run(["git", "ls-files"], cwd=HERE, capture_output=True, text=True)
     for rel in out.stdout.splitlines():
-        if any(d in rel for d in EXCLUDE_DIRS):
-            continue
-        if rel.endswith((".png", ".jpg", ".gz", ".db", ".zip", ".xlsx")):
+        if rel.endswith(_SKIP_SUFFIXES):
             continue
         yield rel
+
+
+def _read(rel):
+    try:
+        return open(os.path.join(HERE, rel), encoding="utf-8", errors="ignore").read()
+    except OSError:
+        return None
 
 
 def test_no_leaked_secret_literals():
     hits = []
     for rel in _tracked_files():
-        try:
-            src = open(os.path.join(HERE, rel), encoding="utf-8", errors="ignore").read()
-        except OSError:
+        src = _read(rel)
+        if src is None:
             continue
         for secret in LEAKED:
             if secret in src:
                 hits.append("%s ← %s…" % (rel, secret[:8]))
     assert not hits, "明文凭据回退：\n" + "\n".join(hits)
+
+
+def test_no_hex56_token_literals():
+    """通用兜底：任何连续 56 位十六进制字面量都按 Tushare token 明文回退。"""
+    hits = []
+    for rel in _tracked_files():
+        src = _read(rel)
+        if src is None:
+            continue
+        for m in _HEX56.finditer(src):
+            line = src.count("\n", 0, m.start()) + 1
+            hits.append("%s:%d ← %s…" % (rel, line, m.group()[:8]))
+    assert not hits, "疑似 56 位 token 明文：\n" + "\n".join(hits)
 
 
 def test_tushare_token_from_env(monkeypatch):

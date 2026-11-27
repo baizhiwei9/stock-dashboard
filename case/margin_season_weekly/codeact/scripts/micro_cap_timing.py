@@ -44,7 +44,35 @@ CACHE_DIR = BASE_DIR / "codeact" / "output" / "micro_timing_cache"
 OUTPUT_DIR = BASE_DIR
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-TOKEN = "1f7d5d325804a92b869963036fab5e5cb71e7820e7d60903ee9952b1"
+def _tushare_token():
+    """Tushare 代理 token：环境变量 → case/_lib/hub_root.py（secrets.json）。"""
+    for name in ("TUSHARE_TOKEN", "TUSHARE_PROXY_TOKEN", "COZE_SEC_TUSHARE_TOKEN"):
+        val = (os.environ.get(name) or "").strip()
+        if val:
+            return val
+    _d = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(8):
+        _c = os.path.join(_d, "_lib")
+        if os.path.isfile(os.path.join(_c, "hub_root.py")):
+            if _c not in sys.path:
+                sys.path.insert(0, _c)
+            try:
+                from hub_root import tushare_token
+                return tushare_token()
+            except Exception:
+                return ""
+        _p = os.path.dirname(_d)
+        if _p == _d:
+            break
+        _d = _p
+    return ""
+
+
+TOKEN = _tushare_token()
+if not TOKEN:
+    raise RuntimeError(
+        "Tushare token 未配置：请设置 TUSHARE_TOKEN，或写入 "
+        "~/.config/stock-dashboard/secrets.json 的 tushare.token")
 API_URL = f"https://ttx.dailyfetch.top/{TOKEN}"
 CONCURRENCY = 8
 MAX_RETRIES = 3

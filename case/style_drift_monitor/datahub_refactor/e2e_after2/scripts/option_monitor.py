@@ -69,7 +69,7 @@ except Exception:
 
 # tushare
 import tushare as ts
-TS_TOKEN = "a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265"
+TS_TOKEN = os.environ.get("TUSHARE_TOKEN", "")
 ts.set_token(TS_TOKEN)
 pro = ts.pro_api()
 
