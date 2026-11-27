@@ -416,6 +416,32 @@
       "timeout": 1800,
       "enabled": true,
       "depends": []
+    },
+    {
+      "key": "gallery_cleanup",
+      "title": "图库月清（半夜）",
+      "desc": "删除 assets/private 下超过 30 天的图片镜像（图库只保留近一个月）。只删镜像副本，不动任何任务原图；删掉的镜像下次构建会按需重建。",
+      "domains": [],
+      "sched": {
+        "mode": "daily",
+        "at": "00:20",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "cwd": "{{REPO_ROOT}}",
+      "cmd": "PYTHONPATH={{DATAHUB_ROOT}} /usr/bin/python3 -m data_hub.tech.health_run --name \"图库月清\" --timeout 600 -- /usr/bin/python3 case/_lib/cleanup.py --apply --rule 私有页图片镜像 --max-delete 3000 --quiet",
+      "timeout": 600,
+      "enabled": true,
+      "not_before": "00:20",
+      "depends": [],
+      "note": "build_private.py 只镜像近 30 天的图，这里把超期镜像清掉。--rule 精确限定只跑这一条规则，避免夜里误删其它产物。"
     }
   ],
   "_placeholders": {

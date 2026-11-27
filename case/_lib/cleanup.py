@@ -34,6 +34,7 @@ case 任务会往 `data/`（取数缓存）、`out/`、`output/`、`reports/`、
     python3 case/_lib/cleanup.py --apply              # 真删
     python3 case/_lib/cleanup.py --apply --json       # 机器可读
     python3 case/_lib/cleanup.py --task margin_flow   # 只清一个任务
+    python3 case/_lib/cleanup.py --rule 私有页图片镜像   # 只清图库镜像（半夜任务用）
     python3 case/_lib/cleanup.py --root ../precious-task   # 清私有仓（默认也吃 CASE_EXTRA_DIRS）
 
 调度：`modules.json` 里 `cleanup` 模块，默认每天 04:30（错开 datahub 05:10 的 prune）。
@@ -217,6 +218,9 @@ def main(argv=None) -> int:
     ap.add_argument("--root", action="append", default=None,
                     help="要清理的根（可多次给）。默认本仓 + CASE_EXTRA_DIRS")
     ap.add_argument("--task", default=None, help="只清这个 case 任务")
+    ap.add_argument("--rule", action="append", default=None,
+                    help="只跑指定规则名（可多次给，精确匹配 rules[].name）；"
+                         "用于「图库月清」只清镜像、不动其它产物")
     ap.add_argument("--rules", default=RULES_PATH, help="规则文件路径")
     ap.add_argument("--json", action="store_true", help="输出 JSON 汇总")
     ap.add_argument("--quiet", action="store_true")
@@ -256,6 +260,8 @@ def main(argv=None) -> int:
             break
         tracked = _git_tracked(root)
         for rule in cfg.get("rules", []):
+            if a.rule and rule.get("name") not in a.rule:
+                continue
             refs = _html_refs(root, rule["respect_html"]) if rule.get("respect_html") else set()
             cand = _collect(root, rule, tracked, refs, a.task)
             if not cand:
