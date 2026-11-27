@@ -10,6 +10,13 @@
 原图复制到页面同目录的 `assets/private/<key>/`、另生成缩略图，页面上先给缩略网格，
 点图开灯箱看原图（可滚轮缩放、拖动、1:1；长图不会被压扁）。
 
+图库（`#gallery`）是**跨任务**的：顶部先按今天汇总全部任务当天产出的图（大缩略图，
+直接看得到内容，不显示图标位），下面按日期分组给近 30 天的时间轴，每天一个可折叠分组，
+最新的过去一天默认展开。每个任务卡片里也各带一份「近 30 天产出图」（超过 6 张自动折叠）。
+保留窗口由 `GALLERY_DAYS`（默认 30）/ `--gallery-days` 控制：更早的图不进页面、也不镜像。
+镜像的清理由 `case/_lib/cleanup.py --rule 私有页图片镜像` 负责（scheduler 每天 00:20 跑），
+只删 `assets/private/` 下的副本，不动任何任务原图；缩略图 mtime 跟随原图，所以会一起过期。
+
 私有仓通过 `CASE_EXTRA_DIRS` 挂进来，任务在 `task.json` 里写 `visibility=private`
 （历史写法 `internal` 等价）。私有页只读这些任务；公开页不认识它们。
 
@@ -19,7 +26,8 @@
     python3 build_private.py                        # → private.html + assets/private/
     python3 build_private.py --out /srv/monitor/private.html
     python3 build_private.py --no-images            # 只要指标，不扫图
-    python3 build_private.py --max-images 12        # 每个任务最多几张（默认 6）
+    python3 build_private.py --max-images 12        # 每个任务卡片最多几张（默认 0=全部）
+    python3 build_private.py --gallery-days 30      # 图库/镜像保留窗口（默认 30 天）
 """
 from __future__ import annotations
 
@@ -30,6 +38,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -60,6 +69,8 @@ EXTRA_SECTIONS = {
 IMG_DIRS = ("out", "charts", "runs", "output", "figures", "reports", "assets", "data")
 IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif")
 SKIP_DIRS = {"thumb", "__pycache__", ".git", "venv", "node_modules"}
+# 图库保留窗口：只展示/镜像最近这些天的图，更早的不再进页面（镜像清理由 cleanup.py 负责）
+GALLERY_DAYS = 30
 
 PRIVATE_CSS = """
 /* ── 图片区：缩略网格 + 灯箱 ── */
@@ -75,6 +86,54 @@ PRIVATE_CSS = """
   margin-top:6px;font-size:11.5px;color:var(--tx3)}
 .shot figcaption b{font-weight:500;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
+
+/* ── 图库：今日图片流 + 近 30 天时间轴 ── */
+.gal-wrap{margin:22px 0 30px;padding:16px 18px 20px;border:1px solid var(--line);
+  border-radius:14px;background:var(--card)}
+.gal-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;
+  justify-content:space-between;margin-bottom:4px}
+.gal-head h2{font-size:16px;margin:0}
+.gal-head p{margin:2px 0 0;font-size:12px;color:var(--tx3)}
+.gal-head .gal-stat{font-size:12px;color:var(--tx3)}
+.gal-head .gal-stat b{color:var(--tx);font-size:15px;margin:0 3px}
+.gal-today{margin:14px 0 8px;padding:12px 14px;border:1px solid var(--line);
+  border-radius:12px;background:#0e131b}
+.gal-today h3{margin:0 0 10px;font-size:13.5px;color:var(--tx)}
+.gal-today h3 span{font-weight:400;font-size:11.5px;color:var(--tx3);margin-left:8px}
+.gal-day{margin:10px 0;border:1px solid var(--line);border-radius:12px;
+  background:#0e131b;overflow:hidden}
+.gal-day>summary{cursor:pointer;list-style:none;padding:10px 14px;display:flex;
+  gap:10px;align-items:baseline;font-size:13px;color:var(--tx2);user-select:none}
+.gal-day>summary::-webkit-details-marker{display:none}
+.gal-day>summary::before{content:"▸";color:var(--tx3);font-size:11px}
+.gal-day[open]>summary::before{content:"▾"}
+.gal-day>summary b{color:var(--tx);font-weight:600}
+.gal-day>summary span{font-size:11.5px;color:var(--tx3)}
+.gal-day .gal-inner{padding:0 12px 12px}
+.gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+  gap:12px}
+.gal-grid.big{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.gal-card{margin:0;min-width:0}
+.gal-card a{display:block;border:1px solid var(--line);border-radius:10px;
+  background:#0b0e14;overflow:hidden}
+.gal-card img{display:block;width:100%;height:180px;object-fit:contain;
+  object-position:center;background:#0b0e14;cursor:zoom-in;transition:transform .18s ease}
+.gal-grid.big .gal-card img{height:250px}
+.gal-card a:hover img{transform:scale(1.03)}
+.gal-card figcaption{margin-top:6px;font-size:11.5px;color:var(--tx3);line-height:1.5}
+.gal-card figcaption b{display:block;color:var(--tx2);font-weight:500;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gal-card figcaption em{display:block;font-style:normal;color:var(--tx3)}
+.gal-empty{margin:10px 0 0;font-size:12px;color:var(--tx3)}
+.task-gal{margin:14px 0 4px;border:1px solid var(--line);border-radius:10px;
+  background:#0e131b;overflow:hidden}
+.task-gal>summary{cursor:pointer;list-style:none;padding:8px 12px;font-size:12px;
+  color:var(--tx2);user-select:none}
+.task-gal>summary::-webkit-details-marker{display:none}
+.task-gal>summary::before{content:"▸";color:var(--tx3);font-size:10px;margin-right:6px}
+.task-gal[open]>summary::before{content:"▾"}
+.task-gal>summary span{color:var(--tx3);margin-left:6px}
+.task-gal .shots{padding:0 12px 12px}
 
 .excerpt{margin:12px 0 20px;padding:12px 14px;border:1px solid var(--line);
   border-radius:10px;background:var(--card)}
@@ -234,8 +293,12 @@ def _task_root(w: Dict) -> str:
     return cand if os.path.isdir(cand) else d
 
 
-def _find_images(task_dir: str, limit: int) -> List[Tuple[float, int, str]]:
-    """按修改时间倒序取最近的图。
+def _find_images(task_dir: str, limit: Optional[int] = None,
+                 since: Optional[float] = None) -> List[Tuple[float, int, str]]:
+    """按修改时间倒序取图。
+
+    - ``since``：epoch 秒，早于它的图不返回（图库只看近 30 天）；
+    - ``limit``：最多取几张，None/0 表示不限（图库要「全部」）。
 
     扫两处：① 约定的产物子目录（IMG_DIRS，递归）；② **任务根目录下的图**（不递归）——
     不少任务（structural_factor 的太极图、mad_weekly/tda_spd/sector_rotation 的配图）
@@ -245,12 +308,21 @@ def _find_images(task_dir: str, limit: int) -> List[Tuple[float, int, str]]:
     if not task_dir or not os.path.isdir(task_dir):
         return []
     found: List[Tuple[float, int, str]] = []
+
+    def _add(fp: str) -> None:
+        try:
+            stt = os.stat(fp)
+        except OSError:
+            return
+        if since is not None and stt.st_mtime < since:
+            return
+        found.append((stt.st_mtime, stt.st_size, fp))
+
     try:
         for fn in os.listdir(task_dir):                      # ② 根目录这一层
             fp = os.path.join(task_dir, fn)
             if os.path.isfile(fp) and fn.lower().endswith(IMG_EXT):
-                stt = os.stat(fp)
-                found.append((stt.st_mtime, stt.st_size, fp))
+                _add(fp)
     except OSError:
         pass
     for sub in IMG_DIRS:
@@ -260,14 +332,8 @@ def _find_images(task_dir: str, limit: int) -> List[Tuple[float, int, str]]:
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
             for fn in filenames:
-                if not fn.lower().endswith(IMG_EXT):
-                    continue
-                fp = os.path.join(dirpath, fn)
-                try:
-                    stt = os.stat(fp)
-                except OSError:
-                    continue
-                found.append((stt.st_mtime, stt.st_size, fp))
+                if fn.lower().endswith(IMG_EXT):
+                    _add(os.path.join(dirpath, fn))
     found.sort(key=lambda x: (x[0], x[1]), reverse=True)
     seen, out = set(), []
     for mt, sz, fp in found:
@@ -276,7 +342,7 @@ def _find_images(task_dir: str, limit: int) -> List[Tuple[float, int, str]]:
             continue
         seen.add(sig)
         out.append((mt, sz, fp))
-        if len(out) >= limit:
+        if limit and limit > 0 and len(out) >= limit:
             break
     return out
 
@@ -311,7 +377,8 @@ def _mirror(key: str, src: str, assets_root: str, page_dir: str) -> Tuple[str, s
         im = Image.open(dst)
         w, h = im.width, im.height
         dim = "%d×%d" % (w, h)
-        th = os.path.join(thdir, stem + ".jpg")
+        # 缩略图名跟「去重后的文件名」走：不同子目录里同名 stem 的图不会互相覆盖
+        th = os.path.join(thdir, os.path.splitext(name)[0] + ".jpg")
         redo = (not os.path.exists(th)) or os.path.getmtime(th) < os.path.getmtime(dst)
         if not redo:
             try:
@@ -323,6 +390,12 @@ def _mirror(key: str, src: str, assets_root: str, page_dir: str) -> Tuple[str, s
             t = im.convert("RGB")
             t.thumbnail((900, 5400), Image.LANCZOS)   # 在转换后的对象上缩，别丢返回值
             t.save(th, "JPEG", quality=82, optimize=True)
+        try:                                         # 缩略图跟随原图年龄，过期清理才一致
+            mt = os.path.getmtime(dst)
+            if abs(os.path.getmtime(th) - mt) > 60:  # 老缩略图/刚生成的都对齐
+                os.utime(th, (mt, mt))
+        except OSError:
+            pass
         thumb = th
     except Exception:                                      # noqa: BLE001  Pillow 缺失或坏图都不挡页面
         dim = ""
@@ -333,6 +406,121 @@ def _mirror(key: str, src: str, assets_root: str, page_dir: str) -> Tuple[str, s
     except OSError:
         size = 0
     return rel_full, rel_thumb, dim, size
+
+
+def _worker_title(w: Dict) -> str:
+    return str(w.get("title") or w.get("key") or "—")
+
+
+def _fmt_size(n: int) -> str:
+    if not n:
+        return ""
+    if n >= 1024 * 1024:
+        return "%.1f MB" % (n / 1024.0 / 1024.0)
+    return "%d KB" % max(1, int(round(n / 1024.0)))
+
+
+def _collect_gallery(ws: List[Dict], days: int = GALLERY_DAYS) -> List[Dict]:
+    """跨任务收集近 ``days`` 天的产出图，按时间倒序。
+
+    与单任务图区共用同一套扫描口径（`_find_images` + `_task_root`），不另写规则。
+    """
+    since = time.time() - max(1, days) * 86400
+    items: List[Dict] = []
+    for w in ws:
+        title = _worker_title(w)
+        for mt, sz, src in _find_images(_task_root(w), None, since):
+            items.append({"key": w.get("key") or "", "title": title,
+                          "mtime": mt, "size": sz, "src": src})
+    items.sort(key=lambda x: (x["mtime"], x["size"]), reverse=True)
+    return items
+
+
+def _gallery_card(it: Dict, assets_root: str, page_dir: str, big: bool = False) -> Tuple[str, Dict]:
+    """一张图卡：缩略图展示完整画面（contain），点开灯箱看原图。"""
+    full, thumb, dim, size = _mirror(it["key"], it["src"], assets_root, page_dir)
+    dt = datetime.fromtimestamp(it["mtime"])
+    fname = os.path.basename(it["src"])
+    info = " · ".join(x for x in (dim, _fmt_size(size)) if x)
+    label = "%s · %s" % (it["title"], fname)
+    cell = (
+        '<figure class="gal-card"><a href="%s" data-lb="%s" data-name="%s" '
+        'title="点开看原图">'
+        '<img loading="lazy" src="%s" alt="%s"></a>'
+        '<figcaption><b>%s</b>'
+        '<em>%s · %s</em><em>%s</em></figcaption></figure>'
+        % (html.escape(full), html.escape(full), html.escape(label),
+           html.escape(thumb), html.escape(label), html.escape(it["title"]),
+           html.escape(dt.strftime("%H:%M")), html.escape(fname),
+           html.escape(info))
+    )
+    entry = {"task": it["title"], "key": it["key"], "file": fname,
+             "time": dt.strftime("%Y-%m-%dT%H:%M:%S"),
+             "mtime": int(it["mtime"]), "dim": dim, "size": size,
+             "full": full, "thumb": thumb}
+    return cell, entry
+
+
+def _gallery_html(ws: List[Dict], assets_root: str, page_dir: str,
+                  days: int = GALLERY_DAYS) -> Tuple[str, List[Dict]]:
+    """页面顶部的「图库」：今天的全部图 + 近 30 天按日时间轴。
+
+    返回 (HTML, 索引条目)。索引由调用方写成 ``assets/private/gallery.json``，
+    供其它页面/任务读取，不用再扫盘。
+    """
+    items = _collect_gallery(ws, days)
+    today = datetime.now().strftime("%Y-%m-%d")
+    groups: Dict[str, List[Dict]] = {}
+    for it in items:
+        d = datetime.fromtimestamp(it["mtime"]).strftime("%Y-%m-%d")
+        groups.setdefault(d, []).append(it)
+
+    entries: List[Dict] = []
+    days_sorted = sorted(groups, reverse=True)
+    today_items = groups.get(today, [])
+    n_today = len(today_items)
+    n_tasks_today = len({x["key"] for x in today_items})
+
+    def grid(bucket: List[Dict], cls: str) -> str:
+        cells = []
+        for it in bucket:
+            cell, entry = _gallery_card(it, assets_root, page_dir, big=(cls == "gal-grid big"))
+            cells.append(cell)
+            entries.append(entry)
+        return '<div class="%s">%s</div>' % (cls, "".join(cells))
+
+    parts = [
+        '<div class="gal-head">'
+        '<div><h2>图库 · 图片流</h2>'
+        '<p>近 %d 天所有私有任务的产出图，按时间倒序；今日全部展开，历史按日折叠。'
+        '缩略图保留完整画面，点图看原图。</p></div>'
+        '<div class="gal-stat">今日 <b>%d</b> 张 / <b>%d</b> 个任务 · '
+        '近 %d 天 <b>%d</b> 张</div></div>'
+        % (days, n_today, n_tasks_today, days, len(items))
+    ]
+
+    if today_items:
+        parts.append('<div class="gal-today"><h3>今天 · %s<span>%d 张 · %d 个任务</span></h3>%s</div>'
+                     % (today, n_today, n_tasks_today, grid(today_items, "gal-grid big")))
+    else:
+        parts.append('<div class="gal-today"><h3>今天 · %s<span>0 张</span></h3>'
+                     '<p class="gal-empty">今天还没有任务产出图片。任务跑完后重新构建本页即可看到；'
+                     '历史图片在下面的时间轴里。</p></div>' % today)
+
+    wk = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+    past = [d for d in days_sorted if d != today]
+    for i, d in enumerate(past):
+        bucket = groups[d]
+        try:
+            wd = wk[datetime.strptime(d, "%Y-%m-%d").weekday()]
+        except ValueError:
+            wd = ""
+        opened = " open" if i == 0 else ""          # 最近一天默认展开，其余折叠
+        parts.append(
+            '<details class="gal-day"%s><summary><b>%s</b>'
+            '<span>%s · %d 张</span></summary><div class="gal-inner">%s</div></details>'
+            % (opened, html.escape(d), wd, len(bucket), grid(bucket, "gal-grid")))
+    return "".join(parts), entries
 
 
 CARD_NAMES = ("card.json", "feishu_card.json", "card_payload.json")
@@ -474,24 +662,37 @@ def _excerpt_html(w: Dict, limit: int = 8) -> str:
             % (html.escape("报告关键数据"), html.escape(os.path.basename(md)), lis))
 
 
-def _shots_html(w: Dict, assets_root: str, page_dir: str, limit: int) -> str:
-    imgs = _find_images(_task_root(w), limit)
+def _shots_html(w: Dict, assets_root: str, page_dir: str, limit: int = 0,
+                days: int = GALLERY_DAYS) -> str:
+    """任务卡里的图区：近 30 天全部产出图，按时间倒序。
+
+    ``limit`` >0 时只取最新的 N 张（旧命令行参数仍可用）；默认 0=全部。
+    张数多时折叠成一个可展开块，避免把整页撑得过长；≤6 张保持直接展示。
+    """
+    since = time.time() - max(1, days) * 86400
+    imgs = _find_images(_task_root(w), limit or None, since)
     if not imgs:
         return ""
     cells = []
-    for _mt, _sz, src in imgs:
+    for mt, _sz, src in imgs:
         full, thumb, dim, size = _mirror(w["key"], src, assets_root, page_dir)
         cap = os.path.basename(src)
-        info = " · ".join(x for x in (dim, ("%d KB" % (size / 1024)) if size else "") if x)
+        info = " · ".join(x for x in (dim, _fmt_size(size)) if x)
+        stamp = datetime.fromtimestamp(mt).strftime("%m-%d %H:%M")
         cells.append(
             '<figure class="shot"><a href="%s" data-lb="%s" data-name="%s" '
             'title="点开看原图">'
             '<img loading="lazy" src="%s" alt="%s"></a>'
-            '<figcaption><b>%s</b><span>%s</span></figcaption></figure>'
+            '<figcaption><b>%s</b><span>%s%s</span></figcaption></figure>'
             % (html.escape(full), html.escape(full), html.escape(cap),
                html.escape(thumb), html.escape(cap),
-               html.escape(cap), html.escape(info)))
-    return '<div class="shots">%s</div>' % "".join(cells)
+               html.escape(cap), html.escape(stamp),
+               (" · " + html.escape(info)) if info else ""))
+    grid = '<div class="shots">%s</div>' % "".join(cells)
+    if len(imgs) <= 6:
+        return grid
+    return ('<details class="task-gal"><summary>近 %d 天产出图<span>%d 张 · 按时间倒序</span>'
+            '</summary>%s</details>' % (days, len(imgs), grid))
 
 
 def _lightbox_html() -> str:
@@ -515,10 +716,11 @@ def _lightbox_html() -> str:
 
 
 def build_private(out_path: str, with_images: bool = True,
-                  max_images: int = 6,
+                  max_images: int = 0,
                   assets: Optional[str] = None,
                   with_report: bool = True,
-                  with_card: bool = True) -> str:
+                  with_card: bool = True,
+                  gallery_days: int = GALLERY_DAYS) -> str:
     ws = _workers()
     if not ws:
         print("[build_private] 没有私有任务：确认 CASE_EXTRA_DIRS 指到私有仓的 case/ 这一层",
@@ -527,6 +729,7 @@ def build_private(out_path: str, with_images: bool = True,
 
     page_dir = os.path.dirname(os.path.abspath(out_path))
     assets_root = assets or os.path.join(page_dir, "assets", "private")
+    gallery_days = max(1, int(gallery_days))
 
     by_sec: Dict[str, List[Dict]] = {}
     for w in ws:
@@ -536,7 +739,13 @@ def build_private(out_path: str, with_images: bool = True,
     meta = {x["key"]: x for x in (cfg.get("sections") or [])}
     meta.update(EXTRA_SECTIONS)          # 未分板块等只在本页出现的板块
 
-    nav, blocks, n_img, n_rep, n_card = [], [], 0, 0, 0
+    gallery_html, gallery_entries = ("", [])
+    if with_images:
+        gallery_html, gallery_entries = _gallery_html(ws, assets_root, page_dir, gallery_days)
+
+    nav, blocks, n_img, n_rep, n_card = [], [], len(gallery_entries), 0, 0
+    if gallery_html:
+        nav.append('<a href="#gallery">图库</a>')
     for sec in SECTION_ORDER:
         items = by_sec.get(sec) or []
         if not items:
@@ -547,9 +756,10 @@ def build_private(out_path: str, with_images: bool = True,
         for w in items:
             # 大佬要求配图在前：先出图、再出指标卡（图在上、卡片在下）
             if with_images:
-                shots = _shots_html(w, assets_root, page_dir, max_images)
+                shots = _shots_html(w, assets_root, page_dir, max_images, gallery_days)
                 if shots:
-                    n_img += shots.count('class="shot"')
+                    if not gallery_entries:                  # 图库没启用时退回计数
+                        n_img += shots.count('class="shot"')
                     cards.append(shots)
             cards.append(B.render_registered_model(w, latest, {})[0])
             chtml = _card_html(w) if with_card else ""
@@ -596,6 +806,8 @@ def build_private(out_path: str, with_images: bool = True,
         '<nav class="jump">' +
         ("".join(nav) or '<span class="sm">（没有可显示的板块）</span>') +
         '</nav>\n\n'
+        + (('<section class="gal-wrap" id="gallery">%s</section>\n\n' % gallery_html)
+           if gallery_html else "")
         + ("".join(blocks) or
            '<div class="sec-wrap"><div class="sec-head"><span class="sec-num">—</span>'
            '<div><h2>暂无私有任务</h2><p>确认 CASE_EXTRA_DIRS 是否挂上私有仓</p></div></div></div>') +
@@ -603,7 +815,9 @@ def build_private(out_path: str, with_images: bool = True,
         '  <p>只列 <code>visibility=private</code> 的任务（含旧别名 <code>internal</code>）。'
         '公有任务在另一套页面 <a href="index.html">index.html</a>，两页互不混排。</p>\n'
         '  <p>指标来自 <code>data_hub.tech</code>，库里没有的不显示；图是任务自己的产出，'
-        '原图拷到 <code>assets/private/&lt;任务&gt;/</code>，点缩略图可放大看原图。'
+        '近 ' + str(gallery_days) + ' 天的图拷到 <code>assets/private/&lt;任务&gt;/</code>，'
+        '点缩略图可放大看原图。图库索引 <code>assets/private/gallery.json</code>，'
+        '超过 ' + str(gallery_days) + ' 天的镜像由半夜清理任务删除（不动任务原图）。'
         '构建时间 ' + now + '。</p>\n'
         '</footer>\n\n</div>\n'
         + (_lightbox_html() + "\n<script>" + PRIVATE_JS + "</script>\n" if with_images else "") +
@@ -612,6 +826,18 @@ def build_private(out_path: str, with_images: bool = True,
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(head)
+
+    # 图库索引：页面之外的消费方（清理任务、其它看板）不用再扫盘
+    if with_images:
+        try:
+            os.makedirs(assets_root, exist_ok=True)
+            idx = {"built_at": now, "days": gallery_days,
+                   "count": len(gallery_entries), "images": gallery_entries}
+            with open(os.path.join(assets_root, "gallery.json"), "w",
+                      encoding="utf-8") as f:
+                json.dump(idx, f, ensure_ascii=False, indent=1)
+        except OSError as e:                                 # noqa: BLE001
+            print("[build_private] 图库索引写入失败（不影响页面）: %s" % e, file=sys.stderr)
     return out_path
 
 
@@ -620,11 +846,15 @@ def main() -> int:
     ap.add_argument("--out", default=os.path.join(HERE, "private.html"))
     ap.add_argument("--assets", default=None,
                     help="图片落地目录，默认 <页面目录>/assets/private")
-    ap.add_argument("--max-images", type=int, default=6, help="每个任务最多展示几张（默认 6）")
+    ap.add_argument("--max-images", type=int, default=0,
+                    help="每个任务最多展示几张（0=近 gallery-days 天全部，默认）")
+    ap.add_argument("--gallery-days", type=int, default=GALLERY_DAYS,
+                    help="图库保留/展示天数（默认 %d）" % GALLERY_DAYS)
     ap.add_argument("--no-images", action="store_true", help="不扫图，只出指标")
     a = ap.parse_args()
     p = build_private(a.out, with_images=not a.no_images,
-                      max_images=max(1, a.max_images), assets=a.assets)
+                      max_images=max(0, a.max_images), assets=a.assets,
+                      gallery_days=max(1, a.gallery_days))
     print("已生成 %s  %.1f KB" % (p, os.path.getsize(p) / 1024))
     return 0
 

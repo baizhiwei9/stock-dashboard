@@ -335,11 +335,20 @@ python3 case/_lib/runner.py --task <key> --dry-run
   出页时只上私有页 `private.html`，公开页 `index.html` 不认识它们；没有 `section` 时按 `section_domain` 归板块。
 - 私有页单独构建一次即可（与公开页同一环境、同一 PYTHONPATH）：
   `python3 build_private.py --out /srv/monitor/private.html`。
-- 私有页会把任务产出的**图**一起带上：扫 `<task>/out|charts|runs|output|figures|reports|assets` 里最近的图
-  （默认每个任务 6 张，`--max-images` 可调），原图拷到**页面同目录** `assets/private/<key>/`，
+- 私有页会把任务产出的**图**一起带上：扫 `<task>/out|charts|runs|output|figures|reports|assets` 里近
+  **30 天**的图（`--gallery-days` 可调），原图拷到**页面同目录** `assets/private/<key>/`，
   另生成最长边 900 的缩略图放 `assets/private/<key>/thumb/`；页面先给缩略网格，点开是灯箱原图
   （滚轮缩放、拖动、1:1、Esc 关闭）。所以 web 根目录要能访问到 `assets/`，与 `private.html` 同级即可。
-  不想带图或只想出指标：`python3 build_private.py --no-images`；图片放到别处用 `--assets /path/to/assets`。
+  - 顶部 **图库** 是跨任务汇总：当天全部任务的图按时间倒序大缩略图平铺，下面按日期分组给近 30 天
+    时间轴（最新过去一天默认展开）。每个任务卡片内也各有一份「近 30 天产出图」，超过 6 张折叠。
+    `assets/private/gallery.json` 是同一批图的索引（`built_at/days/count/images`），方便外部取用。
+  - 每任务卡片默认**不限张数**（`--max-images 0`）；想限制可传正数。
+  - 页面只镜像近 30 天的图，超期镜像由 scheduler 的 `gallery_cleanup`（每天 00:20）执行
+    `python3 case/_lib/cleanup.py --apply --rule 私有页图片镜像` 删除——只删镜像副本，不动任务原图，
+    删掉的副本下次构建会按需重建。缩略图 mtime 跟随原图，原图过期时缩略图一起清。
+  - 不想带图或只想出指标：`python3 build_private.py --no-images`；图片放到别处用 `--assets /path/to/assets`。
+  - 页面是构建时快照，当天任务跑完需要重新构建一次 private.html（放 cron / scheduler 里均可，
+    与任务产出时段错开）。
 - 私有任务要出数值，需要它在本机跑过并由 `publish` 回填（`out/latest.json` 或指标仓有点）；
   还没跑过的先显示任务卡，属正常状态。
 

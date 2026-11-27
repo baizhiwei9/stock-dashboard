@@ -86,10 +86,9 @@
     {
       "name": "私有页图片镜像",
       "glob": "assets/private/**/*",
-      "keep_days": 90,
+      "keep_days": 30,
       "ext": [".png", ".jpg", ".jpeg", ".webp"],
-      "respect_html": "private.html",
-      "why": "被当前 private.html 引用的图不删（引用感知），其余按 90 天清"
+      "why": "图库只保留近 30 天（页面同口径）。镜像只是任务原图的副本，删了下次构建会重建，所以不做引用保护；按修改时间严格清 30 天以外"
     },
     {
       "name": "轮转日志",
