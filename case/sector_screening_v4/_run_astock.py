@@ -1,9 +1,12 @@
-import sys, os
-sys.path.insert(0, '/Coze/Drive/蓁宝/所有对话/主对话/长期计划/A股选股器/src/选股器')
-os.chdir('/Coze/Drive/蓁宝/所有对话/主对话/长期计划/A股选股器/src/选股器')
-__file__ = '/Coze/Drive/蓁宝/所有对话/主对话/长期计划/A股选股器/src/选股器/run_screener_20260605.py'
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# 2026-11-26 去云盘化：本文件是从「蓁宝/所有对话/主对话/长期计划/A股选股器/
+# src/选股器/run_screener_20260605.py」整段内联过来的，逻辑自包含。
+# 原来靠 os.chdir(云盘) + 篡改 __file__ 让下方「向上 3 层取 outputs/」落到云盘，
+# 换机器后这两行会把输出写到一个不存在的目录，所以一并删掉：
+# 现在 __file__ 就是本文件，输出落到 case/sector_screening_v4/outputs/选股器/。
+import sys, os
+
 """
 A股多时段强势股筛选器 - 20260603版
 数据源：Tushare批量接口
