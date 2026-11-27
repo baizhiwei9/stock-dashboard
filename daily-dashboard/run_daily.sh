@@ -4,13 +4,27 @@
 # 纯 Python，零 token。由系统 crontab 在工作日 22:10 触发。
 set -uo pipefail
 
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# cron 环境只有精简 PATH；这里「补充」而不是「覆盖」，否则 pyenv/venv/自建
+# Python 会被 /usr/bin 顶掉 —— 迁到另一台机器后 /usr/bin/python3 未必存在。
+export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export LANG=C.UTF-8
 export TZ=Asia/Shanghai
 
 DASH="${DASH_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 LOG=$DASH/daily.log
-PY=/usr/bin/python3
+
+# 解释器：PYTHON 环境变量 > python3 > python（不再写死 /usr/bin/python3）
+if [ -n "${PYTHON:-}" ]; then
+    PY="$PYTHON"
+elif command -v python3 >/dev/null 2>&1; then
+    PY=python3
+elif command -v python >/dev/null 2>&1; then
+    PY=python
+else
+    echo "===== $(date '+%Y-%m-%d %H:%M:%S') 开始 =====" >> "$LOG"
+    echo "找不到 python3（请装 Python 3.11+ 或设 PYTHON=/path/to/python3）" >> "$LOG"
+    exit 1
+fi
 
 mkdir -p "$DASH"
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') 开始 =====" >> "$LOG"

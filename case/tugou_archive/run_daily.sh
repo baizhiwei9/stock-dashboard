@@ -9,8 +9,16 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE" || exit 1   # 2026-11-27 去云盘化：以脚本所在目录为根
 
 # 飞书 CLI 环境变量（crontab 环境下需要显式指定）
-export LARKSUITE_CLI_CONFIG_DIR="/app/data/所有对话/主对话/.feishu_cli"
-export LARKSUITE_CLI_DATA_DIR="/app/data/所有对话/主对话/.feishu_cli"
+# 2026-11-27 去云盘化：不再写死 /app/data（换机器后不存在）。优先级同
+# datahub_path.feishu_cli_dir()：外部已设 > 仓库 .feishu_cli > ~/.feishu_cli > Coze 默认。
+CLI_DIR="${LARKSUITE_CLI_CONFIG_DIR:-}"
+if [ -z "$CLI_DIR" ] || [ ! -d "$CLI_DIR" ]; then
+    for _cand in "$HERE/../../.feishu_cli" "$HOME/.feishu_cli" "/app/data/所有对话/主对话/.feishu_cli"; do
+        if [ -d "$_cand" ]; then CLI_DIR="$_cand"; break; fi
+    done
+fi
+export LARKSUITE_CLI_CONFIG_DIR="$CLI_DIR"
+export LARKSUITE_CLI_DATA_DIR="$CLI_DIR"
 export LARKSUITE_CLI_LOG_DIR="/tmp"
 
 # 飞书通知群

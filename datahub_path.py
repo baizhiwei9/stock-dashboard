@@ -13,16 +13,16 @@ run_daily.sh / sd_watchdog.sh 直接 `python3 datahub_path.py` 取同一结果�
    会跳过 —— 选了它后面 import 也必然失败，跳过才有机会落到可用路径。
 2. 同级 checkout：<本仓库>/../datahub-multi-tier；
    再兼容 <本仓库>/datahub-multi-tier 的旧布局。
-3. 兜底 /opt/coze/.fuse_drive/dataHub_三级体系 —— 可能不存在，
-   由调用方在 import / cd 失败时按自己的方式报错。
+3. 都没有时返回空串 —— 调用方必须显式报错。代码里不再保留云盘旧副本
+   （/opt/coze/.fuse_drive/...）兜底：那条路径已废弃，退过去只会静默连错库。
 
 只解析路径，不改 sys.path、不改环境变量。环境变量请给绝对路径。
 
     python3 datahub_path.py      # 打印解析结果，给 shell 脚本用
 """
 import os
+import sys
 
-DEFAULT_ROOT = "/opt/coze/.fuse_drive/dataHub_三级体系"
 ENV_NAMES = ("DATA_HUB_PATH", "DATAHUB_DIR", "EDB_REPO")
 SIBLING_DIRS = ("../datahub-multi-tier", "datahub-multi-tier")
 
@@ -45,16 +45,15 @@ def candidates(project=None):
             out.append(("env:" + name, val))
     for rel in SIBLING_DIRS:
         out.append(("sibling", os.path.normpath(os.path.join(project, rel))))
-    out.append(("default", DEFAULT_ROOT))
     return out
 
 
 def datahub_root(project=None):
-    """返回实际可用的 DataHub 根；都没命中时返回兜底常量（不保证存在）。"""
+    """返回实际可用的 DataHub 根；都没命中时返回空串（由调用方显式报错）。"""
     for _source, path in candidates(project):
         if _is_hub_root(path):
             return path
-    return DEFAULT_ROOT
+    return ""
 
 
 def repo_root(project=None):
@@ -62,12 +61,49 @@ def repo_root(project=None):
     return _project_dir() if project is None else os.path.abspath(project)
 
 
+def feishu_cli_dir(repo=None):
+    """lark-cli 配置目录（{{FEISHU_CLI_DIR}} 的展开值）。
+
+    为什么需要占位：这个目录**只跟机器/平台有关**，跟业务无关。老写法在
+    modules.json 里写死 `/app/data/所有对话/主对话/.feishu_cli`，换台机器就是
+    一个不存在的路径 —— 而给错目录比不给更糟，lark-cli 会认不到登录态并
+    静默推送失败。
+
+    按优先级取第一个「真实存在且非空」的目录（空目录等于没登录）：
+      1. 环境变量 LARKSUITE_CLI_CONFIG_DIR（显式指定最优先）
+      2. <本仓库>/.feishu_cli（仓库内自带，便于整仓搬迁）
+      3. ~/.feishu_cli（新机器 lark-cli 登录后的默认位置）
+      4. /app/data/所有对话/主对话/.feishu_cli（Coze 平台的标准位置）
+    都不命中时返回 ~/.feishu_cli：让 lark-cli 直接报「未登录」，
+    比塞一个别的机器的空目录好排查。
+    """
+    def _ok(p):
+        try:
+            return bool(p) and os.path.isdir(p) and bool(os.listdir(p))
+        except OSError:
+            return False
+
+    repo = repo if repo is not None else repo_root()
+    for cand in (os.environ.get("LARKSUITE_CLI_CONFIG_DIR"),
+                 os.path.join(repo, ".feishu_cli"),
+                 os.path.join(os.path.expanduser("~"), ".feishu_cli"),
+                 "/app/data/所有对话/主对话/.feishu_cli"):
+        if _ok(cand):
+            return cand
+    return os.path.join(os.path.expanduser("~"), ".feishu_cli")
+
+
 def expand_root(value, root=None, repo=None):
     """把 modules.json 的 cwd/cmd 里的占位换成解析结果。
 
-    支持两个占位：
-      {{DATAHUB_ROOT}}  → datahub_root()（DataHub 仓库根）
-      {{REPO_ROOT}}     → 本仓库根（cleanup / tech_snapshot 这类框架自带模块用）
+    支持三个占位：
+      {{DATAHUB_ROOT}}   → datahub_root()（DataHub 仓库根）
+      {{REPO_ROOT}}      → 本仓库根（cleanup / tech_snapshot 这类框架自带模块用）
+      {{FEISHU_CLI_DIR}} → feishu_cli_dir()（lark-cli 配置目录，只跟机器有关）
+
+    为什么 modules.json 现在能入库：这三个占位把「本机差异」全部收口了，
+    文件里不再出现任何 /opt、/app、/root 开头的绝对路径，换机器 clone 下来
+    就能跑（见 DEPLOY_PORTABLE.md §6）。
     """
     if not isinstance(value, str):
         return value
@@ -77,11 +113,13 @@ def expand_root(value, root=None, repo=None):
     if "{{REPO_ROOT}}" in value:
         value = value.replace("{{REPO_ROOT}}",
                               repo if repo is not None else repo_root())
+    if "{{FEISHU_CLI_DIR}}" in value:
+        value = value.replace("{{FEISHU_CLI_DIR}}", feishu_cli_dir(repo))
     return value
 
 
 def expand_module(module, root=None, repo=None):
-    """返回副本：把模块 cwd/cmd 里的 {{DATAHUB_ROOT}} / {{REPO_ROOT}} 展开，其余字段原样保留。"""
+    """返回副本：把模块 cwd/cmd 里的占位展开，其余字段原样保留。"""
     root = root if root is not None else datahub_root()
     repo = repo if repo is not None else repo_root()
     out = dict(module)
@@ -93,4 +131,10 @@ def expand_module(module, root=None, repo=None):
 
 
 if __name__ == "__main__":
-    print(datahub_root())
+    _root = datahub_root()
+    if not _root:
+        sys.stderr.write(
+            "找不到 DataHub（需要含 data_hub/ 的仓库）：设 DATA_HUB_PATH，"
+            "或把 datahub-multi-tier clone 到本仓库同级\n")
+        raise SystemExit(1)
+    print(_root)

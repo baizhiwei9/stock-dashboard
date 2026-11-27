@@ -19,6 +19,13 @@ HTTP 服务，让管理页面能查状态、启停模块、立刻跑一次、改
   python3 scheduler.py off <key>      停用模块
   python3 scheduler.py serve          只起 HTTP 控制台，不跑调度
 
+环境变量（运行期开关，都不改配置文件）：
+  SD_ONLY=k1,k2   本次进程只调度这些任务，其余一律当停用；不设 = 全部按 sched 跑。
+                  只影响自动调度，手动 run 不受限；重启且不设该变量即恢复全部。
+  SD_NO_API=1     不监听任何端口（纯后台调度）。任何地址都连不上控制台/管理 API。
+                  此时 health/stop 只依赖本机 PID 与心跳文件（容器里跨命名空间
+                  看不见 PID 时，别关 API，否则会判「未运行」）。
+
 模块字段（modules.json）：
   key/title/desc/domains/cwd/cmd/timeout/enabled  必填
   sched: {"mode":"daily","at":"21:00","weekdays":[1,2,3,4,5]}   ISO：1=周一 … 7=周日
@@ -92,6 +99,57 @@ def heartbeat_age():
     if t <= 0:
         return None
     return max(0, int(time.time()) - t)
+
+
+def only_keys():
+    """SD_ONLY 解析结果（运行期白名单，空 = 不限制）。
+
+    接受逗号/中文逗号/空格分隔，去空、去重、保序。只在调度循环和状态输出里
+    生效，不改 modules.json / task.json —— 启动脚本传一次，重启不传就恢复全部。
+    """
+    raw = os.environ.get("SD_ONLY") or ""
+    out = []
+    for k in re.split(r"[,，\s]+", raw):
+        if k and k not in out:
+            out.append(k)
+    return out
+
+
+def _apply_only(mods, only=None):
+    """按 SD_ONLY 过滤模块表；未设置时原样返回（副本）。"""
+    only = set(only_keys() if only is None else only)
+    if not only:
+        return dict(mods)
+    return {k: m for k, m in mods.items() if k in only}
+
+
+def _only_unknown(only=None):
+    """SD_ONLY 里不存在于当前任务表的 key（拼错/私有仓没挂上）→ 拒绝启动。
+
+    静默忽略会让「只跑 A」变成「一个都不跑」，而且日志里看不出来；宁可起不来。
+    """
+    only = only_keys() if only is None else list(only)
+    if not only:
+        return []
+    known = {m.get("key") for m in all_modules(force=True) if m.get("key")}
+    return [k for k in only if k not in known]
+
+
+def _env_flag(name):
+    v = str(os.environ.get(name) or "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def api_enabled():
+    """HTTP 控制台开关：SD_NO_API=1 或 modules.json 的 api.enabled=false 时关闭。
+
+    调度循环本身不依赖端口：心跳走 logs/scheduler.hb，到点起子进程也全在本地。
+    端口只服务管理页面/API，以及容器里跨命名空间时的健康探测与优雅停止。
+    """
+    if _env_flag("SD_NO_API"):
+        return False
+    val = (load_cfg().get("api") or {}).get("enabled", True)
+    return bool(val)
 
 QUEUE_MAX_DEFAULT = 1   # 全局并发上限，默认 1＝一次只跑一个任务（modules.json 的 queue.max_parallel 可覆盖）
 QUEUE_NAME_DEFAULT = "default"
@@ -522,7 +580,7 @@ def _save_cfg_alerts():
 def all_modules(force=False):
     """内置 modules.json + 外部注册 registry.json + case 任务。key 唯一，内置优先。
 
-    cwd/cmd 里的 {{DATAHUB_ROOT}} 在这里展开：modules.example.json 用占位而不是
+    cwd/cmd 里的 {{DATAHUB_ROOT}} 在这里展开：modules.json 用占位而不是
     本机绝对路径，任务 cmd 里的 PYTHONPATH 与 sd_watchdog.sh / 各入口用的是同一个
     DataHub 根，不会出现「看门狗认为 datahub 在、子进程 import 失败」。
 
@@ -1138,6 +1196,9 @@ def tick():
     now = datetime.now()
     st = load_state()
     mods = {m["key"]: m for m in all_modules() if m.get("key")}
+    # SD_ONLY：本次进程只调度白名单里的任务。过滤只在这一层，spawn/手动 run 不受影响；
+    # 被排除的任务也不参与队列名额计算，避免它们「占着位置但不跑」。
+    mods = _apply_only(mods)
 
     # ① 回收已结束 / 超时的进程
     for key in list(PROCS.keys()):
@@ -1298,7 +1359,20 @@ def loop():
         _recover_interrupted()
     except Exception:                                     # noqa: BLE001
         log("恢复中断任务失败：\n" + traceback.format_exc())
-    log("调度器启动 pid=%d，轮询 %ds" % (os.getpid(), TICK_SEC))
+    _only = only_keys()
+    try:
+        # 记到 state.json 不是为了调度（过滤读环境变量），而是让 status / 启动脚本
+        # 知道「这个进程当前只跑哪些」，启动脚本据此判断要不要重启来换过滤条件。
+        _st = load_state()
+        _st.setdefault("scheduler", {})["only"] = _only
+        # --no-api 与 --only 一样是「本次进程」参数；启动脚本据此判断要不要重启。
+        _st["scheduler"]["api"] = 1 if api_enabled() else 0
+        save_state(_st)
+    except Exception:                                     # noqa: BLE001
+        log("写入 SD_ONLY 状态失败：\n" + traceback.format_exc())
+    log("调度器启动 pid=%d，轮询 %ds%s" % (
+        os.getpid(), TICK_SEC,
+        ("，只调度 " + ",".join(_only)) if _only else ""))
     while not _STOP.is_set():
         try:
             tick()
@@ -1373,6 +1447,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _snapshot(self):
         st = load_state()
+        only = set(only_keys())
         mods = []
         for m in all_modules():
             k = m.get("key")
@@ -1388,6 +1463,7 @@ class Handler(BaseHTTPRequestHandler):
                 "timeout": m.get("timeout"),
                 "depends": m.get("depends") or [],
                 "config_error": m.get("_config_error") or "",
+                "selected": (not only) or k in only,
                 "running": k in PROCS,
                 "next_run": ms.get("next_run"),
                 "last_run": ms.get("last_run"),
@@ -1399,6 +1475,7 @@ class Handler(BaseHTTPRequestHandler):
             })
         return {"now": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "scheduler": st.get("scheduler") or {},
+                "only": list(only_keys()),
                 "modules": mods,
                 "sections": (load_sections().get("sections") or [])}
 
@@ -1574,8 +1651,13 @@ def load_sections():
 
 
 def serve_thread():
+    if not api_enabled():
+        log("HTTP 控制台已关闭（api.enabled=false 或 SD_NO_API=1）：不监听任何端口")
+        return
     conf = api_conf()
-    host = conf.get("host") or "0.0.0.0"
+    # 默认只听回环：管理页面一般在本机/SSH 隧道里看，没必要把带管理 API 的端口
+    # 暴露到局域网。确实要远程访问，在 modules.json 里显式写 "host": "0.0.0.0"。
+    host = conf.get("host") or "127.0.0.1"
     port = int(conf.get("port") or DEFAULT_PORT)
     try:
         srv = ThreadingHTTPServer((host, port), Handler)
@@ -1631,6 +1713,8 @@ def _http_alive(timeout=2.0) -> bool:
     """
     import urllib.error
     import urllib.request
+    if not api_enabled():
+        return False                      # 没监听端口，就别把「没人应答」当「没在跑」
     port = api_conf().get("port") or DEFAULT_PORT
     try:
         with urllib.request.urlopen("http://127.0.0.1:%d/" % int(port), timeout=timeout) as r:
@@ -1675,8 +1759,21 @@ def cmd_start():
     migrate_legacy_api_secrets()   # 先把 modules.json 里的旧明文搬进凭据文件
     if not _preflight_secrets():   # 再校验必填项，缺了就拒绝启动（fail-closed）
         return 1
+    only = only_keys()
+    bad = _only_unknown(only)
+    if bad:
+        print("SD_ONLY 里的任务不存在：%s" % ", ".join(bad))
+        print("  key 必须与 task.json / modules.json 里的 key 完全一致；当前任务表："
+              "python3 scheduler.py status")
+        return 1
     pid = read_pid()
     if pid and pid > 0:
+        cur = list((load_state().get("scheduler") or {}).get("only") or [])
+        if only != cur:
+            print("已在运行 pid=%d，但本次 SD_ONLY=%s 与运行中的 %s 不一致；"
+                  "先 restart 或 stop 后再起（start_all.sh up 会自动重启）"
+                  % (pid, ",".join(only) or "（全部）", ",".join(cur) or "（全部）"))
+            return 1
         print("已在运行 pid=%d" % pid)
         return 0
     if pid == -1:
@@ -1695,7 +1792,12 @@ def cmd_start():
     if p.poll() is None:
         print("调度器已启动 pid=%d" % p.pid)
         print("  日志   %s" % SELF_LOG)
-        print("  控制台 http://127.0.0.1:%s" % (api_conf().get("port") or DEFAULT_PORT))
+        if api_enabled():
+            print("  控制台 http://127.0.0.1:%s" % (api_conf().get("port") or DEFAULT_PORT))
+        else:
+            print("  控制台 已关闭（SD_NO_API=1 / api.enabled=false），纯后台调度")
+        if only_keys():
+            print("  本次只调度 %s（运行期过滤，未改配置文件）" % ",".join(only_keys()))
         return 0
     print("启动失败，看 %s" % SELF_LOG)
     print("  若是端口被占（%s），说明另一台主机/容器的实例还在跑，"
@@ -1721,6 +1823,8 @@ def _shutdown_via_api(timeout=10.0):
     """
     import urllib.error
     import urllib.request
+    if not api_enabled():
+        return False, "HTTP 控制台已关闭（SD_NO_API=1 / api.enabled=false），无法远程停止"
     conf = api_conf()
     port = int(conf.get("port") or DEFAULT_PORT)
     pw = str(conf.get("password") or "")
@@ -1797,8 +1901,21 @@ def cmd_status():
     else:
         _desc = "未运行"
     print("调度器 %s" % _desc)
-    print("  控制台 http://127.0.0.1:%s   tick=%s" %
-          (api_conf().get("port") or DEFAULT_PORT, (st.get("scheduler") or {}).get("tick") or "—"))
+    if api_enabled():
+        print("  控制台 http://127.0.0.1:%s   tick=%s" %
+              (api_conf().get("port") or DEFAULT_PORT,
+               (st.get("scheduler") or {}).get("tick") or "—"))
+    else:
+        print("  控制台 已关闭（api.enabled=false / SD_NO_API=1）   tick=%s" %
+              ((st.get("scheduler") or {}).get("tick") or "—"))
+    # status 通常是另一个进程在跑：运行中的过滤条件以它写进 state.json 的为准，
+    # 没在运行时才看当前环境的 SD_ONLY（=下一次启动会用的过滤）。
+    only = (list((st.get("scheduler") or {}).get("only") or [])
+            if pid is not None else only_keys())
+    if only:
+        print("  本次仅跑 %d 个：%s" % (len(only), ",".join(only)))
+        print("  （运行期过滤，未改任何 task.json/modules.json；"
+              "不带 --only 重启即恢复全部）")
     _q = (st.get("scheduler") or {}).get("queue") or {}
     if _q:
         print("  队列 max_parallel=%s 在用=%s 孤儿=%s%s" % (
@@ -1813,11 +1930,14 @@ def cmd_status():
         k = m.get("key")
         ms = st["modules"].get(k) or {}
         on = m.get("enabled", True)
+        excluded = bool(only) and k not in only
         state = ms.get("last_status") or "未跑"
         if m.get("_config_error"):
             state = "配置错误"
         if k in PROCS:
             state = "运行中 %ss" % ms.get("elapsed", 0)
+        elif excluded:
+            state = "本次未选"
         elif ms.get("queued"):
             state = "排队"
         elif ms.get("pulled_forward") and ms.get("last_status") == "ok":
@@ -1825,7 +1945,7 @@ def cmd_status():
         print("  %-11s %-22s %-16s %-9s %-8s %s" %
               (k, (m.get("title") or "")[:20],
                ms.get("next_run") or "—",
-               ("✓" if on else "✗") + " " + state[:7],
+               ("⊘" if excluded else ("✓" if on else "✗")) + " " + state[:7],
                ("%ss" % ms["duration"]) if ms.get("duration") else "—",
                ",".join(m.get("domains") or []) or "—"))
     return 0
@@ -1857,6 +1977,10 @@ def cmd_toggle(key, on):
 def _daemon():
     if not _preflight_secrets():
         return
+    bad = _only_unknown()
+    if bad:
+        log("启动中止：SD_ONLY 里的任务不存在：%s" % ",".join(bad))
+        return
     os.makedirs(LOG_DIR, exist_ok=True)
     with open(PID_PATH, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
@@ -1887,6 +2011,10 @@ def _daemon():
 def cmd_fg():
     migrate_legacy_api_secrets()   # 先把 modules.json 里的旧明文搬进凭据文件
     if not _preflight_secrets():   # 再校验必填项，缺了就拒绝启动（fail-closed）
+        return 1
+    bad = _only_unknown()
+    if bad:
+        print("SD_ONLY 里的任务不存在：%s" % ", ".join(bad))
         return 1
     os.makedirs(LOG_DIR, exist_ok=True)
     with open(PID_PATH, "w", encoding="utf-8") as f:
@@ -1969,6 +2097,9 @@ def main(argv):
         print(__doc__)
         return 0
     cmd = argv[1]
+    if cmd in ("--help", "-h", "help"):
+        print(__doc__)
+        return 0
     if cmd == "_daemon":
         _daemon()
         return 0
@@ -2006,6 +2137,10 @@ def main(argv):
         # 不再依赖 cron / 独立守护进程 —— 页面在跑，任务就在跑。
         migrate_legacy_api_secrets()   # 先把 modules.json 里的旧明文搬进凭据文件
         if not _preflight_secrets():   # 再校验必填项，缺了就拒绝启动（fail-closed）
+            return 1
+        bad = _only_unknown()
+        if bad:
+            print("SD_ONLY 里的任务不存在：%s" % ", ".join(bad))
             return 1
         os.makedirs(LOG_DIR, exist_ok=True)
         with open(PID_PATH, "w", encoding="utf-8") as f:
