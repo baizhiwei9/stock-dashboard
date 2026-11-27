@@ -470,7 +470,7 @@ def render_index_card(sid: str, latest: Dict, series: Dict, obs: Optional[str]) 
             '<div class="kvs">']
     chan.append(kv("当前笔", '<span class="%s">%s</span>' % (
         "up" if bi_dir == "up" else ("down" if bi_dir == "down" else "flat"),
-        BI_CN.get(bi_dir, "NA")) if bi_dir else NA))
+        BI_CN.get(bi_dir, "—")) if bi_dir else NA))
     chan.append(kv("笔数量", num(v(latest, "chanlun.bi_count", sid), 0, " 笔")))
     chan.append(kv("中枢数量", num(v(latest, "chanlun.zs_count", sid), 0, " 个")))
     zg, zd = v(latest, "chanlun.zs_zg", sid), v(latest, "chanlun.zs_zd", sid)
@@ -2245,7 +2245,7 @@ def render_bond_section(latest: Dict, series: Dict, obs: Optional[str]) -> tuple
                              num(v(latest, k, BOND_SEC), d, u))
                          for n, k, d, u, note in curve)
 
-    _shp = (g(latest, "bond.curve_shape", BOND_SEC) or {}).get("value_text") or "NA"
+    _shp = (g(latest, "bond.curve_shape", BOND_SEC) or {}).get("value_text") or "—"
     _pct = num(v(latest, "bond.govt_10y_pct", BOND_SEC), 1, "%")
     term_html = "".join(kvh('%s <span class="sm">%s</span>' % (n, note),
                             num(v(latest, k, BOND_SEC), d, u))
@@ -3177,10 +3177,10 @@ def build(out_path: str, asof: Optional[str] = None) -> str:
   <h1>Stock Dashboard<small>股票 · 期货 · 宏观 · 流动性 · 债券理财</small></h1>
   <button id="admBtn" class="adm-btn" title="管理板块显示">⚙ 管理</button>
   <div class="top-meta">
-    <div><b>{obs or "NA"}</b><span>数据日（上一交易日）</span></div>
+    <div><b>{obs or "—"}</b><span>数据日（上一交易日）</span></div>
     <div><b class="{'up' if (avg_score or 50) >= 50 else 'down'}">
-      {("%.0f" % avg_score) if avg_score is not None else "NA"}</b><span>缠论评分均值</span></div>
-    <div><b>{("%.4f" % avg_oe) if avg_oe is not None else "NA"}</b><span>平均离群能量</span></div>
+      {("%.0f" % avg_score) if avg_score is not None else "—"}</b><span>缠论评分均值</span></div>
+    <div><b>{("%.4f" % avg_oe) if avg_oe is not None else "—"}</b><span>平均离群能量</span></div>
     <div><b>{st['total_points']}</b><span>指标点位数</span></div>
   </div>
 </header>
