@@ -62,8 +62,9 @@ EMAIL_FROM = "moergen@coze.email"
 SMTP_HOST = "smtp.coze.email"
 SMTP_PORT = 465  # SSL
 
-# Feishu fallback
-FEISHU_CHAT_ID = "oc_5971f823bf987081f722f2942bbc8d71"
+# Feishu fallback：目标群走统一配置（case/_lib/notify_init.py），不在仓库写死
+from notify_init import chat_id as _chat_id  # noqa: E402
+FEISHU_CHAT_ID = _chat_id("stocks")  # AI股票消息群
 
 # Import helpers from micro_cap_timing
 sys.path.insert(0, str(SCRIPT_DIR))

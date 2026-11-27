@@ -49,7 +49,9 @@ ARTICLES_DIR = BASE_DIR / "articles"
 STATE_FILE = BASE_DIR / "archive_state.json"
 LOGIN_STATE = BASE_DIR / "playwright_state.json"  # 已废弃，保留兼容
 
-CHAT_ID = "oc_0ca59fa0674e77c608e843d9d55a6757"
+# 土狗群目标走统一配置（case/_lib/notify_init.py），不在仓库写死
+from notify_init import chat_id as _chat_id  # noqa: E402
+CHAT_ID = _chat_id("tugou")
 KB_NAME = "沧海一土狗"  # 按名字动态查询最新ID，避免IMA升级导致ID失效
 KB_ID = "ima_kb_W4yAiAoY"  # 兜底，正常运行时由 resolve_kb_id() 动态覆盖
 

@@ -13,12 +13,14 @@
 它们曾经以明文进过 git 历史（见 docs/SECRETS.md），轮换前等于裸奔。现在统一走
 ``case/_lib/hub_root.py``：环境变量 → ``~/.config/stock-dashboard/secrets.json``。
 
-本用例守五件事：
+本用例守六件事：
   1. 仓库里（含 datahub_refactor 历史快照）不再出现已泄漏的字面量；
   2. 任意 56 位十六进制 token 字面量都算回退（通用兜底，防止换了个 token 又写死）；
-  3. 扫描覆盖必须真实存在 —— git 不可用/非 git 树时 fail-closed，不许「零文件全绿」；
-  4. ``hub_root`` 的三个取值函数真能从环境变量读到；
-  5. 读不到时返回空串而不是抛异常 —— 老脚本按「空=没配」降级，不能因此崩。
+  3. 飞书群 ``oc_...`` chat_id 不许写死 —— 目标群统一由 ``case/_lib/notify_init.py``
+     从 DataHub 通知模块与本应用 secrets 取；
+  4. 扫描覆盖必须真实存在 —— git 不可用/非 git 树时 fail-closed，不许「零文件全绿」；
+  5. ``hub_root`` 的三个取值函数真能从环境变量读到；
+  6. 读不到时返回空串而不是抛异常 —— 老脚本按「空=没配」降级，不能因此崩。
 """
 import os
 import re
@@ -43,6 +45,10 @@ LEAKED = [
 
 #: Tushare token 是 56 位十六进制；出现任意一段连续 56 位都按明文回退处理。
 _HEX56 = re.compile(r"\b[0-9a-f]{56}\b")
+
+#: 飞书群 chat_id 是 ``oc_`` + 32 位十六进制；写进仓库等于把「发哪个群」写死了。
+#: 目标群统一由 ``case/_lib/notify_init.py`` 从 DataHub 通知模块与本应用 secrets 取。
+_CHAT_ID = re.compile(r"oc_[0-9a-f]{20,}")
 
 #: 二进制/压缩包不读文本。
 _SKIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".gz", ".db", ".zip",
@@ -134,6 +140,21 @@ def test_no_hex56_token_literals():
             line = src.count("\n", 0, m.start()) + 1
             hits.append("%s:%d ← %s…" % (rel, line, m.group()[:8]))
     assert not hits, "疑似 56 位 token 明文：\n" + "\n".join(hits)
+
+
+def test_no_hardcoded_chat_ids():
+    """飞书目标群不许写死：chat_id 统一由 ``case/_lib/notify_init.py`` 从统一配置取。"""
+    hits = []
+    for rel in _tracked_files():
+        src = _read(rel)
+        if src is None:
+            continue
+        for m in _CHAT_ID.finditer(src):
+            line = src.count("\n", 0, m.start()) + 1
+            hits.append("%s:%d ← %s…" % (rel, line, m.group()[:6]))
+    assert not hits, (
+        "飞书 chat_id 写死在仓库里（应改走 case/_lib/notify_init.py 的 chat_id()）：\n"
+        + "\n".join(hits))
 
 
 def test_tushare_token_from_env(monkeypatch):
