@@ -2528,6 +2528,7 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
     """把外部注册的 model 渲染成一个大类下的子块。返回 (html, charts)。"""
     key = w.get("key")
     rows, charts = [], []
+    groups: Dict[str, list] = {}
     dflt_sec = w.get("sec") or "CN.MACRO"
     for it in (w.get("metrics") or []):
         if isinstance(it, str):
@@ -2550,7 +2551,11 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
             vs = "—"
         else:
             vs = (("%." + str(dec) + "f") % vnum) + unit
-        rows.append(kv(nm, '<b>%s</b> <span class="sm">%s</span>' % (vs, o)))
+        _row = kv(nm, '<b>%s</b> <span class="sm">%s</span>' % (vs, o))
+        rows.append(_row)
+        # 主子项（2026-11-28）：指标声明带 group 时按组出多个子块（h4=组名），
+        # 不带 group 的任务仍是原来那一块，行为不变。
+        groups.setdefault(it.get("group") or "", []).append(_row)
         sv = series.get((k, sc))
         if sv and _n_valid(sv) >= 3:
             cid = "rw_%s_%d" % (key, len(charts))
@@ -2577,9 +2582,16 @@ def render_registered_model(w: Dict, latest: Dict, series: Dict) -> tuple:
         return ('<div class="blk mini"><h4>%s %s</h4>'
                 '<p class="note">%s <span class="sm">· 暂无指标，跑一次由 publish 回填后自动出数值</span></p>'
                 '</div>' % (html.escape(w.get("title") or key), meta, note)), []
-    head = ('<div class="blk"><h4>%s %s</h4>'
-            '<p class="note">%s</p><div class="kvs">%s</div></div>'
-            % (html.escape(w.get("title") or key), meta, note, "".join(rows)))
+    if [g for g in groups if g]:
+        head = ('<div class="blk"><h4>%s %s</h4><p class="note">%s</p></div>'
+                % (html.escape(w.get("title") or key), meta, note))
+        for gname in groups:
+            head += ('<div class="blk"><h4>%s</h4><div class="kvs">%s</div></div>'
+                     % (html.escape(gname or "指标"), "".join(groups[gname])))
+    else:
+        head = ('<div class="blk"><h4>%s %s</h4>'
+                '<p class="note">%s</p><div class="kvs">%s</div></div>'
+                % (html.escape(w.get("title") or key), meta, note, "".join(rows)))
     return head + ch_html, charts
 
 
