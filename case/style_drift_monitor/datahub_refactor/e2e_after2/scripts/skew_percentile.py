@@ -32,7 +32,7 @@ warnings.filterwarnings('ignore')
 socket.setdefaulttimeout(30)
 
 # ============== 配置 ==============
-TUSHARE_TOKEN = "a7c1ab22e3162aac86bf77323755b2d99e9cadfad4ae631a50574265"
+TUSHARE_TOKEN = os.environ.get("TUSHARE_TOKEN", "")
 
 # 5个ETF配置
 ETF_CONFIG = [
