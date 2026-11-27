@@ -27,7 +27,7 @@ def load_config():
         print('  "smtp_port": 465,')
         print('  "sender": "your_email@163.com",')
         print('  "password": "your_authorization_code",')
-        print('  "receiver": "410119229@qq.com"')
+        print('  "receiver": "your_email@example.com"')
         print('}')
         sys.exit(1)
     

@@ -26,6 +26,31 @@
 """
 
 from __future__ import annotations
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 # ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
 # 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
 def _cloud_translate(_f=__file__):
@@ -62,7 +87,7 @@ MIN_GAP = 3      # 两次确认交叉的最小间隔（交易日）
 # 邮件配置（沿用环流日报 OMO 告警的 163 通道）
 SMTP_SERVER = 'smtp.163.com'
 SMTP_PORT = 465
-MAIL_SENDER = 'songshang951@163.com'
+MAIL_SENDER = _dh_secret('MAIL_USER')
 def _hub_lib_dir(_f=__file__):
     _d = os.path.dirname(os.path.abspath(_f))
     for _ in range(6):
@@ -78,7 +103,7 @@ if _HUB_LIB_DIR and _HUB_LIB_DIR not in sys.path:
 from hub_root import tushare_token as _tushare_token, smtp_password as _smtp_password  # noqa: E402
 
 MAIL_PASSWORD = _smtp_password()
-MAIL_RECEIVER = '410119229@qq.com'
+MAIL_RECEIVER = _dh_secret('MAIL_DEFAULT_TO')
 MAIL_SENDER_NAME = '环流日报·掉期均线'
 
 

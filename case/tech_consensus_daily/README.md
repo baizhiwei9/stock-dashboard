@@ -67,7 +67,7 @@ python run_daily.py --send --mail --no-cache
 
 - 飞书凭据**不复制密钥进工程**：`feishu_push.py` 运行时从
   `workspace/skills/user/momentum-risk-control/feishu_config.py` 读取 APP_ID / APP_SECRET / WEBHOOK_URL。
-- 邮件通道：钉钉企业邮箱 `dws` CLI（`~/.local/bin/dws`），发件 `baizhiwei9492@dingtalk.com` → 收件 `410119229@qq.com`，
+- 邮件通道：钉钉企业邮箱 `dws` CLI（`~/.local/bin/dws`），发件 `{{DINGTALK_MAIL_USER}}` → 收件 `{{MAIL_DEFAULT_TO}}`（真实值在 DataHub 配置），
   正文 LF 换行，汇总图以内联附件置于文首（先图后文）。`--mail` 触发。
 
 ## 6. 每日定时任务

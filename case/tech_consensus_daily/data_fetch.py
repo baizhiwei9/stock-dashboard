@@ -13,6 +13,31 @@
 缓存缺失或落后于 T-1 交易日时自动沿多级链回填补全。
 """
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import re
 import time
 import ssl
@@ -138,7 +163,7 @@ def _ts_url():
 def _ts_token():
     """读取 Tushare token：环境变量 TUSHARE_TOKEN 优先，其次既有资产 ts_config.py（15k 代理），
     最后 TK_CSV_CANDIDATES 候选文件（tk.csv，与代理 token 同源）。密钥不写入工程文件。"""
-    tok = os.environ.get("TUSHARE_TOKEN", "").strip()
+    tok = _dh_tushare().strip()
     if tok:
         return tok
     asset_tok, _ = _ts_asset_creds()

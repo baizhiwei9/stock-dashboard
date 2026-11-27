@@ -9,6 +9,31 @@
 """
 
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import argparse
 import logging
@@ -658,9 +683,9 @@ def _check_and_send_alert(low_freq, mid_freq, high_freq, close_prices, end_str, 
 
         smtp_host = "smtp.163.com"
         smtp_port = 465
-        smtp_user = "songshang951@163.com"
+        smtp_user = _dh_secret("MAIL_USER")
         smtp_pass = _smtp_password()
-        to_addr = os.environ.get("VOL_ALERT_EMAIL", "410119229@qq.com")
+        to_addr = _dh_secret("MAIL_DEFAULT_TO")
 
         recent_low_avg = np.mean(low_freq[recent]) / 1e8
         recent_high_avg = np.mean(np.abs(high_freq[recent])) / 1e8

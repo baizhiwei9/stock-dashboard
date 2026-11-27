@@ -10,6 +10,31 @@ QQ 邮箱通用收发工具
 """
 
 import sys
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import json
 import smtplib
 import imaplib
@@ -21,8 +46,8 @@ from email.utils import formataddr
 from pathlib import Path
 
 # ========== 配置区 ==========
-EMAIL = "410119229@qq.com"
-AUTH_CODE = "jnmmytxtdlwebghj"
+EMAIL = _dh_secret('QQMAIL_USER')
+AUTH_CODE = _dh_secret('QQMAIL_AUTH_CODE')
 SENDER = "默尔根"
 SMTP_SERVER = "smtp.qq.com"
 SMTP_PORT = 465

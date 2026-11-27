@@ -35,6 +35,31 @@ _cp = _cloud_translate()
 
 
 import json
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import math
 import signal
 import os
@@ -1502,7 +1527,7 @@ def push_to_lark(markdown_content: str, image_path: str = None) -> bool:
 
 IV_ALERT_HIGH_PCT = 80   # 高于80%分位告警（隐含波动率极高）
 IV_ALERT_LOW_PCT = 20    # 低于20%分位告警（隐含波动率极低）
-IV_ALERT_EMAIL = os.environ.get("VOL_ALERT_EMAIL", "410119229@qq.com")
+IV_ALERT_EMAIL = _dh_secret("MAIL_DEFAULT_TO")
 IV_HISTORY_FILE = OUTPUT_DIR / "iv_history.json"  # IV历史序列持久化
 
 
@@ -1772,7 +1797,7 @@ def _send_iv_alert_email(triggered: list, target_date: datetime, data: dict = No
 
     smtp_host = "smtp.163.com"
     smtp_port = 465
-    smtp_user = "songshang951@163.com"
+    smtp_user = _dh_secret("MAIL_USER")
     smtp_pass = _smtp_password()
     to_addr = IV_ALERT_EMAIL
 

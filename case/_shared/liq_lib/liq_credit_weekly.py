@@ -12,6 +12,31 @@
 """
 import os, sys, json, argparse, datetime as dt, subprocess
 
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
@@ -41,9 +66,9 @@ try:
     if _LIB not in sys.path:
         sys.path.insert(0, _LIB)
     import feishu_creds as _FC
-    HOOK = os.environ.get('CREDIT_FEISHU_HOOK') or _FC.WEBHOOK_URL or ''
+    HOOK = _dh_secret('CREDIT_FEISHU_HOOK', '') or _FC.WEBHOOK_URL or ''
 except Exception:                                    # noqa: BLE001
-    HOOK = os.environ.get('CREDIT_FEISHU_HOOK') or ''
+    HOOK = _dh_secret('CREDIT_FEISHU_HOOK', '') or ''
 SIGN = '📎 来自钉钉OpenClaw'
 
 CN_IDX = [('000300.SH', '沪深300'), ('000905.SH', '中证500'), ('000852.SH', '中证1000'),

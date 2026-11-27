@@ -61,6 +61,31 @@ def _cloud_translate(_f=__file__):
 
 _cp = _cloud_translate()
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import json
 import smtplib
@@ -93,11 +118,11 @@ from hub_root import (  # noqa: E402
 # 统一账号配置（全系统唯一真源）
 # ============================================================
 DEFAULT_CONFIG = {
-    'smtp_host': os.environ.get('EMAIL_SMTP_HOST', 'smtp.163.com'),
-    'smtp_port': int(os.environ.get('EMAIL_SMTP_PORT', '465')),
-    'from_addr': os.environ.get('EMAIL_FROM_ADDR', 'songshang951@163.com'),
-    'from_pass': os.environ.get('EMAIL_FROM_PASS', _smtp_password()),
-    'to_addr': os.environ.get('EMAIL_TO_ADDR', '410119229@qq.com'),
+    'smtp_host': _dh_cfg('MAIL_SMTP_HOST', 'smtp.163.com'),
+    'smtp_port': int(_dh_cfg('MAIL_SMTP_PORT', '465')),
+    'from_addr': _dh_secret('MAIL_USER'),
+    'from_pass': _dh_secret('MAIL_PASS', _smtp_password()),
+    'to_addr': _dh_secret('MAIL_DEFAULT_TO'),
     'use_ssl': True,
 }
 

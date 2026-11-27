@@ -23,6 +23,31 @@
 """
 from __future__ import annotations
 
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
+
 import os
 import sys
 
@@ -43,9 +68,9 @@ __all__ = ["APP", "init", "subject", "webhook", "chat_id", "resolve_chat",
 def _profile_inputs():
     feishu = {"webhook_url": (os.environ.get("CASE_ALERT_WEBHOOK") or "").strip()}
     email = {
-        "to": [x.strip() for x in str(os.environ.get("DASHBOARD_EMAIL_TO") or "").split(",")
+        "to": [x.strip() for x in str(_dh_secret("MAIL_DEFAULT_TO", "") or "").split(",")
                if x.strip()],
-        "from": (os.environ.get("DASHBOARD_EMAIL_FROM") or "").strip(),
+        "from": (_dh_secret("MAIL_USER", "") or "").strip(),
     }
     return feishu, email
 

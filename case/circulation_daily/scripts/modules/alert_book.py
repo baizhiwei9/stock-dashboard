@@ -25,6 +25,31 @@
 """
 
 from __future__ import annotations
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 # ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
 # 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
 def _cloud_translate(_f=__file__):
@@ -91,7 +116,7 @@ TH = {
 
 EMAIL_ALERT_THRESHOLD = 2
 EMAIL_SOURCE = '环流日报'
-EMAIL_TO = 'moergen@coze.email'
+EMAIL_TO = _dh_secret('COZE_EMAIL_TO')
 
 
 # ------------------------------------------------------------------ 数据结构

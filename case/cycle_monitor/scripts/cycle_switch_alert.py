@@ -18,6 +18,31 @@
 → 7月前 = 预警邮件，8月 = 确认后的跟踪邮件。
 """
 import os
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import sys
 import json
 import sqlite3
@@ -43,9 +68,9 @@ logger = logging.getLogger(__name__)
 EMAIL_CONFIG = {
     'smtp_server': 'smtp.qq.com',
     'smtp_port': 465,                      # SSL
-    'sender': '410119229@qq.com',
-    'auth_code': 'jnmmytxtdlwebghj',       # QQ邮箱授权码
-    'receiver': 'moergen@coze.email',      # 主人邮箱
+    'sender': _dh_secret('MAIL_USER'),
+    'auth_code': _dh_secret('QQMAIL_AUTH_CODE'),       # QQ邮箱授权码
+    'receiver': _dh_secret('COZE_EMAIL_TO'),      # 主人邮箱
 }
 
 # ============ 周期知识表 ============

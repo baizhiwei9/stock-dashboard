@@ -14,6 +14,31 @@ A股多头排列筛选器 v7.1 - tushare备用版（带降级逻辑）
 """
 
 import pandas as pd
+
+# ---- 统一配置（DataHub config / notify；真实值在本机 config.local.json，不入库）----
+def _dh_secret(_name, _default=""):
+    try:
+        from data_hub import get_secret as _gs
+        return _gs(_name, _default)
+    except Exception:
+        return _default
+
+
+def _dh_cfg(_key, _default=None):
+    try:
+        from data_hub import cfg as _cfg
+        return _cfg(_key, _default)
+    except Exception:
+        return _default
+
+
+def _dh_tushare(_default=""):
+    try:
+        from data_hub import get_tushare_token as _gt
+        return _gt() or _default
+    except Exception:
+        return _default
+# ---------------------------------------------------------------------------
 import numpy as np
 import os
 import sys
@@ -45,8 +70,7 @@ try:
 except:
     pass
 
-TUSHARE_TOKEN = os.environ.get('COZE_TUSHARE_TOKEN_7649020808588689460',
-                                _tushare_token())
+TUSHARE_TOKEN = _dh_tushare() or _tushare_token()
 
 
 def main():
