@@ -31,6 +31,15 @@ case/_shared/limit_up_predictor/catboost_info/
 # 只忽略目录内容 —— 任务目录里的 daily_reports 符号链接要入库
 case/*/daily_reports/*
 case/*/logs/
+# 运行期缓存 / 内存态（2026-11-27 补）：wide_ens_lib、liq_lib、market_momentum 等
+# 会把模型/抓数缓存写进任务目录、甚至 case/_shared/<pkg>/cache，跑一轮就在 git status
+# 冒一批未跟踪文件。此前 case/foo/cache、case/_shared/wide_ens_lib/cache 都未被忽略。
+# 注意：这里只忽略“以后新产生”的缓存，已入库的历史文件不受影响（tracked 文件不被 .gitignore 影响）。
+case/*/.cache/
+case/*/memory/
+case/*/cache/
+case/_shared/*/.cache/
+case/_shared/*/cache/
 
 # ===== 本地安装配置（不入库）=====
 # modules.json 是「这台机器怎么跑」的配置：含本机绝对路径、端口、要启用的模块，
