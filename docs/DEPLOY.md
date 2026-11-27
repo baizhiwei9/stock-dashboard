@@ -124,11 +124,14 @@ export SD_ALERT_WEBHOOK=                                 # 可选：调度器拉
 [docs/SECRETS.md](SECRETS.md)。
 
 ```bash
-# ① 复制本机模块清单（modules.json 是本机安装数据，不入库）
+# ① 复制本机模块清单（modules.json 已入库，复制只为生成本机清单；本机差异不要提交）
 cp modules.example.json modules.json
 #    然后把里面的 {{DATAHUB_ROOT}} / {{WORKSPACE_A}} / {{WORKSPACE_B}} /
-#    {{FEISHU_CLI_DIR}} / {{FEISHU_CHAT_ID}} / {{ALERT_EMAIL}} 换成这台机器的真实值
+#    {{FEISHU_CLI_DIR}} / {{ALERT_EMAIL}} 换成这台机器的真实值
 #    （文件末尾 _placeholders 有对照表）
+#    飞书群不用在这里换：--chat 由 case/_lib/notify_init.py chat tags 从
+#    凭据文件的 feishu.chats.tags 取（没配回落 feishu.chat_id），写死 oc_ 会被
+#    test_no_plaintext_creds.py 判为回退。
 
 # ② 录入敏感配置（飞书凭据 + 管理密码 + 注册密钥，缺失或弱口令会中断安装）
 python3 setup.py

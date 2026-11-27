@@ -260,9 +260,11 @@ cd case/vol_surface_vix && python3 vol_surface_runner.py --no-send
 直接改 `modules.json` 并提交。`scheduler.py` 每 30s 重扫一次，改完自动生效，不用重启。
 `enabled: false` 的任务既不会被定时拉起，也不会被 `/api/run_all` 手动跑起来。
 
-两处**不是占位符、需要按人改**的值在 `task_tags_notify` 的 `cmd` 里：
-飞书群 `--chat oc_...` 和告警邮箱 `--to ...@qq.com`。它们是「通知对象」，不是凭据
-（没有 `app_secret` 也用不了），所以直接写在文件里；换人用就改这两处。
+`task_tags_notify` 的 `cmd` 里**需要按人改**的只剩告警邮箱 `--to ...@qq.com`
+（「通知对象」，不是凭据，直接写在文件里）。飞书群不再写死：`--chat` 由
+`python3 case/_lib/notify_init.py chat tags` 从统一凭据的 `feishu.chats.tags`
+解析（没配回落到默认群 `feishu.chat_id`），换群改凭据文件即可，别改这个文件
+—— `modules.json` 已入库，`test_no_plaintext_creds.py` 会把写死的 `oc_...` 判为回退。
 
 ### 3.3 老机器的 `modules.json` 怎么处理
 
