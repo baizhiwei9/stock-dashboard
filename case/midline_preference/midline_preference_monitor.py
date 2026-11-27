@@ -14,6 +14,25 @@
 - 失败时自动降级到akshare备用源
 - 推送飞书交互式卡片，失败自动降级纯文本
 """
+# ── 去云盘化：/Coze/Drive、/opt/coze/.fuse_drive、/app/data 三个旧根可重定向 ──
+# 换机器时设 CASE_DRIVE_ROOT / CASE_FUSE_ROOT / CASE_APP_DATA，未设则原样返回。
+def _cloud_translate(_f=__file__):
+    import os as _o
+    import sys as _s
+    _d = _o.path.dirname(_o.path.abspath(_f))
+    for _ in range(6):
+        _c = _o.path.join(_d, "_lib")
+        if _o.path.isfile(_o.path.join(_c, "cloud_paths.py")):
+            if _c not in _s.path:
+                _s.path.insert(0, _c)
+            from cloud_paths import translate as _t
+            return _t
+        _d = _o.path.dirname(_d)
+    return lambda p: p
+
+
+_cp = _cloud_translate()
+
 
 import sys
 import os
@@ -37,7 +56,7 @@ def _hub_root_path(_f=__file__):
             from hub_root import hub_root
             return hub_root(_d)
         _d = os.path.dirname(_d)
-    return '/opt/coze/.fuse_drive/dataHub_三级体系'
+    return _cp('/opt/coze/.fuse_drive/dataHub_三级体系')
 
 _HUB_ROOT = _hub_root_path()
 
@@ -140,8 +159,8 @@ HEARTBEAT_USER_ID = os.environ.get('MIDLINE_HEARTBEAT_USER_ID', 'ou_be3bb7734943
 # lark-cli 环境变量（cron 环境需要显式注入）
 _LARK_CLI_ENV = {
     **os.environ,
-    'LARKSUITE_CLI_CONFIG_DIR': '/app/data/所有对话/主对话/.feishu_cli',
-    'LARKSUITE_CLI_DATA_DIR': '/app/data/所有对话/主对话/.feishu_cli',
+    'LARKSUITE_CLI_CONFIG_DIR': _cp('/app/data/所有对话/主对话/.feishu_cli'),
+    'LARKSUITE_CLI_DATA_DIR': _cp('/app/data/所有对话/主对话/.feishu_cli'),
     'LARKSUITE_CLI_LOG_DIR': '/tmp',
     'LARK_CLI_NO_PROXY': '1',
 }
@@ -368,7 +387,7 @@ def safe_submit_result(**kwargs):
         print(f"  ⚠️  submit_result失败(非CodeAct环境正常): {e}")
 
 # ============ 路径配置 ============
-BASE_DIR = '/Coze/Drive/蓁宝/所有对话/主对话'
+BASE_DIR = _cp('/Coze/Drive/蓁宝/所有对话/主对话')
 CFC_DIR = os.path.join(BASE_DIR, 'CFC结构因子')
 OPTION_DIR = os.path.join(BASE_DIR, '市场情绪监控', 'scripts')
 FEISHU_DIR = BASE_DIR
@@ -381,7 +400,7 @@ if DATAHUB_DIR not in sys.path:
 # 真源按优先级：$DATAHUB_ROOT > .fuse_drive 视图 > 云盘根视图
 for _p in (os.environ.get('DATAHUB_ROOT', ''),
            _HUB_ROOT,
-           '/Coze/Drive/dataHub_三级体系'):
+           _cp('/Coze/Drive/dataHub_三级体系')):
     try:
         if _p and os.path.isdir(_p) and _p not in sys.path:
             sys.path.insert(0, _p)

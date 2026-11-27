@@ -5,7 +5,8 @@
 # 2026-11-13 迁移：原目录 /Coze/Drive/飞书_cli 变成只读挂载，无法写入日志和 state，
 #                 整体迁到工作目录下运行。同时按大佬要求改为「成功静默、失败才告警」。
 
-cd /Coze/Drive/蓁宝/所有对话/主对话/土狗归档 || exit 1
+HERE="$(cd "$(dirname "$0")" && pwd)"
+cd "$HERE" || exit 1   # 2026-11-27 去云盘化：以脚本所在目录为根
 
 # 飞书 CLI 环境变量（crontab 环境下需要显式指定）
 export LARKSUITE_CLI_CONFIG_DIR="/app/data/所有对话/主对话/.feishu_cli"
@@ -20,7 +21,7 @@ CHAT_ID="oc_0ca59fa0674e77c608e843d9d55a6757"
 TEST_WIKI="https://my.feishu.cn/wiki/GBdWwKTCyioHGkkPNntcEfernSd"
 
 # 日志文件
-LOG_FILE="/Coze/Drive/蓁宝/所有对话/主对话/土狗归档/logs/daily_$(date +%Y%m%d).log"
+LOG_FILE="$HERE/logs/daily_$(date +%Y%m%d).log"
 mkdir -p logs
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') 开始执行 ===" >> "$LOG_FILE"
