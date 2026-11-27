@@ -537,6 +537,14 @@ def main(argv: List[str]) -> int:
     ctx.log("任务 %s（%s）开始，阶段：%s" % (task["key"], task.get("section"), " → ".join(stages)))
     if os.path.isdir(SHARED_DIR):
         ctx.log("共享库 → %s" % SHARED_DIR)
+    # requires 声明的前置依赖在这里真正落地：
+    #   pylibs   —— 软降级（缺包时 import 自然报错，不做硬校验）
+    #   data_hub —— 走 case/_lib/hub_root 的统一解析并前置 sys.path；解析不到就记入
+    #                dep_problems，在取数前明确失败。历史上这里只认 pylibs，任务里写的
+    #                data_hub/datahub 声明无人读取，依赖缺失要等 import 阶段才抛裸
+    #                ModuleNotFoundError，甚至被任务内部 try/except 吞成「没数据」。
+    #   其余取值 —— 尚未约定解析方式，只记日志不阻断，避免把新声明误判成缺陷。
+    req_problems: List[str] = []
     for req in task.get("requires") or []:
         if req == "pylibs":
             # 公共库软降级：设了且目录存在就前置进 sys.path；没设/不存在回退系统
@@ -552,10 +560,29 @@ def main(argv: List[str]) -> int:
                 ctx.log("依赖 pylibs → %s" % d)
             else:
                 ctx.log("依赖 pylibs → %s（已在 sys.path）" % d)
+        elif req in ("data_hub", "datahub"):
+            root = ""
+            try:
+                if HERE not in sys.path:
+                    sys.path.insert(0, HERE)
+                import hub_root                      # noqa: PLC0415
+                root = hub_root.ensure_hub_on_path(task.get("_dir"))
+            except Exception as e:                   # noqa: BLE001
+                req_problems.append("requires=%s：hub_root 解析失败（%s）"
+                                    % (req, str(e)[:80]))
+                continue
+            if not root or not os.path.isdir(root):
+                req_problems.append(
+                    "requires=%s：找不到 DataHub 根（设 DATA_HUB_PATH，"
+                    "或把 datahub 放到同级 checkout）" % req)
+            else:
+                ctx.log("依赖 %s → %s" % (req, root))
+        else:
+            ctx.log("requires=%s 未识别（目前只校验 pylibs / data_hub），跳过" % req)
 
     # 依赖检查：上游产物不满足就不进入 fetch，也不发报告
     results: List[Dict] = []
-    dep_problems = [] if a.dry_run else _check_depends(ctx, task)
+    dep_problems = [] if a.dry_run else (_check_depends(ctx, task) + req_problems)
     # 凭据前置校验：推送类任务先确认飞书凭据就绪，别跑完全流程才在推送阶段失败
     if not a.dry_run:
         _cred_problem = _preflight_feishu(task)
