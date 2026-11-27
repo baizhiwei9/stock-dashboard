@@ -13,11 +13,12 @@
 它们曾经以明文进过 git 历史（见 docs/SECRETS.md），轮换前等于裸奔。现在统一走
 ``case/_lib/hub_root.py``：环境变量 → ``~/.config/stock-dashboard/secrets.json``。
 
-本用例守四件事：
+本用例守五件事：
   1. 仓库里（含 datahub_refactor 历史快照）不再出现已泄漏的字面量；
   2. 任意 56 位十六进制 token 字面量都算回退（通用兜底，防止换了个 token 又写死）；
-  3. ``hub_root`` 的三个取值函数真能从环境变量读到；
-  4. 读不到时返回空串而不是抛异常 —— 老脚本按「空=没配」降级，不能因此崩。
+  3. 扫描覆盖必须真实存在 —— git 不可用/非 git 树时 fail-closed，不许「零文件全绿」；
+  4. ``hub_root`` 的三个取值函数真能从环境变量读到；
+  5. 读不到时返回空串而不是抛异常 —— 老脚本按「空=没配」降级，不能因此崩。
 """
 import os
 import re
@@ -49,11 +50,29 @@ _SKIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".gz", ".db", ".zip",
 
 
 def _tracked_files():
-    out = subprocess.run(["git", "ls-files"], cwd=HERE, capture_output=True, text=True)
-    for rel in out.stdout.splitlines():
-        if rel.endswith(_SKIP_SUFFIXES):
-            continue
-        yield rel
+    """返回受版本控制的文本文件清单。
+
+    fail-closed：git 不可用、非 git 树、或清单为空时直接报错，绝不返回空列表让
+    两个扫描用例「零文件扫描 + 全绿」。历史上正因如此，datahub_refactor 快照里
+    26 个写死 token 的文件一直没被守住。
+    """
+    try:
+        out = subprocess.run(["git", "ls-files"], cwd=HERE, capture_output=True, text=True)
+    except OSError as exc:
+        raise RuntimeError(
+            "无法执行 git ls-files，明文凭据守卫拒绝判定通过：%s" % exc)
+    if out.returncode != 0:
+        raise RuntimeError(
+            "git ls-files 失败（rc=%d）：%s\n"
+            "非 git 树会漏扫全部文件，本用例按 fail-closed 报错，不当作通过。"
+            % (out.returncode, (out.stderr or "").strip()))
+    files = [rel for rel in out.stdout.splitlines()
+             if rel and not rel.endswith(_SKIP_SUFFIXES)]
+    if not files:
+        raise RuntimeError(
+            "git ls-files 未返回任何受控文件（cwd=%s），扫描覆盖为空，"
+            "拒绝按通过处理。" % HERE)
+    return files
 
 
 def _read(rel):
@@ -61,6 +80,35 @@ def _read(rel):
         return open(os.path.join(HERE, rel), encoding="utf-8", errors="ignore").read()
     except OSError:
         return None
+
+
+def test_tracked_files_cover_repo():
+    """扫描清单必须真覆盖仓库，防止 cwd/路径漂移后变成空扫。"""
+    files = _tracked_files()
+    assert len(files) > 100, "扫描文件数异常偏少：%d" % len(files)
+    for must in ("test_no_plaintext_creds.py", "case/_lib/hub_root.py"):
+        assert must in files, "扫描清单缺少 %s（cwd=%s）" % (must, HERE)
+
+
+def test_tracked_files_fail_closed_without_git(monkeypatch):
+    """git 返回空清单时不得静默通过，必须报错。"""
+    class _Done:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _Done())
+    with pytest.raises(RuntimeError):
+        _tracked_files()
+
+    class _Fail:
+        returncode = 128
+        stdout = ""
+        stderr = "fatal: not a git repository"
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _Fail())
+    with pytest.raises(RuntimeError):
+        _tracked_files()
 
 
 def test_no_leaked_secret_literals():
