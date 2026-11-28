@@ -144,8 +144,16 @@ def calc_basis(basis):
 def calc_sentiment(sent):
     hs = pd.DataFrame(sent["hs300"]).sort_values("date")
     hs["amount_yi"] = pd.to_numeric(hs["amount_yi"], errors="coerce")
-    cur_amount = float(hs["amount_yi"].iloc[-1])
-    amount_rank = pct_rank(hs["amount_yi"].tail(250), cur_amount)
+    # 实时补的当日 bar 若成交额取不到（日线兜底源无成交额），退回最近一个有效值，
+    # 并在输出里标明「成交额为上一交易日口径」，不把 NaN 当成 0 参与分位。
+    amt_valid = hs["amount_yi"].dropna()
+    if len(amt_valid):
+        cur_amount = float(amt_valid.iloc[-1])
+        amount_rank = pct_rank(amt_valid.tail(250), cur_amount)
+        amount_stale = bool(pd.isna(hs["amount_yi"].iloc[-1]))
+        amount_date = str(hs.loc[amt_valid.index[-1], "date"])
+    else:
+        cur_amount, amount_rank, amount_stale, amount_date = None, None, False, None
 
     close = pd.to_numeric(hs["close"], errors="coerce")
     high250 = float(close.tail(250).max())
@@ -176,16 +184,19 @@ def calc_sentiment(sent):
         }
 
     br = sent.get("breadth") or {}
+    chg_last = pd.to_numeric(hs["chg_pct"], errors="coerce").iloc[-1]
     return {
         "as_of": str(hs["date"].iloc[-1]),
-        "amount_yi": round(cur_amount, 1),
+        "amount_yi": round(cur_amount, 1) if cur_amount is not None else None,
         "amount_rank_250": amount_rank,
+        "amount_date": amount_date,
+        "amount_is_stale": amount_stale,
         "drawdown_from_250d_high_pct": round(drawdown, 2),
         "margin": mg_info,
         "qvix": qv_info,
         "breadth": br,
         "hs300_close": round(float(close.iloc[-1]), 2),
-        "hs300_chg_pct": round(float(pd.to_numeric(hs["chg_pct"], errors="coerce").iloc[-1]), 2),
+        "hs300_chg_pct": round(float(chg_last), 2) if pd.notna(chg_last) else None,
     }
 
 

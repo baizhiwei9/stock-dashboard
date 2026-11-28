@@ -8,9 +8,10 @@
 
 支持 STAT_DATE 回溯（交易所按日公布份额）。
 """
+import io
 import json
 import os
-import re
+import subprocess
 import time
 from datetime import datetime, timedelta
 
@@ -106,36 +107,58 @@ def fetch_sse(date_str=None):
 
 
 def fetch_szse():
-    """深交所 ETF 列表（dqgm 当前规模，单位：万份）"""
-    h = {"User-Agent": UA, "Referer": "http://www.szse.cn/"}
-    rows = []
-    for p in range(1, 100):
-        try:
-            r = _get(
-                "http://www.szse.cn/api/report/ShowReport/data",
-                {"SHOWTYPE": "JSON", "CATALOGID": "1945", "TABKEY": "tab1", "PAGENO": str(p)},
-                h,
-                timeout=20,
-            )
-            j = r.json()[0]["data"]
-        except Exception:  # noqa: BLE001
-            break
-        if not j:
-            break
-        rows += j
-    if not rows:
-        return pd.DataFrame(columns=["code", "name", "vol", "date"])
-    df = pd.DataFrame(rows)
+    """深交所 ETF 份额（基金列表 xlsx，一次请求拿全 782 只）。
 
-    def clean(x):
-        m = re.search(r"([\d,\.]+)", str(x))
-        return float(m.group(1).replace(",", "")) if m else None
+    为什么不再走 www.szse.cn 的分页 JSON：接口固定 10 条/页、共 79 页，
+    连续请求会被断连，原实现把异常 break 掉，深市 ETF 静默缺失 ——
+    被动化率因此偏低约 2pp，7% 提醒线会漏报。
+    fund.szse.cn 的 xlsx 导出有 TLS 指纹限制，python-requests 常被 RemoteDisconnected，
+    所以下载失败时退回 curl 取同一个文件（本机 curl 正常）。
+    """
+    url = "https://fund.szse.cn/api/report/ShowReport"
+    params = {"SHOWTYPE": "xlsx", "CATALOGID": "1000_lf",
+              "TABKEY": "tab1", "random": "0.07610353191740105"}
+    h = {
+        "Referer": "https://fund.szse.cn/marketdata/fundslist/index.html",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/88.0.4324.150 Safari/537.36",
+    }
+    content = None
+    try:
+        r = requests.get(url, params=params, headers=h, timeout=60)
+        if r.status_code == 200 and r.content[:2] == b"PK":
+            content = r.content
+        else:
+            print(f"[etf_scale] 深交所 xlsx 响应异常: {r.status_code} len={len(r.content)}", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[etf_scale] requests 取深交所 xlsx 失败，改用 curl: {e}", flush=True)
+    if content is None:
+        qs = "&".join(f"{k}={v}" for k, v in params.items())
+        cmd = ["curl", "-sS", "--fail", "--max-time", "90",
+               "-H", f"Referer: {h['Referer']}", "-H", f"User-Agent: {h['User-Agent']}",
+               f"{url}?{qs}"]
+        cp = subprocess.run(cmd, capture_output=True)
+        if cp.returncode != 0 or not cp.stdout.startswith(b"PK"):
+            raise RuntimeError(f"深交所 ETF xlsx 下载失败: curl rc={cp.returncode} "
+                               f"{cp.stderr[:200]!r}")
+        content = cp.stdout
 
-    df["code"] = df["sys_key"].str.extract(r"code=(\d+)")
-    df["name"] = df["kzjcurl"].str.extract(r"name=([^'&]+)")
-    df["vol"] = df["dqgm"].map(clean)
-    df["date"] = None
-    return df[["code", "name", "vol", "date"]]
+    df = pd.read_excel(io.BytesIO(content), engine="openpyxl", dtype={"基金代码": str})
+    df = df[df["基金类别"].astype(str).str.strip() == "ETF"].copy()
+    vol = pd.to_numeric(
+        df["当前规模(份)"].astype(str).str.replace(",", "", regex=False),
+        errors="coerce",
+    )
+    out = pd.DataFrame({
+        "code": df["基金代码"].astype(str).str.zfill(6),
+        "name": df["基金简称"],
+        "vol": vol / 1e4,      # 份 → 万份，与上交所 TOT_VOL 同口径
+        "date": None,
+    }).dropna(subset=["code", "vol"])
+    if len(out) < 100:
+        raise RuntimeError(f"深交所 ETF 只解析到 {len(out)} 只，疑似文件不完整")
+    return out
 
 
 def fetch_nav():
@@ -165,10 +188,19 @@ def classify(name):
 def build(date_str=None, save=True):
     sse = fetch_sse(date_str)
     szse = fetch_szse()
+    print(f"[etf_scale] 上交所 {len(sse)} 行 / 深交所 {len(szse)} 行", flush=True)
+    # 少一边就会把被动化率算低 ~2pp，警报可能因此不发；宁可让 fetch 失败告警，
+    # 也不要静默发布一个偏低的读数。
+    if not len(sse) or not len(szse):
+        raise RuntimeError(f"ETF 份额缺交易所数据：上交所 {len(sse)} / 深交所 {len(szse)}")
     navmap, nav_date = fetch_nav()
     etf = pd.concat([sse, szse], ignore_index=True)
     etf = etf.dropna(subset=["code", "vol"])
-    etf["nav"] = etf["code"].map(lambda c: navmap.get(str(c).zfill(6)))
+    # vol 来自交易所接口、nav 来自东财，任何一侧是字符串都会让 scale 变成 object，
+    # 下游 nlargest/sum 会直接报 TypeError（pandas 2.x）。统一先转数值。
+    etf["vol"] = pd.to_numeric(etf["vol"], errors="coerce")
+    etf["nav"] = pd.to_numeric(
+        etf["code"].map(lambda c: navmap.get(str(c).zfill(6))), errors="coerce")
     etf["scale"] = etf["vol"] * etf["nav"] / 1e4  # 万份 × 元 / 1e4 = 亿元
     etf["cat"] = etf["name"].map(classify)
     wide = etf.dropna(subset=["cat", "scale"])

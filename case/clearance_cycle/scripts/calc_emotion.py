@@ -149,6 +149,8 @@ def calc_emotion(sent):
         "metrics": {
             "amount_yi": s["amount_yi"],
             "amount_rank_250": s["amount_rank_250"],
+            "amount_date": s["amount_date"],
+            "amount_is_stale": s["amount_is_stale"],
             "amount_yi_all": br.get("amount_yi_all"),
             "drawdown_from_250d_high_pct": s["drawdown_from_250d_high_pct"],
             "hs300_close": s["hs300_close"],
