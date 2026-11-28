@@ -5,6 +5,9 @@
 基差定义：基差 = 现货 - 期货（正=期货贴水）
 年化基差率 = (现货 - 期货) / 现货 × 365 / 剩余日历天数 × 100
 到期日 = 合约月第三个周五
+
+历史口径：为算「基差分位数」，需要 250 个交易日的连续序列，
+所以除了未来 6 个月的在挂合约，还要回看 15 个月的已到期合约。
 """
 import json
 import os
@@ -20,6 +23,10 @@ os.makedirs(DATA, exist_ok=True)
 
 SPOT = {"IF": "000300", "IC": "000905", "IM": "000852"}
 UA = "Mozilla/5.0"
+
+HIST_DAYS = 280      # 保留的交易日数（约 13 个月，够算 250 日分位）
+BACK_MONTHS = 15     # 回看的合约月数
+FWD_MONTHS = 6       # 前瞻的合约月数
 
 
 def third_friday(year, month):
@@ -58,18 +65,23 @@ def fetch_spot(index_code, start, end):
     return df[["date", "close", "amount_yi"]].sort_values("date")
 
 
-def fetch_futures(variety, days=120):
-    """取该品种全部在挂合约日线（新浪源）"""
-    out = {}
+def _month_seq(back=BACK_MONTHS, fwd=FWD_MONTHS):
+    """从 back 个月前到 fwd 个月后的合约月序列"""
     today = date.today()
     y, m = today.year, today.month
-    months = []
-    for k in range(0, 6):
+    out = []
+    for k in range(-back, fwd + 1):
         mm = m + k
         yy = y + (mm - 1) // 12
         mm = (mm - 1) % 12 + 1
-        months.append((yy, mm))
-    for yy, mm in months:
+        out.append((yy, mm))
+    return out
+
+
+def fetch_futures(variety, days=400):
+    """取该品种全部合约日线（含已到期，新浪源按合约代码可回溯）"""
+    out = {}
+    for yy, mm in _month_seq():
         sym = f"{variety}{str(yy)[2:]}{mm:02d}"
         try:
             df = ak.futures_zh_daily_sina(symbol=sym)
@@ -84,8 +96,8 @@ def fetch_futures(variety, days=120):
     return out
 
 
-def build(days=60):
-    start = (date.today() - timedelta(days=days * 2 + 30)).strftime("%Y%m%d")
+def build(days=HIST_DAYS):
+    start = (date.today() - timedelta(days=int(days * 1.7) + 60)).strftime("%Y%m%d")
     end = date.today().strftime("%Y%m%d")
     result = {"as_of": None, "varieties": {}, "spot": {}, "history": {}}
 
@@ -137,6 +149,6 @@ if __name__ == "__main__":
     r = build()
     print("as_of", r["as_of"])
     for v, s in r["varieties"].items():
-        print(f"\n== {v} 现货 {r['spot'][v][-1]['close'] if r['spot'][v] else 'NA'}")
+        print(f"\n== {v} 现货 {r['spot'][v][-1]['close'] if r['spot'][v] else 'NA'}  历史 {len(r['history'][v])} 行")
         for c in s["contracts"]:
             print(f"  {c['contract']} 期{c['fut']:>9.1f} 基差{c['basis']:>8.1f} 剩余{c['days_left']:>4}天 年化{c['annual_pct']:>7.2f}%")

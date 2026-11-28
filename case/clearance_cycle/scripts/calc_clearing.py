@@ -90,7 +90,7 @@ def calc_passive(etf, hs300_recs):
 
 
 def calc_basis(basis):
-    """基差：各品种当季合约年化 + 距5日高点回落"""
+    """基差：各品种远季合约年化 + 距5日高点回落 + 250日分位"""
     out = {}
     for v, hist in basis.get("history", {}).items():
         h = pd.DataFrame(hist)
@@ -108,13 +108,13 @@ def calc_basis(basis):
                 return mid.iloc[-1]
             return g.iloc[-1]
         daily = q.groupby("date").apply(pick_quarter, include_groups=False).reset_index()
-        daily = daily.sort_values("date").tail(40)
+        daily = daily.sort_values("date")
         cur = daily.iloc[-1]
         last5 = daily.tail(5)
         hi5 = float(last5["annual_pct"].max())
         hi5_date = str(last5.loc[last5["annual_pct"].idxmax(), "date"])
         drop = hi5 - float(cur["annual_pct"])
-        all_hist = h["annual_pct"]
+        win250 = daily["annual_pct"].tail(250)
         out[v] = {
             "contract": cur["contract"],
             "date": str(cur["date"]),
@@ -129,8 +129,10 @@ def calc_basis(basis):
             "triggered": bool(drop >= BASIS_DROP),
             "normal_range": list(BASIS_NORMAL),
             "in_normal": bool(BASIS_NORMAL[0] <= float(cur["annual_pct"]) <= BASIS_NORMAL[1]),
-            "pct_rank_40d": pct_rank(daily["annual_pct"], float(cur["annual_pct"])),
-            "series": [{"date": str(r["date"]), "annual_pct": round(float(r["annual_pct"]), 2)} for _, r in daily.iterrows()],
+            "pct_rank_250d": pct_rank(win250, float(cur["annual_pct"])),
+            "pct_rank_40d": pct_rank(daily["annual_pct"].tail(40), float(cur["annual_pct"])),
+            "hist_days": int(len(win250)),
+            "series": [{"date": str(r["date"]), "annual_pct": round(float(r["annual_pct"]), 2)} for _, r in daily.tail(60).iterrows()],
             "contracts_today": [
                 {k: c[k] for k in ["contract", "fut", "basis", "days_left", "annual_pct"]}
                 for c in basis["varieties"][v]["contracts"]
@@ -215,7 +217,7 @@ def main():
     print(json.dumps({k: out[k] for k in ["as_of", "done_flags", "done_count"]}, ensure_ascii=False, indent=2))
     print("被动化率", passive["value_pct"], "%", passive["status"])
     for v, b in basis_r.items():
-        print(f"基差 {v} {b['contract']} 年化{b['annual_pct']}% 5日高{b['high5']}% 回落{b['drop_pp']}pp 触发={b['triggered']}")
+        print(f"基差 {v} {b['contract']} 年化{b['annual_pct']}% 5日高{b['high5']}% 回落{b['drop_pp']}pp 250日分位{b.get('pct_rank_250d')}% 触发={b['triggered']}")
     return out
 
 
