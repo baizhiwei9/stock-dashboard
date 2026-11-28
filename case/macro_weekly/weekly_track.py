@@ -148,17 +148,22 @@ def _load_monthly():
 
 
 # ---------------- 卡片 ----------------
+def _cell(content):
+    """column 里只能放块，lark_md 必须挂在 div.text 上（直接放会报 11310 unsupported type of block）。"""
+    return {"tag": "div", "text": {"tag": "lark_md", "content": content}}
+
+
 def _row2(label, value, wl="34%", wr="66%"):
     return {"tag": "column_set", "flex_mode": "none", "columns": [
-        {"tag": "column", "width": wl, "elements": [{"tag": "lark_md", "content": "**%s**" % label}]},
-        {"tag": "column", "width": wr, "elements": [{"tag": "lark_md", "content": value}]}]}
+        {"tag": "column", "width": wl, "elements": [_cell("**%s**" % label)]},
+        {"tag": "column", "width": wr, "elements": [_cell(value)]}]}
 
 
 def _row3(a, b, c):
     return {"tag": "column_set", "flex_mode": "none", "columns": [
-        {"tag": "column", "width": "34%", "elements": [{"tag": "lark_md", "content": a}]},
-        {"tag": "column", "width": "33%", "elements": [{"tag": "lark_md", "content": b}]},
-        {"tag": "column", "width": "33%", "elements": [{"tag": "lark_md", "content": c}]}]}
+        {"tag": "column", "width": "34%", "elements": [_cell(a)]},
+        {"tag": "column", "width": "33%", "elements": [_cell(b)]},
+        {"tag": "column", "width": "33%", "elements": [_cell(c)]}]}
 
 
 def build_card(k, m=None, img_key="", changes=None):
