@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "output", "data")
@@ -152,8 +153,9 @@ def compose_mail(alert, cycle, emotion):
         subject = f"【出清周期·出清】QVIX分位{qv:.0f}% + 基差分位{bp:.0f}%，双双回落"
         head = "波动率与基差同步回落到 70% 分位以下，出清信号成立。"
 
-    # 14:50 跑：日线未收，盘中价算出来的 MA / 分位收盘后可能有差异，必须在正文里标明
-    _now = datetime.now()
+    # 14:50 跑：日线未收，盘中价算出来的 MA / 分位收盘后可能有差异，必须在正文里标明。
+    # 显式用北京时间判断，避免宿主机 TZ 不是 Asia/Shanghai 时误判。
+    _now = datetime.now(ZoneInfo("Asia/Shanghai"))
     intraday = "（盘中数据，非收盘价，收盘后可能微调）" if _now.hour * 60 + _now.minute < 15 * 60 else ""
 
     # 被动化率不再单独发信，7% 提醒线并入本邮件正文

@@ -4,6 +4,7 @@
 import json
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "output", "data")
@@ -17,6 +18,16 @@ def load(name):
 
 def esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _intraday():
+    """14:50 跑：日线未收，报告需标注盘中口径。显式按北京时间判断。"""
+    now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    return now.hour * 60 + now.minute < 15 * 60
+
+
+def _intra_badge():
+    return "<span>⚠️ 盘中数据，非收盘价</span>" if _intraday() else ""
 
 
 CSS = """
@@ -211,7 +222,7 @@ FOOT = """<footer>
   <a href="https://www.wind.com.cn" target="_blank" rel="noopener noreferrer">万得 Wind</a>；两融数据来自
   <a href="https://data.eastmoney.com/rzrq/" target="_blank" rel="noopener noreferrer">东方财富两融</a>。</p>
   <p><b>口径参照</b>：被动化率刻度与 7% 提醒线、基差正常区间 4%–5% 来自用户提供的土狗公众号 Vol.261128 截图；出清周期边界（MA40/MA80）按用户设定。</p>
-  <p>报告生成于 __TS__ · 数据截止 __ASOF__ 收盘 · 量化监控输出，不构成投资建议。</p>
+  <p>报告生成于 __TS__ · 数据截止 __ASOF__ __CUTOFF__ · 量化监控输出，不构成投资建议。</p>
 </footer>"""
 
 
@@ -227,7 +238,7 @@ def page(title, as_of, body, kicker="Clearance Cycle Monitor · v3.1"):
 <body>
 <div class="wrap">
 {body}
-{FOOT.replace('__TS__', datetime.now().strftime('%Y-%m-%d %H:%M')).replace('__ASOF__', as_of)}
+{FOOT.replace('__TS__', datetime.now().strftime('%Y-%m-%d %H:%M')).replace('__ASOF__', as_of).replace('__CUTOFF__', '（盘中，非收盘价）' if _intraday() else '收盘')}
 </div>
 </body>
 </html>
@@ -301,6 +312,7 @@ def build_cycle(c):
     <span>当前状态 <b>{esc(ma['state'])}</b></span>
     <span>已持续 <b>{ma['days']}</b> 个交易日</span>
     <span>报告动作 <b>{esc(ma['report_action'])}</b></span>
+    {_intra_badge()}
   </div>
 </header>
 
@@ -499,6 +511,7 @@ def build_emotion(e):
     <span>情绪温度 <b>{heat} / 100</b></span>
     <span>阶段 <b>{esc(e['stage'])}</b></span>
     <span>沪深300 <b>{m['hs300_close']:,.2f}</b>（{m['hs300_chg_pct']:+.2f}%）</span>
+    {_intra_badge()}
   </div>
 </header>
 
