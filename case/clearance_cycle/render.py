@@ -55,7 +55,7 @@ def build_markdown(c, e, a=None):
 
     # 被动化率分子缺交易所时读数偏低约 2pp：明确标不可用，不给「已过线」的假信号。
     _pv_ok = p.get("reliable", True)
-    _pv_miss = "/".join(p.get("missing_exchanges") or []) or "部分交易所"
+    _pv_miss = "/".join(p.get("missing_names") or p.get("missing_exchanges") or []) or "部分交易所"
     pv_state = (f"数据不全（缺 {_pv_miss}），不做 7% 判定" if not _pv_ok
                 else ("已过 7% 提醒线（并入双分位邮件，不单独发信）"
                       if p["value_pct"] >= 7 else "计时中"))
