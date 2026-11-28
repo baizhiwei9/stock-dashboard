@@ -11,6 +11,8 @@
   3. metrics out/latest.json 存在、points 非空、字段合法
   4. fresh  指标的 obs_date 不早于 today - freshness_days
   5. quality 非 missing 的比例不低于 min_ok_ratio（算不出来可以，但不能全算不出来）
+  6. coverage 指标覆盖率硬地板：缺失过半（或全缺失）直接判失败，防止
+     min_ok_ratio 被调到 0.3 时 70% 指标缺失仍算通过
 
 任务可以在自己的 pipeline.py 里调 `checks.artifacts(ctx, **opts)` 复用，也可以完全自己写。
 
@@ -31,6 +33,8 @@ from typing import Any, Dict, List, Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 CASE_DIR = os.path.dirname(HERE)
 PLACEHOLDERS = {"", "n/a", "na", "nan", "none", "null", "-", "--", "tbd", "dash"}
+# 指标覆盖率硬地板：与任务自己的 min_ok_ratio 取较大值生效（见 coverage 判据）。
+COVERAGE_FLOOR = 0.5
 
 
 def _read_json(path: str, default):
@@ -135,6 +139,19 @@ def artifacts(task: Dict, run_start: Optional[float] = None, *,
                     items.append(_item("quality", ratio >= min_ok_ratio,
                                        "ok %d/%d（%.0f%%，门槛 %.0f%%）"
                                        % (ok_n, len(pts), ratio * 100, min_ok_ratio * 100)))
+                    # 闸门收紧（保守）：原先只比 min_ok_ratio，个别任务把它调到 0.3，
+                    # 于是 70% 指标缺失也能判通过。这里再压一条覆盖率下限 —— 缺失过半
+                    # 即失败、全缺失必然失败。只加这一条新判据，不改 quality 的语义、
+                    # 不动默认参数与各 task.json 里的既有取值。
+                    floor = max(COVERAGE_FLOOR, min_ok_ratio)
+                    missing_n = len(pts) - ok_n
+                    if ok_n == 0:
+                        cov_detail = "关键指标全缺失：0/%d 可用" % len(pts)
+                    else:
+                        cov_detail = ("缺失 %d/%d 条指标（可用 %d，覆盖率 %.0f%%，下限 %.0f%%）"
+                                      % (missing_n, len(pts), ok_n,
+                                         ratio * 100, floor * 100))
+                    items.append(_item("coverage", ratio >= floor, cov_detail))
                     asof = str(d.get("as_of") or "").strip()
                     if not asof:
                         asof = max((str(it.get("obs_date") or "") for it in pts), default="")

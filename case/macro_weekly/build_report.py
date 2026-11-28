@@ -159,6 +159,17 @@ for _kk in ("share_up", "share_mid", "share_down", "share_util"):
 json.dump({k: (float(v) if isinstance(v, (int, float, np.floating)) else v) for k, v in K.items()},
           open(os.path.join(DATA, "key_numbers.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2, default=str)
 
+# ---------- 正文叙事用的派生量（不写进 key_numbers.json，避免改变既有产物）----------
+# ① 下一期月度数据的月份：按最新月度口径 +1 月推出，不再写死具体发布日。
+K["next_month"] = (pd.Timestamp(K["last"] + "-01") + pd.DateOffset(months=1)).strftime("%Y-%m")
+# ② 价差收敛叙事的起点：取本月首个周频点之前最近的那个观测（约等于上月末），
+#    取不到就显示 —，绝不再把某一期的具体起点写死在正文里。
+_sp = wbs["spread"].dropna()
+_before = _sp[_sp.index < _sp.index[-1].replace(day=1)] if len(_sp) else _sp
+K["sp_base_date"] = _before.index[-1].strftime("%Y-%m-%d") if len(_before) else "—"
+K["sp_base_val"] = float(_before.iloc[-1]) if len(_before) else float("nan")
+K["sp_base_txt"] = "—" if pd.isna(K["sp_base_val"]) else ("%+.1f" % K["sp_base_val"])
+
 # ---------- HTML ----------
 def fmt(v, d=1, suf=""):
     return "—" if pd.isna(v) else f"{v:.{d}f}{suf}"
@@ -210,7 +221,7 @@ td:first-child,th:first-child{{text-align:left}}
 ul{{padding-left:20px}} li{{margin:4px 0}}
 </style></head><body>
 <h1>库存周期 × 上下游利润转移 · 周频跟踪（截至 {K['wk_end']}）</h1>
-<p class="note">为 2026-12-27 发布的 11 月规上工业企业效益数据做预习。月度口径最新为 {K['last']}（统计局 11-27 发布），
+<p class="note">为下一期（{K['next_month']}）规上工业企业效益数据做预习。月度口径最新为 {K['last']}（统计局最近一次发布），
 高频价格/库存截至 {K['wk_end']}。全部数值经 datahub EDB 取数（含本次新增接口），高频仅作方向预判，以月度工企数据为准。</p>
 
 <div class="key"><b>一句话：</b>库存按“库存×营收”符号法仍在 <b>{K['quad']}</b>（已连续 {K['quad_months']} 个月，自 {K['quad_since']}），
@@ -268,12 +279,12 @@ ul{{padding-left:20px}} li{{margin:4px 0}}
 
 <h2>⑥ 趋势切换预警</h2>
 <ul>
-<li><b>上下游相对强弱（高频）：</b>中游−上游价差指数由 9 月底 −8.6 收敛至 {K['spread']:+.1f}（{K['wk_end']}，2026-06-01=100），本周变动 {K['sp_dir']}、<b>连续同向仅 {K['sp_run']} 周</b>，未达“连续 3-4 周同向”的切换阈值 → <b>不触发</b>。且这次收敛是上游跌得更多造成的被动收敛，不是中游转强。</li>
+<li><b>上下游相对强弱（高频）：</b>中游−上游价差指数由 {K['sp_base_date']} 的 {K['sp_base_txt']} 收敛至 {K['spread']:+.1f}（{K['wk_end']}，2026-06-01=100），本周变动 {K['sp_dir']}、<b>连续同向仅 {K['sp_run']} 周</b>，未达“连续 3-4 周同向”的切换阈值 → <b>不触发</b>。且这次收敛是上游跌得更多造成的被动收敛，不是中游转强。</li>
 <li><b>月度宽度：</b>三个宽度（出厂−购进、PPI−CPI、采掘−加工）本月全部朝同一方向（上游更强）变化，已连续 2 个月同向 → <b>再有一个月即构成季度级切换确认</b>（上游挤压延续）。</li>
 <li><b>可交易的价格信号：</b>沪铝 4 周均线已连降 9 周、沪铜 6 周、大宗商品指数 7 周——上游价格动量的下行已是周线级别，但还没有传导到月度 PPI（10 月仍 +5.7%），这正是 11 月数据的关键看点。</li>
 </ul>
 
-<h2>⑦ 12-27 工企效益数据的 3 条重点验证项</h2>
+<h2>⑦ 下一期工企效益数据的 3 条重点验证项</h2>
 <ul>
 <li><b>①实际库存是否首次转负/名义库存是否见顶：</b>验证 11 月产成品存货同比是否从 12.0% 回落。若 PPI 同比随上游价格回落（高频 4 周 −13%~−20%），名义库存同比应滞后 1-2 个月见顶；若存货同比仍升而营收同比掉到 6% 以下，则象限正式由“主动补库”切到“被动补库”。</li>
 <li><b>②上游利润占比是否回落：</b>看采矿业利润占比（10 月 {K['share_up']:.1f}%）与煤炭/有色/黑色三个行业同比。高频铜铝 4 周已跌 8%~13%，若上游占比回落、中游装备占比升，说明利润开始往下游扩散，剪刀差进入收窄段；反之则上游挤压继续。</li>
