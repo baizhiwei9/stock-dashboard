@@ -188,9 +188,18 @@ resolve_env() {
     DATAHUB_OK=0
   fi
 
-  # 私有任务仓（代码在 precious，调度在 dashboard）
-  PRIV_DIR="${SD_PRECIOUS_DIR:-${PRECIOUS_DIR:-$HERE/../precious-task}}"
-  PRIV_DIR="$(cd "$PRIV_DIR" 2>/dev/null && pwd -P || true)"
+  # 私有任务仓（代码在 precious，调度在 dashboard）。同父目录时自动认：
+  # 先看 SD_PRECIOUS_DIR / PRECIOUS_DIR，再试 ../precious-task 与 ../precious_task
+  # （git clone 常用短横线、手建目录常用下划线），都不在就跳过，不猜别的名字。
+  PRIV_DIR=""
+  for _c in "${SD_PRECIOUS_DIR:-}" "${PRECIOUS_DIR:-}" \
+            "$HERE/../precious-task" "$HERE/../precious_task"; do
+    [ -n "$_c" ] || continue
+    if [ -d "$_c/case" ]; then
+      PRIV_DIR="$(cd "$_c" && pwd -P)"
+      break
+    fi
+  done
   if [ -n "$PRIV_DIR" ] && [ -d "$PRIV_DIR/case" ]; then
     append_extra_dir "$PRIV_DIR/case"
     PRECIOUS_OK=1

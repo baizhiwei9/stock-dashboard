@@ -73,7 +73,12 @@ fi
 # 里配好了，但调度台里根本没有它」。默认取公开仓同级的 precious-task/case（标准布局），
 # 目录不存在就不设，不制造空路径；已显式设过的（SD_CASE_EXTRA_DIRS / CASE_EXTRA_DIRS）
 # 只追加不覆盖，多目录用冒号分隔。
-PRIV_CASE="${SD_CASE_EXTRA_DIRS:-$HERE/../precious-task/case}"
+PRIV_CASE="${SD_CASE_EXTRA_DIRS:-}"
+if [ -z "$PRIV_CASE" ]; then
+  for _c in "$HERE/../precious-task/case" "$HERE/../precious_task/case"; do
+    if [ -d "$_c" ]; then PRIV_CASE="$_c"; break; fi
+  done
+fi
 if [ -d "$PRIV_CASE" ]; then
   # 归一成物理路径再比：$HERE/../precious-task/case 与 /Coze/.../precious-task/case
   # 是同一个目录，不归一就会重复挂载、同一个任务扫两遍。
