@@ -41,6 +41,10 @@ def pct_rank(series, value):
 def calc_passive(etf, hs300_recs):
     """被动化率：当前 + 沪市份额回溯近似历史"""
     wide_yi = etf["wide_total_yi"]
+    # 分子缺一边交易所时读数偏低约 2pp，标 reliable=False：
+    # 告警与报告据此拒绝做 7% 判定，宁可显示「数据不全」也不给错信号。
+    degraded = bool(etf.get("degraded"))
+    missing_ex = list(etf.get("missing_exchanges") or [])
     # 分母：沪深300自由流通市值（Wind 21.2334 万亿，2026-11-27）
     denom_yi = 212334.0
     cur = wide_yi / denom_yi * 100
@@ -68,12 +72,17 @@ def calc_passive(etf, hs300_recs):
             })
 
     status = "未起计时"
-    if cur >= PASSIVE_ALERT:
+    if degraded:
+        status = f"数据不全（缺 {'/'.join(missing_ex)}），不做 7% 判定"
+    elif cur >= PASSIVE_ALERT:
         status = "已过提醒线（出清基本完成）"
     elif cur >= PASSIVE_START:
         status = "计时中（出清进行中）"
     return {
         "value_pct": round(cur, 2),
+        "reliable": not degraded,
+        "degraded": degraded,
+        "missing_exchanges": missing_ex,
         "wide_scale_yi": wide_yi,
         "denom_yi": denom_yi,
         "denom_note": "沪深300自由流通市值（Wind 21.2334万亿，2026-11-27）",
@@ -210,7 +219,8 @@ def main():
     sentiment = calc_sentiment(sent)
 
     done_flags = {
-        "被动化率≥7%": passive["value_pct"] >= PASSIVE_ALERT,
+        # 数据不全时不做 7% 判定，避免把偏低读数当成「未过线」计入完成项
+        "被动化率≥7%": bool(passive.get("reliable", True)) and passive["value_pct"] >= PASSIVE_ALERT,
         "基差回落≥5pp": any(v["triggered"] for v in basis_r.values()),
         "情绪低点已过": (sentiment["breadth"].get("median_chg") or 0) > 0,
     }
