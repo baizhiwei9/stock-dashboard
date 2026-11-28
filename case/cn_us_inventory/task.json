@@ -23,7 +23,6 @@
   "requires": [
     "pylibs"
   ],
-  "root": "{WS}/ses_gffe5e7d65e97affeGRaKRrqXn281SL",
   "entry": "inventory_monthly.py",
   "needs_llm": false,
   "imported_from": "case/_seed/tasks.json + _tools/collect_code.py",
@@ -67,5 +66,6 @@
     ]
   },
   "legacy_cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u inventory_monthly.py",
-  "visibility": "public"
+  "visibility": "public",
+  "root_note": "自包含：不设 root，产出与数据都落在任务目录（out/、data/ 由 .gitignore 排除，不进仓库）"
 }

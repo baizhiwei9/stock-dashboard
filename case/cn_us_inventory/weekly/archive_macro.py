@@ -3,10 +3,10 @@
 
 设计要点
 --------
-1. **独立库、不吃 EDB 的那 60 天存缓**：EDB 统一库按 60 天裁剪（现已把 cn_macro/global_macro 拉到 400 天），
-   但归档库自己定保留期（``RETENTION_DAYS=400``，月频额外保底 36 期），任何时候都能回放半年以上。
-2. **取全量、不取残余**：月度直接读落盘宽表（34 期），缺失或用日频 start 拉长，避免 ``api.get()``
-   命中旧缓存只回最后 1 个点。
+1. **独立库、不吃 EDB 的存缓**：EDB 统一库按 category 裁剪（cn_macro/global_macro 已放到 365 天），
+   归档库自己定保留期（``RETENTION_DAYS=365``，硬上限 366），任何时候都能回放一年。
+2. **取全量、不取残余**：月度先读落盘宽表、再全量回源，日频按 start 拉长，避免 ``api.get()``
+   命中旧缓存只回最后 1 个点；落盘宽表不存在时直接走回源，不报错。
 3. **异地**：库文件放在 ``archive/``（不放 ``data/``，仓库 .gitignore 会忽略 ``case/*/data/``）；
    工作区本身是 CFS 网络盘，再随仓库提交一份，异地可拉。
 
@@ -28,7 +28,34 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(BASE, "data")
 ARCH = os.path.join(BASE, "archive")
 DB = os.path.join(ARCH, "macro_archive.db")
-sys.path.insert(0, "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-multi-tier")
+
+
+def _ensure_datahub() -> None:
+    """定位 datahub：优先 sys.path/PYTHONPATH，其次 DATAHUB_PATH，最后按工作区约定猜。
+
+    自包含运行（在 case 目录里直接跑）不能写死绝对路径；都找不到就明确报错，不静默降级。
+    """
+    try:
+        import data_hub.edb  # noqa: F401
+        return
+    except ImportError:
+        pass
+    ws = os.environ.get("CASE_WS") or ""
+    cands = [
+        os.environ.get("DATAHUB_PATH"),
+        os.path.join(ws, "projects", "datahub-multi-tier") if ws else None,
+        os.path.join(BASE, "..", "..", "..", "datahub-multi-tier"),
+        "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-multi-tier",
+    ]
+    for c in cands:
+        if c and os.path.isdir(os.path.join(c, "data_hub")):
+            sys.path.insert(0, os.path.abspath(c))
+            import data_hub.edb  # noqa: F401
+            return
+    raise SystemExit("未找到 datahub：请设 DATAHUB_PATH 指向 datahub 仓库根目录")
+
+
+_ensure_datahub()
 from data_hub.edb import api  # noqa: E402
 
 #: 归档保留期（自然日）。用户口径：最少 60 天、最多一年，最终定为一年 = 365 天。
@@ -106,8 +133,14 @@ def load_from_csv(c) -> dict:
     """月度/日频先吃落盘宽表（全量，不受 EDB 60 天裁剪影响）。"""
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     stat = {}
-    mm = pd.read_csv(os.path.join(DATA, "edb_monthly.csv"), index_col=0, parse_dates=True)
-    dd = pd.read_csv(os.path.join(DATA, "edb_daily.csv"), index_col=0, parse_dates=True)
+    def _read(name):
+        fp = os.path.join(DATA, name)
+        if os.path.exists(fp):
+            return pd.read_csv(fp, index_col=0, parse_dates=True)
+        print(f"  [{name} 不存在，跳过这一步，改由回源补齐]")
+        return pd.DataFrame()
+
+    mm, dd = _read("edb_monthly.csv"), _read("edb_daily.csv")
     for sid in MONTH_SERIES:
         if sid in mm.columns:
             rows = [r + (now,) for r in _rows(sid, mm[sid], "M", "", "edb_csv")]
