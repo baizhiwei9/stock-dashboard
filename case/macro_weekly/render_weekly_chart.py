@@ -135,9 +135,12 @@ def main():
         v = tail[c].astype(float).dropna()
         if v.empty:
             continue
-        d_pp = v.iloc[-1] - v.iloc[0]
+        # 份额变化统一以「去年同月」为基，与增量贡献口径对齐（tail 首末会差一个月）
+        _prev = [i for i in m.index if i.year == v.index[-1].year - 1 and i.month == v.index[-1].month]
+        _c0 = float(m.loc[_prev[0], c]) if _prev and pd.notna(m.loc[_prev[0], c]) else float(v.iloc[0])
+        d_pp = float(v.iloc[-1]) - _c0
         ax.plot(v.index, v.values, color=col, lw=2.0, marker="o", ms=3,
-                label="%s %.1f%%（12个月 %+.1fpp）" % (n, float(v.iloc[-1]), float(d_pp)))
+                label="%s %.1f%%（同比 %+.1fpp）" % (n, float(v.iloc[-1]), float(d_pp)))
 
     # 增量贡献：今年同月累计额 − 去年同月累计额，占全部增量的比重
     contrib = {}
