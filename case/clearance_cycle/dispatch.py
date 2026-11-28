@@ -9,6 +9,7 @@
 """
 import json
 import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("CASE_OUT_DIR") or os.path.join(HERE, "out")
@@ -44,11 +45,25 @@ def main():
     with open(md_path, encoding="utf-8") as f:
         md = f.read()
 
-    # 推送通道接入点：有 lark-cli / webhook 时在这里发。
-    # 现状：通道未接入，只回显到 stdout（不假装已推送，避免"开始发送"名不副实）。
-    print("=" * 60)
-    print(f"[未接入推送通道，仅回显] 出清中第 {ma['days']} 个交易日，缺口 {ma['gap_pct']:.2f}%")
-    print("=" * 60)
+    title = f"出清周期监控 · {c.get('as_of', '')} · 第 {ma['days']} 个交易日"
+    lines = [
+        f"周期状态：出清中（{ma['since']} MA40 下穿起），第 {ma['days']} 个交易日",
+        f"MA40 − MA80 缺口：{ma['gap_pct']:.2f}%（{ma.get('dif', 0):.2f} 点）",
+        "详见 out/report.md（含被动化率、年化基差、情绪温度）",
+    ]
+    # 走框架告警通道：有 webhook 配置就外发，没有就落盘历史 + 打印（alert.send 自带这一层降级）
+    dry = "--dry" in sys.argv
+    try:
+        sys.path.insert(0, os.path.join(HERE, "..", "_lib"))
+        from alert import send as alert_send                       # noqa: WPS433
+        rec = alert_send("clearance_cycle", title, lines, level="warn", dry=dry, task_dir=HERE)
+        print("=" * 60)
+        print(f"已提交告警通道：{title}（{rec.get('webhook', '无 webhook 配置，已落盘 + 打印')}）")
+        print("=" * 60)
+    except Exception as exc:                                       # noqa: BLE001
+        print("=" * 60)
+        print(f"[告警通道不可用：{str(exc)[:80]}] 仅回显：{title}")
+        print("=" * 60)
     print(md[:1200])
 
 
