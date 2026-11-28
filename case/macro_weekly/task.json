@@ -1,14 +1,14 @@
 {
   "key": "macro_weekly",
   "title": "库存周期×上下游利润摆动 周频跟踪",
-  "desc": "库存周期位置、上下游利润摆动与 PMI 的周频跟踪：周中看代理动量，月度发布日校准象限与宽度",
+  "desc": "库存周期位置、上下游利润摆动与 PMI 的周频跟踪（每周日）：周中看代理动量，月度发布日校准象限与宽度，产出无日期戳周报 + 四联配图",
   "section": "macro",
   "metrics": [],
   "sched": {
     "mode": "weekly",
     "at": "09:00",
     "weekdays": [
-      1
+      7
     ]
   },
   "cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u weekly_track.py",

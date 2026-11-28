@@ -37,6 +37,7 @@ DATA = os.path.join(BASE, "data")
 OUT = os.path.join(BASE, "out")
 KEYS = os.path.join(DATA, "key_numbers.json")
 REPORT = os.path.join(OUT, "库存周期与利润转移周报.html")
+PNG = os.path.join(OUT, "库存周期与利润转移图表.png")
 
 
 def _pct(v, d=1, sign=False):
@@ -82,30 +83,79 @@ def build_text(k: dict) -> str:
     return "\n".join(x for x in lines if x != "　")
 
 
-def push_feishu(text: str) -> bool:
+def _feishu_creds():
+    """返回 (webhook, app_id, app_secret)。_lib 的 load_credentials 返回 (dict, 来源)。"""
     try:
         from feishu_creds import load_credentials
+    except Exception as e:  # noqa: BLE001
+        print("[飞书] 凭据模块不可用:", str(e)[:120])
+        return "", "", ""
+    c = load_credentials()
+    if isinstance(c, (tuple, list)):
+        c = c[0] or {}
+    c = c or {}
+    return (c.get("webhook_url") or c.get("feishu.webhook") or "",
+            c.get("app_id") or "", c.get("app_secret") or "")
+
+
+def _upload_image(png: str, app_id: str, app_secret: str) -> str:
+    """把 PNG 换成飞书 image_key；拿不到返回空串（不抛错，退回纯文本）。"""
+    import requests
+    try:
+        tok = requests.post(
+            "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+            json={"app_id": app_id, "app_secret": app_secret}, timeout=20).json()
+        token = (tok.get("tenant_access_token") or "")
+        if not token:
+            print("[飞书] 取 token 失败:", str(tok)[:160])
+            return ""
+        up = requests.post(
+            "https://open.feishu.cn/open-apis/im/v1/images",
+            headers={"Authorization": "Bearer " + token},
+            files={"image": (os.path.basename(png), open(png, "rb"), "image/png")},
+            data={"image_type": "message"}, timeout=40).json()
+        key = (up.get("data") or {}).get("image_key") or ""
+        print("[飞书] image_key:", key or str(up)[:160])
+        return key
+    except Exception as e:  # noqa: BLE001
+        print("[飞书] 上传图片异常:", str(e)[:160])
+        return ""
+
+
+def push_feishu(text: str, png: str = "") -> bool:
+    """推一条：有 app 凭据就「图 + 文本」，没有就纯文本（并提示图已生成在 out/）。
+
+    飞书 image 消息必须用 image_key，而 image_key 只能靠 app_id/app_secret 上传；
+    只配了 webhook 的机器人发不了图，所以这里降级而不是假装成功。
+    """
+    try:
         import requests
     except Exception as e:  # noqa: BLE001
-        print("[飞书] 依赖缺失，跳过推送:", e)
+        print("[飞书] requests 缺失，跳过推送:", e)
         return False
-    creds = load_credentials()
-    if isinstance(creds, (tuple, list)):   # _lib 返回 (dict, 来源说明)
-        creds = creds[0] or {}
-    creds = creds or {}
-    hook = creds.get("webhook_url") or creds.get("feishu.webhook")
+    hook, app_id, app_secret = _feishu_creds()
     if not hook:
         print("[飞书] 未配置 webhook，跳过推送")
         return False
-    try:
-        r = requests.post(hook, json={"msg_type": "text", "content": {"text": text}}, timeout=30)
-        js = r.json()
-        ok = js.get("StatusCode") == 0 or js.get("code") == 0
-        print("[飞书] 推送", "成功" if ok else "失败", str(js)[:200])
-        return ok
-    except Exception as e:  # noqa: BLE001
-        print("[飞书] 推送异常:", str(e)[:200])
-        return False
+
+    ok = True
+    if png and os.path.exists(png) and app_id and app_secret:
+        key = _upload_image(png, app_id, app_secret)
+        if key:
+            r = requests.post(hook, json={"msg_type": "image", "content": {"image_key": key}}, timeout=30).json()
+            print("[飞书] 图片消息:", str(r)[:160])
+            ok = ok and (r.get("StatusCode") == 0 or r.get("code") == 0)
+        else:
+            ok = False
+    elif png and os.path.exists(png):
+        print("[飞书] 缺 app_id/app_secret，发不了图（image_key 需应用身份上传），退回纯文本")
+
+    if not (png and os.path.exists(png) and app_id and app_secret and ok):
+        text = text + "\n\n（配图已生成：%s；飞书带图需配置 feishu.app_id / app_secret）" % os.path.relpath(png, BASE) if png else text
+    r = requests.post(hook, json={"msg_type": "text", "content": {"text": text}}, timeout=30).json()
+    good = r.get("StatusCode") == 0 or r.get("code") == 0
+    print("[飞书] 文本消息:", "成功" if good else "失败", str(r)[:200])
+    return good
 
 
 def main():
@@ -121,6 +171,11 @@ def main():
         import compute_edb  # 顶层执行：EDB 取数 + 算指标 + 落 data/*.csv、key_numbers.json
         import build_report  # 顶层执行：读 data/*.csv 出 out/库存周期与利润转移周报.html
         print("[出报]", REPORT, os.path.exists(REPORT))
+        try:
+            import render_weekly_chart
+            render_weekly_chart.main()
+        except Exception as e:  # noqa: BLE001
+            print("[出图] 失败（不阻断推送）:", str(e)[:200])
 
     k = json.load(open(KEYS, encoding="utf-8")) if os.path.exists(KEYS) else {}
     if k:
@@ -143,7 +198,7 @@ def main():
     if args.no_feishu:
         print("[飞书] --no-feishu，跳过推送")
     else:
-        push_feishu(text)
+        push_feishu(text, PNG)
     print("[完成] macro_weekly")
 
 
