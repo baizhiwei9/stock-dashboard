@@ -405,6 +405,13 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
                 return {"name": name, "ok": False, "rc": rc,
                         "sec": round(time.time() - t0, 1), "detail": detail, "soft": True}
             raise RuntimeError("%s 阶段失败（退出码 %s）：%s" % (name, rc, spec["cmd"]))
+        # 非交易日跳过：任务自己判休市后正常退出，data/ 必然没有产物，后续 check
+        # 会报「data/ 下没有任何取数产物」→ 节假日天天误告警。日志里出现明确跳过
+        # 标记时把 fetch 记成 skipped，main 里不再跑后续阶段、整单判通过。
+        if name == "fetch" and rc == 0 and _skipped_today(ctx):
+            return {"name": name, "ok": True, "rc": 0,
+                    "sec": round(time.time() - t0, 1),
+                    "detail": "非交易日跳过（任务主动退出，未取数）", "skipped": True}
     else:
         if spec.get("hook"):
             raise RuntimeError("%s 阶段声明了 hook，但 pipeline.py 里没有 %s()" % (name, name))
@@ -418,6 +425,25 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
 
     return {"name": name, "ok": True, "rc": rc, "sec": round(time.time() - t0, 1),
             "detail": detail}
+
+
+SKIP_MARKERS = ("非A股交易日", "非交易日跳过", "非交易日，跳过", "周末跳过")
+
+
+def _skipped_today(ctx) -> bool:
+    """本次运行日志里是否出现任务自己打的「非交易日跳过」标记。"""
+    try:
+        name = getattr(ctx.logf, "name", "")
+        if not name:
+            return False
+        ctx.logf.flush()
+        with open(name, "r", encoding="utf-8", errors="replace") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 6000))
+            tail = f.read()
+        return any(m in tail for m in SKIP_MARKERS)
+    except OSError:
+        return False
 
 
 def _task_uses_feishu(task: Dict) -> bool:
@@ -644,6 +670,9 @@ def main(argv: List[str]) -> int:
         results.append(r)
         if r.get("ok") and not r.get("skipped"):
             ctx.done.add(name)
+        if name == "fetch" and r.get("skipped") and "非交易日" in (r.get("detail") or ""):
+            ctx.log("非交易日跳过：后续阶段不再执行")
+            break
         if r.get("hard") and not r.get("ok"):
             failed = True
             if on_fail != "continue":
@@ -673,7 +702,9 @@ def main(argv: List[str]) -> int:
     # 也无 stages[].cmd），旧逻辑是五阶段全「未配置，跳过」并记 ok —— 任务空转还报成功。
     # 这里把它判成硬失败，宁可报错也不要静默通过（dry-run 只打印阶段，不参与）。
     ran_stage = any(r.get("name") in STAGES and not r.get("skipped") for r in results)
-    pipeline_idle = bool(pipe) and not ran_stage and not a.dry_run
+    fetch_skipped = any(r.get("name") == "fetch" and r.get("skipped")
+                        and "非交易日" in (r.get("detail") or "") for r in results)
+    pipeline_idle = bool(pipe) and not ran_stage and not a.dry_run and not fetch_skipped
     if pipeline_idle:
         ctx.warn("流水线空转", ["pipeline 已声明，但没有任何阶段真正执行",
                                 "要么补 pipeline.py 钩子 / stages[].cmd，"
