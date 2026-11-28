@@ -1,0 +1,47 @@
+{
+  "key": "macro_monthly",
+  "title": "宏观三条线月报",
+  "desc": "订单/产出/物价三条线月度简报：PMI 新订单与新出口订单、出口同比与 PMI 生产、PPI 同比与布伦特月均；产三张图 + 飞书交互式卡片 + 邮件内联图。五章长版报告仅本地存档不推送。",
+  "section": "macro",
+  "section_domain": "macro",
+  "visibility": "private",
+  "sched": {
+    "mode": "monthly",
+    "day": 28,
+    "at": "21:00",
+    "timezone": "Asia/Shanghai"
+  },
+  "metrics": [
+    {"key": "macro.pmi.new_order", "name": "PMI 新订单", "dec": 1},
+    {"key": "macro.pmi.new_export", "name": "PMI 新出口订单", "dec": 1},
+    {"key": "macro.exp.yoy", "name": "出口当月同比", "dec": 1},
+    {"key": "macro.pmi.prod", "name": "PMI 生产", "dec": 1},
+    {"key": "macro.ppi.yoy", "name": "PPI 同比", "dec": 1},
+    {"key": "macro.brent.avg", "name": "布伦特月均", "dec": 1}
+  ],
+  "cmd": "python3 -u run_monthly.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": false,
+  "deliver": {
+    "report": true,
+    "email": true,
+    "feishu": true
+  },
+  "requires": [
+    "datahub"
+  ],
+  "entry": "run_monthly.py",
+  "needs_llm": false,
+  "artifacts": {
+    "report": [
+      "out/brief_*.md",
+      "out/brief_*.png",
+      "out/brief_email.html",
+      "out/card.json",
+      "out/report_*.md",
+      "out/report_*.html"
+    ]
+  },
+  "note": "调度实由 DuMate 定时任务 job_94ab3e93-e839-4623-9c7b-7e388d115399 执行；本文件描述入口与产物。"
+}
