@@ -20,7 +20,7 @@ for _p in (HERE, LIB):
         sys.path.insert(0, _p)
 
 PY = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u '
-CMD_FETCH = PY + "weekly_track.py --no-feishu"
+CMD_FETCH = PY + "weekly_track.py --no-feishu --no-email"
 CMD_SEND = PY + "weekly_track.py --push-only"
 SEC = "CN.MACRO"
 TIMEOUT = 1800
