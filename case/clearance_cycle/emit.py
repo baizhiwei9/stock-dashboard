@@ -17,15 +17,22 @@ def _src_data():
     return SRC_DATA
 
 
-def load(name):
-    with open(os.path.join(_src_data(), name), encoding="utf-8") as f:
+def load(name, default=None):
+    p = os.path.join(_src_data(), name)
+    if not os.path.exists(p):
+        return default
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 
+ALERT_RISK = {"alert": "alert", "clear": "opportunity", "mixed": "none", "unknown": "none"}
+
+
 def build_points():
-    """构造 10 条指标 points；框架 pipeline.py 的 emit hook 复用同一份，避免两处口径漂移。"""
+    """构造 13 条指标 points；框架 pipeline.py 的 emit hook 复用同一份，避免两处口径漂移。"""
     c = load("cycle.json")
     e = load("emotion.json")
+    a = load("alert.json")
     ma, p, b = c["ma"], c["passive"], c["basis"]
     bi = b["IF"]
     as_of = c["as_of"]
@@ -62,6 +69,25 @@ def build_points():
         {"key": "emotion.stage", "sec": "000300.SH", "obs_date": e["as_of"],
          "value_text": e["stage"], "quality": "ok", "name": "情绪阶段"},
     ]
+
+    if a:
+        qvp, bpp = a.get("qvix_pct"), a.get("basis_pct")
+        ok = "ok" if (qvp is not None and bpp is not None) else "missing"
+        points += [
+            {"key": "clearance.alert_state", "sec": "000300.SH", "obs_date": as_of,
+             "value_text": a.get("state_label") or a.get("state"), "quality": ok,
+             "name": "双分位告警状态",
+             "risk_level": ALERT_RISK.get(a.get("state"), "none"),
+             "risk_note": f"QVIX分位 {qvp}% / 基差分位 {bpp}%（门槛 70%），自 {a.get('since')}"},
+            {"key": "clearance.qvix_pct", "sec": "000300.SH", "obs_date": as_of,
+             "value": qvp, "dec": 1, "unit": "%", "quality": ok,
+             "name": "QVIX 250日分位",
+             "risk_level": "risk" if (qvp or 0) >= 70 else "none"},
+            {"key": "clearance.basis_pct", "sec": "IF.CFFEX", "obs_date": as_of,
+             "value": bpp, "dec": 1, "unit": "%", "quality": ok,
+             "name": "IF 年化基差 250日分位",
+             "risk_level": "risk" if (bpp or 0) >= 70 else "none"},
+        ]
 
     return points
 

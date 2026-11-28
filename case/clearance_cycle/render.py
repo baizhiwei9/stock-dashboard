@@ -17,6 +17,7 @@ STEPS = [
     ("计算出清周期", "calc_cycle.py"),
     ("计算情绪周期", "calc_emotion.py"),
     ("生成两份报告", "build_reports.py"),
+    ("双分位告警判定", "calc_alert.py"),
 ]
 
 
@@ -35,12 +36,15 @@ def _src_data():
     return SRC_DATA
 
 
-def load(name):
-    with open(os.path.join(_src_data(), name), encoding="utf-8") as f:
+def load(name, default=None):
+    p = os.path.join(_src_data(), name)
+    if not os.path.exists(p):
+        return default
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 
-def build_markdown(c, e):
+def build_markdown(c, e, a=None):
     ma, p, b = c["ma"], c["passive"], c["basis"]
     bi = b["IF"]
     m = e["metrics"]
@@ -95,7 +99,33 @@ def build_markdown(c, e):
         f"融资余额 {mg.get('fin_bal_yi', 0):,.0f} 亿（20日 {mg.get('chg20_pct', 0):+.2f}%）；"
         f"QVIX {qv.get('value', 0):.2f}（{qv.get('rank_250')}% 分位）。",
         "",
-        "## 四、触发规则",
+    ]
+
+    if a:
+        qvp, bpp = a.get("qvix_pct"), a.get("basis_pct")
+        lines += [
+            "## 四、波动率 × 基差 双分位（邮件告警口径）",
+            "",
+            "| 指标 | 读数 | 250日分位 | 门槛 |",
+            "| --- | --- | --- | --- |",
+            f"| QVIX（300ETF 隐波） | {a.get('qvix_value')} | {qvp}% | 70% |",
+            f"| {a.get('basis_contract')} 年化基差 | {a.get('basis_annual')}% | {bpp}%（{a.get('basis_hist_days')} 日样本） | 70% |",
+            "",
+            f"**当前判定**：{a.get('state_label')}（自 {a.get('since')}）",
+            "",
+            "| 状态 | 条件 | 动作 |",
+            "| --- | --- | --- |",
+            "| 双高 | QVIX 分位 ≥70 且 基差分位 ≥70 | 发邮件提醒 |",
+            "| 双低 | 两者同时 <70 | 发邮件提醒（出清） |",
+            "| 分化 | 一高一低 | 不动，维持上一状态 |",
+            "",
+            "基差用「现货−期货」年化率（正=贴水），分位越高＝贴水越深＝基差越大，与 QVIX 同向。",
+            "只在状态切换时发信，同状态不重复。",
+            "",
+        ]
+
+    lines += [
+        "## 五、触发规则",
         "",
         "| 事件 | 判定 | 动作 |",
         "| --- | --- | --- |",
@@ -103,10 +133,12 @@ def build_markdown(c, e):
         "| 出清完成 | MA40 上穿 MA80 | 停止发送 |",
         "| 被动化率 | 4.9% / 7.0% / 8.5% | 起计时 / 提醒 / 上沿 |",
         "| 基差 | 距 5 日高回落 ≥5pp | 修复到位 |",
+        "| 双分位双高 | QVIX ≥70% 且 基差 ≥70% | 发风险邮件 |",
+        "| 双分位双低 | 两者同时 <70% | 发出清邮件 |",
         "",
         "情绪温度是位置指标，不是择时信号；出清完成与否只看均线。",
         "",
-        f"数据来源：公开行情接口（akshare / 交易所与东财公开接口），口径见上表；"
+        f"数据来源：公开行情接口（akshare / 交易所与中证指数公开接口），口径见上表；"
         f"数据截止 {c['as_of']}。本报告为统计描述，不构成投资建议。",
     ]
     return "\n".join(lines) + "\n"
@@ -126,7 +158,8 @@ def main():
 
     c = load("cycle.json")
     e = load("emotion.json")
-    md = build_markdown(c, e)
+    a = load("alert.json")
+    md = build_markdown(c, e, a)
     with open(os.path.join(OUT, "report.md"), "w", encoding="utf-8") as f:
         f.write(md)
     print(f"报告已生成：out/report.md + {n} 份 HTML")

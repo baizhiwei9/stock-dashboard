@@ -1,7 +1,7 @@
 {
   "key": "clearance_cycle",
   "title": "A股出清周期监控",
-  "desc": "沪深300 MA40/MA80 定义出清周期边界；被动化率与年化基差衡量出清进度；情绪温度独立成表",
+  "desc": "沪深300 MA40/MA80 定义出清周期边界；被动化率与年化基差衡量出清进度；情绪温度独立成表；QVIX 与基差 250 日分位双高/双低切换发邮件",
   "section": "risk",
   "visibility": "public",
   "sched": {
@@ -21,7 +21,7 @@
   "timeout": 1800,
   "deliver": {
     "report": true,
-    "email": false
+    "email": true
   },
   "pipeline": {
     "on_fail": "stop",
@@ -44,7 +44,7 @@
       {
         "name": "fetch",
         "cmd": "python3 -u fetch.py",
-        "timeout": 1200
+        "timeout": 1500
       },
       {
         "name": "check",
@@ -53,7 +53,7 @@
       {
         "name": "render",
         "cmd": "python3 -u render.py",
-        "timeout": 300
+        "timeout": 600
       },
       {
         "name": "emit",
@@ -66,5 +66,5 @@
       }
     ]
   },
-  "note": "出清完成（MA40 上穿 MA80）后 dispatch 自动静默，数据仍然照常落库"
+  "note": "两条推送规则独立：均线口径 MA40 上穿 MA80 后 dispatch 静默；双分位口径 QVIX 与基差分位同时 ≥70% 发风险邮件、同时 <70% 发出清邮件，只在状态切换时发信，首跑只建基线。fetch 阶段回看 15 个月合约以支撑 250 日基差分位"
 }
