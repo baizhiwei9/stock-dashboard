@@ -250,6 +250,23 @@ def build_cycle(c):
     ma, p, b = c["ma"], c["passive"], c["basis"]
     as_of = c["as_of"]
 
+    # 被动化率分子缺交易所 → 读数偏低约 2pp，四类产物面（chip / KPI / badge / 结论）
+    # 统一标「数据不全，不做 7% 判定」；否则 HTML 会把偏低读数当正常值，正是要避免的错信号。
+    pv_ok = p.get("reliable", True)
+    pv_miss = "/".join(p.get("missing_names") or p.get("missing_exchanges") or []) or "部分交易所"
+    pv_badge_cls = "ok" if (pv_ok and p["value_pct"] >= 7) else ("red" if not pv_ok else "warn")
+    pv_badge_txt = ("数据不全，不做 7% 判定" if not pv_ok
+                    else ("已过 7% 提醒线" if p["value_pct"] >= 7 else "计时中"))
+    pv_chip = (f'<span class="chip warn">被动化率数据不全（缺 {pv_miss}）</span>' if not pv_ok else "")
+    pv_kpi_sub = (f"数据不全（缺 {pv_miss}）· 读数偏低，不做 7% 判定" if not pv_ok
+                  else f"土狗刻度 {p['value_pct_dog']:.2f}% · 提醒线 7%")
+    pv_note = ("" if pv_ok else (
+        '\n  <div class="card" style="border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.06)">'
+        f'<b style="color:var(--yellow)">⚠️ 读数不可用</b>：宽基 ETF 份额缺 {pv_miss}，分子少算约 2pp，'
+        f'当前 {p["value_pct"]:.2f}% 偏低，<b>本次不做 7% 判定</b>；均线、基差、情绪不受影响。</div>'))
+    pv_concl = (f"被动化率数据不全（缺 {pv_miss}），本次不做 7% 判定" if not pv_ok
+                else f"被动化率 {p['value_pct_dog']:.2f}%（土狗刻度，提醒线 7%）")
+
     series = ma["series"]
     mchart = chart(
         series,
@@ -324,13 +341,13 @@ def build_cycle(c):
     <div class="chips">
       <span class="chip on">出清开始（下穿）</span>
       <span class="chip {'on' if not ma['in_clearing'] else 'off'}">出清完成（上穿）</span>
-      <span class="chip {'on' if c['progress_done']==2 else 'warn'}">进度指标 {c['progress_done']}/2</span>
+      <span class="chip {'on' if c['progress_done']==2 else 'warn'}">进度指标 {c['progress_done']}/2</span>{pv_chip}
     </div>
   </div>
   <div class="kpis">
     <div class="kpi"><div class="k">沪深300 收盘</div><div class="v">{ma['close']:,.2f}</div><div class="s">MA40 {ma['ma_fast']:,.0f} · MA80 {ma['ma_slow']:,.0f}</div></div>
     <div class="kpi"><div class="k">MA40 − MA80</div><div class="v" style="color:var(--red)">{ma['dif']:,.1f}</div><div class="s">缺口 {ma['gap_pct']:.2f}%，需收窄后上穿</div></div>
-    <div class="kpi"><div class="k">被动化率</div><div class="v">{p['value_pct']:.2f}%</div><div class="s">土狗刻度 {p['value_pct_dog']:.2f}% · 提醒线 7%</div></div>
+    <div class="kpi"><div class="k">被动化率</div><div class="v">{p['value_pct']:.2f}%</div><div class="s">{pv_kpi_sub}</div></div>
     <div class="kpi"><div class="k">IF 远季年化</div><div class="v" style="color:var(--yellow)">{b['IF']['annual_pct']:.2f}%</div><div class="s">回落 {b['IF']['drop_pp']:.2f}pp · 正常 4–5%</div></div>
   </div>
 </div>
@@ -371,12 +388,12 @@ def build_cycle(c):
 </section>
 
 <section>
-  <h2><span class="idx">2</span>进度指标 A · 被动化率<span class="badge {'ok' if p['value_pct']>=7 else 'warn'}">{'已过 7% 提醒线' if p['value_pct']>=7 else '计时中'}</span></h2>
+  <h2><span class="idx">2</span>进度指标 A · 被动化率<span class="badge {pv_badge_cls}">{pv_badge_txt}</span></h2>
   <p class="lede">
     口径 = 宽基 ETF 总规模 ÷ 沪深300 自由流通市值。4.9% 起计时，7.0% 触发提醒，历史区间上沿 8.5%。
     当日 <b style="color:var(--txt)">{p['value_pct']:.2f}%</b>（Wind 分母 {p['denom_yi']/1e4:.2f} 万亿），
     按土狗原文刻度折算 <b style="color:var(--txt)">{p['value_pct_dog']:.2f}%</b>。
-  </p>
+  </p>{pv_note}
   {pct_bar(p['value_pct'], [(4.9, '起计时'), (7.0, '提醒'), (8.5, '上沿')])}
   <div class="card">
     <figure style="margin:0">
@@ -446,7 +463,7 @@ def build_cycle(c):
   <div class="card">
     <ul class="pts">
       <li><b>周期状态：{esc(ma['state'])}，第 {ma['days']} 个交易日。</b>边界由 MA40 与 MA80 的相对位置维持，报告动作：{esc(ma['report_action'])}。</li>
-      <li><b>进度指标 {c['progress_done']}/2 到位</b>：被动化率 {p['value_pct_dog']:.2f}%（土狗刻度，提醒线 7%）、基差回落 {b['IF']['drop_pp']:.2f}pp（门槛 5pp）。</li>
+      <li><b>进度指标 {c['progress_done']}/2 到位</b>：{pv_concl}、基差回落 {b['IF']['drop_pp']:.2f}pp（门槛 5pp）。</li>
       <li><b>完成与否只看均线</b>：MA40 与 MA80 当前相差 {ma['gap_pct']:.2f}%（{abs(ma['dif']):.0f} 点）。进度指标到位不等于周期结束，只说明出清走了大半程。</li>
       <li><b>停止发送的条件</b>：MA40 上穿 MA80 当日，本报告自动停发，不再占用每日推送位。</li>
     </ul>

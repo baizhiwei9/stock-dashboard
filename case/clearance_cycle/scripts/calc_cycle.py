@@ -102,6 +102,9 @@ def main():
     basis_r = calc_basis(basis)
 
     # 出清期间的两个进度指标（不是完成判定，完成只认 MA40 上穿 MA80）
+    # 被动化率分子缺一边交易所时读数偏低，done 不能照算 —— 否则 HTML 会拿偏低值
+    # 当「未过线」，正好是错信号。reliable 一路透传到 HTML / 指标，由下游标注。
+    pv_reliable = passive.get("reliable", True)
     progress = [
         {
             "name": "被动化率",
@@ -111,7 +114,11 @@ def main():
             "start": PASSIVE_START,
             "alert": PASSIVE_ALERT,
             "top": PASSIVE_TOP,
-            "done": passive["value_pct"] >= PASSIVE_ALERT,
+            "reliable": pv_reliable,
+            "degraded": bool(passive.get("degraded")),
+            "missing_exchanges": list(passive.get("missing_exchanges") or []),
+            "missing_names": list(passive.get("missing_names") or []),
+            "done": bool(pv_reliable) and passive["value_pct"] >= PASSIVE_ALERT,
             "note": "宽基ETF ÷ 沪深300自由流通市值",
         },
         {
