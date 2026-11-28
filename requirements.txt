@@ -93,3 +93,22 @@ networkx>=3.0
 reportlab>=4.0
 xgboost==3.4.1
 xlrd==2.0.2
+
+# —— 2026-11-28 补：上线前体检发现的「import 就崩」缺包 ——
+# 名字按 PyPI 项目名写（与 import 名不一致的见下面注释），不写猜的版本号。
+# lightgbm 上面快照里已经有了（第 41 行 lightgbm==4.7.0），这里不重复列。
+#
+# TA-Lib       import talib；case/factor_daily/chanlun_backtest/indicators.py（from talib import abstract）
+#              它依赖 TA-Lib 的 C 库，装之前要先备好系统库：
+#                Debian/Ubuntu   apt install libta-lib0-dev（老发行版叫 libta-lib-dev）
+#                macOS           brew install ta-lib
+#              或者直接用 0.6 起的官方 wheel（自带打包的 C 库），可免装系统库
+# torch        case/five_strategy/daily_report.py（LSTM / TCN）
+# mplfinance   K 线图；本仓暂无硬 import（仓内仅注释提及），按体检清单先补位
+# seaborn      case/_shared/limit_up_predictor/main.py
+# catboost     case/_shared/limit_up_predictor/main.py（from catboost import CatBoostClassifier）
+TA-Lib
+torch
+mplfinance
+seaborn
+catboost

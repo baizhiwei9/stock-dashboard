@@ -36,8 +36,11 @@ python3 build.py            # 或单次生成 index.html
 python3 manager.py list     # 命令行运维：清单 / status / run / enable / disable
 ```
 
-敏感配置**只放 `config/secrets.json`**（已 `.gitignore`，权限 0600），字段清单见
-[`config/README.md`](config/README.md)。仓库里只有占位模板 `config/secrets.example.json`；
+敏感配置默认放 `~/.config/stock-dashboard/secrets.json`（仓外最安全，权限 0600；文件名 `secrets.json`
+命中 `.gitignore`），兼容旧部署的 `<repo>/config/secrets.json` 与 `<repo>/case/_lib/secrets.json`
+也在查找路径里。字段清单见 [`docs/SECRETS.md`](docs/SECRETS.md)；仓库里唯一的占位模板是
+[`case/_lib/secrets.example.json`](case/_lib/secrets.example.json)（`config/` 目录已不存在，
+不要再去那里找模板）。
 `./install.sh` 与 `scheduler.py` 启动前都会校验，缺必填项直接拒绝启动。
 
 `manager.py` 是**命令行工具**，不监听端口；HTTP 控制台和注册接口都由 `scheduler.py`
@@ -69,10 +72,10 @@ IV / Skew 库内是小数，展示时 ×100 转 %。分位需要 ≥30 个样本
 
 ## dumate 分支：只展示，任务全部搬进 `case/`
 
-`dumate` 分支把「计算」和「展示」彻底分开：**本仓库不再跑原来的 8 个 producer**
-（`modules.json` 里 macro / liquidity / rmt / chanlun / dfa / option / bond / risk 全部 `enabled=false`，
-保留配置只为对照与回滚），所有任务以独立目录搬进 `case/`，由 `scheduler.py` 按各自 `task.json`
-的 `sched` 定时执行，产出写 DataHub 指标仓，`build.py` 再按 `section` 标签渲染。
+`dumate` 分支把「计算」和「展示」分开：所有任务以独立目录搬进 `case/`，由 `scheduler.py`
+按各自 `task.json` 的 `sched` 定时执行，产出写 DataHub 指标仓，`build.py` 再按 `section`
+标签渲染。老的 producer 配置仍留在 `modules.json`（现 12 个 module，**全部 `enabled=true`**，
+与 case 任务并存），不要再按「producer 已全部停用」理解。
 
 ```
 case/<task-key>/
@@ -87,10 +90,16 @@ case/<task-key>/
 case 任务跑完 → out/latest.json → case/_lib/publish.py → data_hub.tech 指标仓 → build.py
 ```
 
-任务按标签归类，`section` 同时决定面板 Tab 与投递行为：
-股票 `stock` 2 个、期货 `futures` 1 个、`macro` 3 个、`liquidity` 3 个、`bond` 3 个，
-`modules` 1 个（模板，不调度）。共 12 个 `public` 任务；另外 17 个 `private` 任务在私有仓库
-`precious-task`，通过 `CASE_EXTRA_DIRS` 挂进来照常跑、照常落库，只是不上牌面。
+任务编排的**唯一执行入口**是本仓的 `case/_lib/runner.py`（fetch → check → render → emit →
+dispatch 五阶段）。私有仓 `precious-task` 的 README 里引用的就是**这个文件**，它自己并没有
+一份 `case/_lib/runner.py`；换机时只需拷本仓，不要把 runner 当成私有仓的资产。
+
+任务按标签归类，`section` 同时决定面板 Tab 与投递行为。当前 `case/` 下共 56 个 `task.json`，
+其中 `_template` 是模板（`_` 前缀不装载、不调度），实际装载 **55 个**：
+股票 `stock` 23、期货 `futures` 4、`macro` 11、`liquidity` 5、期权 `option` 6、`bond` 3、
+地产 `realestate` 2、`risk` 1；按各自 `task.json` 的 `enabled`，20 个启用、35 个默认停用。
+这 55 个都是 `visibility=public`；更细的私有任务在私有仓 `precious-task`（现有 34 个
+`task.json`），通过 `CASE_EXTRA_DIRS` 挂进来照常跑、照常落库，只是不上牌面。
 
 常用命令：
 

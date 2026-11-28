@@ -53,8 +53,16 @@ diag() {
 
 [ -f "$HERE/index.html" ] || { echo "$(ts) 发布跳过：index.html 不存在" >> "$LOG"; exit 1; }
 if [ ! -x "$CLI" ]; then
-    echo "$(ts) 发布跳过：未找到 $CLI（非 Coze 平台属正常，设 COZE_DEV_CLI 指向可执行文件）" >> "$LOG"
-    exit 0
+    # 找不到发布 CLI 就是没发布成功：默认判失败，别再 exit 0 冒充成功。
+    # 确实不需要发布的环境（例如只跑本地看板的机器）显式设 ALLOW_SKIP=1 豁免。
+    if [ "${ALLOW_SKIP:-0}" = "1" ]; then
+        echo "$(ts) 发布跳过（ALLOW_SKIP=1 显式豁免）：未找到 $CLI" >> "$LOG"
+        echo "[publish] 跳过发布：未找到 $CLI，ALLOW_SKIP=1 显式豁免" >&2
+        exit 0
+    fi
+    echo "$(ts) 发布失败：未找到 $CLI（可用 COZE_DEV_CLI 指向可执行文件）" >> "$LOG"
+    echo "[publish] 发布失败：未找到 $CLI（设 COZE_DEV_CLI 指向可执行文件；确需跳过发布请设 ALLOW_SKIP=1）" >&2
+    exit 1
 fi
 if [ -z "$PY" ]; then
     echo "[publish] 发布失败：找不到 python（设 PYTHON 或把 python3 放进 PATH）" >&2

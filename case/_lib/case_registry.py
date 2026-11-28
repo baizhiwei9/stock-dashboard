@@ -48,7 +48,13 @@ def _read_json(path: str, default):
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except (OSError, ValueError):
+    except OSError:
+        return default
+    except ValueError as e:
+        # JSON 坏掉不能静默吞：调用方照旧拿 default（缺省 None，行为不变），
+        # 但必须留痕 —— 否则整份 task.json 会被当成「没有这个任务」悄悄消失，
+        # 只表现为任务数少一个，没人查得出来。
+        print("[case_registry] JSON 解析失败：%s: %s" % (path, e), file=sys.stderr)
         return default
 
 
