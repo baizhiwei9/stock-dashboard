@@ -259,6 +259,13 @@ def _stage_spec(task: Dict, name: str) -> Dict:
     for st in pipe.get("stages") or []:
         if isinstance(st, dict) and st.get("name") == name:
             return st
+    # legacy 任务：task.json 只有 cmd、没有 pipeline.stages（如 `bash run.sh`、
+    # `python3 -u run.py`）。这类任务的取数/计算/出报告全在那条 cmd 里，
+    # 旧逻辑会让五个阶段全「未配置，跳过」→ 任务空转，check 再报「data/ 空」，
+    # 看着像数据源坏了。把 cmd 挂到 fetch 阶段执行，让 runner 单跑 = 真跑一遍。
+    if name == "fetch" and task.get("cmd") and not (pipe.get("stages") or []):
+        return {"name": "fetch", "cmd": task["cmd"],
+                "timeout": int(task.get("timeout") or 0)}
     return {}
 
 

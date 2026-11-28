@@ -59,8 +59,11 @@ def calc_passive(etf, hs300_recs):
     hs = hs.sort_values("date")
     cur_close = float(hs["close"].iloc[-1])
     ratio_denom = lambda c: denom_yi * c / cur_close  # noqa: E731
-    # 土狗锚点校准：以其 11/27 读数 7.83% 反推其分母，便于与原文刻度对齐
-    denom_dog = wide_yi / 0.0783
+    # 土狗锚点校准：以其 11/27 读数 7.83% 反推其分母，便于与原文刻度对齐。
+    # 宽度口径取不到（wide_yi=0，多为 ETF 规模源不可用）时分母为 0，直接除会
+    # ZeroDivisionError 把整个 render 打挂 —— 退化成 0 并保留 degraded 标记，
+    # 下游仍拿到数值可格式化，报告按「数据不全」呈现。
+    denom_dog = (wide_yi / 0.0783) if wide_yi else 0.0
 
     hist_path = os.path.join(DATA, "passive_history.csv")
     hist = []
@@ -71,8 +74,9 @@ def calc_passive(etf, hs300_recs):
             hist.append({
                 "date": str(r["date"]),
                 "wide_yi": round(float(r["wide_yi"]), 1),
-                "pct": round(float(r["wide_yi"]) / denom * 100, 2),
-                "pct_dog": round(float(r["wide_yi"]) / denom_dog * 100, 2),
+                "pct": round(float(r["wide_yi"]) / denom * 100, 2) if denom else 0.0,
+                "pct_dog": (round(float(r["wide_yi"]) / denom_dog * 100, 2)
+                            if denom_dog else 0.0),
             })
 
     status = "未起计时"
@@ -95,8 +99,9 @@ def calc_passive(etf, hs300_recs):
         "status": status,
         "progress_pct": round(min(100, max(0, (cur - PASSIVE_START) / (PASSIVE_TOP - PASSIVE_START) * 100)), 1),
         "gap_to_alert_pp": round(cur - PASSIVE_ALERT, 2),
-        "value_pct_dog": round(wide_yi / denom_dog * 100, 2),
+        "value_pct_dog": round(wide_yi / denom_dog * 100, 2) if denom_dog else 0.0,
         "denom_dog_yi": round(denom_dog, 0),
+        "dog_calibrated": bool(denom_dog),
         "by_cat_yi": etf["by_cat_yi"],
         "history": hist,
         "tuogou_anchor": {"date": "2026-11-27", "pct": 7.83, "note": "土狗原文 Vol.261128 读数，其自由流通市值口径略小于 Wind"},
