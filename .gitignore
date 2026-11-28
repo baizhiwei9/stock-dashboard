@@ -18,6 +18,8 @@ registry.json
 # 属于本机数据，不是代码。仓库里一个都不放（git ls-files 应查不到 /data/ /out/）。
 case/*/data/
 case/*/out/
+# 任务的原生产物目录（scripts 直接写 output/data、output/report，不在契约里但会污染 git status）
+case/*/output/
 # case 跨任务共用目录里的运行产物（_shared 下只有代码入库）
 case/_shared/reports/*
 !case/_shared/reports/.gitkeep
