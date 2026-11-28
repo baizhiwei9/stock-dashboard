@@ -31,10 +31,10 @@ DB = os.path.join(ARCH, "macro_archive.db")
 sys.path.insert(0, "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-multi-tier")
 from data_hub.edb import api  # noqa: E402
 
-#: 归档保留期（自然日）。用户口径：最少 60 天、**任何数据不得存一年以上**，这批宏观取半年 = 180 天。
-RETENTION_DAYS = 180
-#: 硬上限（自然日）。超过一年的数据一律不许留在库里，prune 与 check 都按这条卡。
-MAX_RETENTION_DAYS = 365
+#: 归档保留期（自然日）。用户口径：最少 60 天、最多一年，最终定为一年 = 365 天。
+RETENTION_DAYS = 365
+#: 硬上限（自然日）。留一天给闰年，366 之外一律清掉。
+MAX_RETENTION_DAYS = 366
 #: 日频回溯起点（保证半年以上、并给 13 周均线留预热）。
 DAY_START = "2024-06-01"
 
@@ -208,7 +208,7 @@ def check(c) -> bool:
         # 月频天然只到最后一个发布月（5 期≈122 天），不能按「跨度 180 天」卡；
         # 只对日频按跨度看，月频按期数看。
         if freq == "M":
-            short = n < 5
+            short = n < 11
             flag = "" if not short else f"  ← 仅 {n} 期"
         else:
             short = days < RETENTION_DAYS - 60
@@ -222,10 +222,10 @@ def check(c) -> bool:
     print(f"\n序列 {len(rows)} 条 / {total} 行；最早 {earliest}，跨度 {span} 天")
     print("库:", DB, f"{os.path.getsize(DB)/1024/1024:.1f} MB")
     if bad:
-        print("明显偏短的序列（月频<5 期 / 日频<120 天）:", ", ".join(bad) if bad else "无")
+        print("明显偏短的序列（月频<11 期 / 日频<300 天）:", ", ".join(bad) if bad else "无")
     ret = int(c.execute("SELECT value FROM meta WHERE key='retention_days'").fetchone()[0])
     ok = 60 <= ret <= MAX_RETENTION_DAYS and span <= MAX_RETENTION_DAYS
-    print(f"保留策略 {ret} 天（允许区间 60~{MAX_RETENTION_DAYS} 天），实际跨度 {span} 天 ≤ 一年:",
+    print(f"保留策略 {ret} 天（允许区间 60~{MAX_RETENTION_DAYS} 天），实际跨度 {span} 天:",
           "通过" if ok else "未通过")
     return ok
 
@@ -238,9 +238,9 @@ def main():
     c = conn(rebuild=a.rebuild)
     if not a.check:
         print("== 1) 落盘宽表 → 库 =="); print(load_from_csv(c))
-        have = {r[0] for r in c.execute("SELECT DISTINCT series_id FROM series_data")}
-        miss_m = [s for s in MONTH_SERIES if s not in have]
-        print("== 2) 缺口月度回源 ==", miss_m); print(fill_from_edb(c, miss_m, []))
+        # 月度一律回源取全量（CSV 里部分月份有缺口，例如 PPI 明细缺 2025-11/12），
+        # 回源命中 hist 缓存时很快；upsert 幂等，不会破坏已有行。
+        print("== 2) 月度回源（全量）=="); print(fill_from_edb(c, MONTH_SERIES, []))
         print("== 3) 日频回溯到", DAY_START, "=="); print(extend_daily(c))
         print("== 4) 清理超期 ==", prune(c))
     ok = check(c)
