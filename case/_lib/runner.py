@@ -391,6 +391,10 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
         if spec.get("hook"):
             raise RuntimeError("%s 阶段声明了 hook，但 pipeline.py 里没有 %s()" % (name, name))
         ctx.log("  未配置 %s 阶段，跳过" % name)
+        if name == "fetch":
+            ctx.log("    提示：该任务的取数不在 pipeline 里（通常在 modules.json 的 producer "
+                    "或 run_daily.sh 中执行），单独用 runner 跑必然是空 data/；"
+                    "排障请先跑 producer，再单独跑 runner")
         return {"name": name, "ok": True, "rc": 0, "sec": 0.0, "detail": "未配置，跳过",
                 "skipped": True}
 

@@ -176,14 +176,51 @@ def fetch_szse():
 
 
 def fetch_nav():
-    """场内基金最新单位净值（东财 fund.eastmoney.com 源，可用）"""
+    """场内基金最新单位净值：多源降级，取不到就返回空 dict（不抛）。
+
+    2026-11 起的现实：``fund_etf_fund_daily_em`` 已在 akshare 1.20.x 移除，
+    东财 push2 还会对高频调用限流（Push2RateLimitError）。原来的单源写法会让
+    整个「宽基 ETF 规模」块直接崩掉。这里按「老接口 → spot 快照(IOPV/最新价)」
+    逐级降级，全失败返回 ``({}, "")``——上游按「净值缺失」处理，份额数据照常保留。
+    """
     import akshare as ak
 
-    nav = ak.fund_etf_fund_daily_em()
-    col = [c for c in nav.columns if str(c).endswith("单位净值")][0]
-    nav["code"] = nav["基金代码"].astype(str).str.zfill(6)
-    nav["nav"] = pd.to_numeric(nav[col], errors="coerce")
-    return nav.set_index("code")["nav"].to_dict(), str(col).replace("-单位净值", "")
+    def _from_daily():
+        if not hasattr(ak, "fund_etf_fund_daily_em"):
+            return None
+        nav = ak.fund_etf_fund_daily_em()
+        col = [c for c in nav.columns if str(c).endswith("单位净值")][0]
+        nav["code"] = nav["基金代码"].astype(str).str.zfill(6)
+        nav["nav"] = pd.to_numeric(nav[col], errors="coerce")
+        return nav.set_index("code")["nav"].to_dict(), str(col).replace("-单位净值", "")
+
+    def _from_spot():
+        if not hasattr(ak, "fund_etf_spot_em"):
+            return None
+        df = ak.fund_etf_spot_em()
+        cols = [c for c in df.columns if "IOPV" in str(c)]
+        cols = cols or [c for c in df.columns if "最新" in str(c) and "价" in str(c)]
+        if not cols:
+            return None
+        col = cols[0]
+        df = df.copy()
+        df["code"] = df["代码"].astype(str).str.zfill(6)
+        df["nav"] = pd.to_numeric(df[col], errors="coerce")
+        return df.set_index("code")["nav"].to_dict(), "%s(近似)" % col
+
+    for name, fn in (("fund_etf_fund_daily_em", _from_daily),
+                     ("fund_etf_spot_em", _from_spot)):
+        try:
+            got = fn()
+        except Exception as e:  # noqa: BLE001
+            print(f"[etf_scale] 净值源 {name} 不可用，尝试下一个: "
+                  f"{type(e).__name__}: {str(e)[:120]}", flush=True)
+            continue
+        if got:
+            return got
+    print("[etf_scale] 净值全部源不可用，本次按「净值缺失」处理"
+          "（份额数据保留，规模列置空）", flush=True)
+    return {}, ""
 
 
 def classify(name):
