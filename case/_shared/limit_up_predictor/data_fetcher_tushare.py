@@ -38,6 +38,43 @@ def _secret(dotted, *env_names, default=''):
         return default
 
 
+def _ensure_datahub_on_path():
+    """把 DataHub 根目录加入 sys.path（与 runner 的 datahub_path.py 同口径）。
+
+    本模块可能被单独 import（离线回测/独立脚本），不能假设 runner 已经设好
+    路径；只需要 ``data_hub.core.tushare_config`` 里的代理地址常量。
+    """
+    if 'data_hub' in sys.modules:
+        return
+    roots = []
+    cur = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(8):
+        p = os.path.join(cur, 'datahub_path.py')
+        if os.path.isfile(p):
+            ns = {'__file__': p, '__name__': 'datahub_path'}
+            try:
+                with open(p, encoding='utf-8') as f:
+                    exec(compile(f.read(), p, 'exec'), ns)
+                roots.append(ns['datahub_root']())
+            except Exception:                       # noqa: BLE001
+                pass
+            roots += [os.path.join(cur, 'datahub-multi-tier'),
+                      os.path.join(os.path.dirname(cur), 'datahub-multi-tier')]
+            break
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    roots.append(os.environ.get('DATA_HUB_PATH')
+                 or os.environ.get('DATAHUB_DIR') or '')
+    for root in roots:
+        if root and os.path.isdir(os.path.join(root, 'data_hub')) \
+                and root not in sys.path:
+            sys.path.insert(0, root)
+            return root
+    return None
+
+
 try:
     import tushare as ts
     TUSHARE_AVAILABLE = True
@@ -68,20 +105,42 @@ class DataFetcherTuShare:
         self.start_date_ts = self.start_date.replace('-', '')
         self.end_date_ts = self.end_date.replace('-', '')
         
-        # 获取 token
-        if token is None:
-            token = _secret('tushare.token', 'TUSHARE_TOKEN')
-        
-        if not token:
-            raise ValueError("TuShare token 未配置，请设置环境变量 TUSHARE_TOKEN 或传入 token 参数")
-        
-        ts.set_token(token)
-        self.pro = ts.pro_api()
-        
+        # 构造 pro 客户端（token 与 endpoint 必须配对，见 _build_pro）
+        self.pro = self._build_pro(token)
+
         # 限流控制
         self.min_interval = 0.3  # 最小调用间隔（秒）
         self.last_call_time = 0
         
+    @staticmethod
+    def _build_pro(token: Optional[str] = None):
+        """构造 tushare pro 客户端，保证 token 与 endpoint 配对。
+
+        2026-11-28 修：secrets 里的 ``tushare.token`` 是 dailyfetch 代理 token，
+        只对 ``https://ttx.dailyfetch.top/`` 有效。旧代码 ``ts.set_token(token)``
+        + ``ts.pro_api()`` 会请求官方 ``api.waditu.com``，必然报「您的token不对」，
+        导致 limit_up 的 TuShare 兜底整层失效。
+        """
+        proxy_token = _secret('tushare.token', 'TUSHARE_TOKEN')
+        token = token or proxy_token
+        if not token:
+            raise ValueError(
+                "TuShare token 未配置，请设置环境变量 TUSHARE_TOKEN 或传入 token 参数")
+
+        if proxy_token and token == proxy_token:
+            # 代理 token → 代理地址（与 data_hub.core.tushare_config 同一口径）
+            _ensure_datahub_on_path()
+            try:
+                from data_hub.core.tushare_config import TUSHARE_PROXY_URL
+            except Exception:                       # noqa: BLE001
+                TUSHARE_PROXY_URL = 'https://ttx.dailyfetch.top/'
+            pro = ts.pro_api(token)
+            pro._DataApi__http_url = TUSHARE_PROXY_URL
+            return pro
+
+        # 调用方显式传入的其它 token（官方账号）→ 官方地址
+        return ts.pro_api(token)
+
     def _rate_limit(self):
         """限流控制"""
         current_time = time.time()
