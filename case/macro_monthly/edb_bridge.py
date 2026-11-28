@@ -68,7 +68,9 @@ def update(codes=None, force=False):
 def series(code):
     """读单条序列，返回 pandas.Series(index='YYYY-MM-DD', value)，按日期升序。"""
     st = store_mod()
-    with st.connect() as conn:
+    # 纯读走读锁（多读并行、不跑 DDL）；老版本 hub 没有 read_connect 时退回 connect。
+    connect_ro = getattr(st, "read_connect", None) or st.connect
+    with connect_ro() as conn:
         rows = conn.execute(
             "SELECT date, value FROM edb_points WHERE series_id=? ORDER BY date", (code,)).fetchall()
     if not rows:

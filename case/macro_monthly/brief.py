@@ -44,6 +44,15 @@ def _delta(cur, prev, unit="", signed=True):
     return (f"{d:+.1f}{unit}" if signed else f"{d:.1f}{unit}")
 
 
+def _delta_par(cur, prev, unit=""):
+    """环比括号。本期也没有时跟随「未取到」不重复；只有本期、没有上期时显式写
+    「（无上期）」，不输出一对空括号。"""
+    if cur is None:
+        return ""
+    d = _delta(cur, prev, unit)
+    return f"（{d}）" if d else "（无上期）"
+
+
 def collect():
     """取三条线的读数与图；返回 dict。"""
     order, order_prev = _last2("CN.PMI.NEW.ORDER")
@@ -92,9 +101,9 @@ def judgements(d):
     out_order = []
     if d["order"] is not None:
         state = "跌破荣枯线" if d["order"] < 50 else "仍在荣枯线上"
-        out_order.append(f"新订单 {d['order']:.1f}（{_delta(d['order'], d['order_prev'])}）{state}")
+        out_order.append(f"新订单 {d['order']:.1f}{_delta_par(d['order'], d['order_prev'])}{state}")
     if d["export_order"] is not None:
-        out_order.append(f"新出口订单 {d['export_order']:.1f}（{_delta(d['export_order'], d['export_order_prev'])}）")
+        out_order.append(f"新出口订单 {d['export_order']:.1f}{_delta_par(d['export_order'], d['export_order_prev'])}")
     order_txt = "，".join(out_order) + ("：外需订单回落更快。" if (
         d["export_order"] is not None and d["order"] is not None
         and d["export_order"] < d["order"]) else "。")
@@ -103,12 +112,12 @@ def judgements(d):
     if d["svc"] is not None or d["cons"] is not None:
         parts = []
         if d["svc"] is not None:
-            parts.append(f"服务业新订单 {d['svc']:.1f}（{_delta(d['svc'], d['svc_prev'])}）")
+            parts.append(f"服务业新订单 {d['svc']:.1f}{_delta_par(d['svc'], d['svc_prev'])}")
         if d["cons"] is not None:
-            parts.append(f"建筑业新订单 {d['cons']:.1f}（{_delta(d['cons'], d['cons_prev'])}）")
+            parts.append(f"建筑业新订单 {d['cons']:.1f}{_delta_par(d['cons'], d['cons_prev'])}")
         nmfg_txt = "，".join(parts)
         if d["nmfg"] is not None:
-            nmfg_txt += f"；非制造业 PMI {d['nmfg']:.1f}（{_delta(d['nmfg'], d['nmfg_prev'])}）"
+            nmfg_txt += f"；非制造业 PMI {d['nmfg']:.1f}{_delta_par(d['nmfg'], d['nmfg_prev'])}"
         nmfg_txt += "：非制造业订单同步走弱。" if (
             (d["svc"] or 100) < 50 and (d["cons"] or 100) < 50) else "。"
 
@@ -116,7 +125,7 @@ def judgements(d):
     if d["export"] is not None:
         out_out.append(f"出口同比 {d['export']:+.1f}%（前值 {_fmt(d['export_prev'], '%', True)}）")
     if d["prod"] is not None:
-        out_out.append(f"PMI 生产 {d['prod']:.1f}（{_delta(d['prod'], d['prod_prev'])}）")
+        out_out.append(f"PMI 生产 {d['prod']:.1f}{_delta_par(d['prod'], d['prod_prev'])}")
     if d["profit_m"] is not None:
         out_out.append(f"利润当月 {d['profit_m']:+.1f}%")
     output_txt = "，".join(out_out) + "。"
@@ -131,8 +140,8 @@ def judgements(d):
 
     durable_txt = ""
     if d["durable"] is not None or d["daily"] is not None:
-        durable_txt = (f"耐用品 PPI {_fmt(d['durable'], '%', True)}（{_delta(d['durable'], d['durable_prev'])}）、"
-                       f"非耐用品（一般日用品）{_fmt(d['daily'], '%', True)}（{_delta(d['daily'], d['daily_prev'])}）")
+        durable_txt = (f"耐用品 PPI {_fmt(d['durable'], '%', True)}{_delta_par(d['durable'], d['durable_prev'])}、"
+                       f"非耐用品（一般日用品）{_fmt(d['daily'], '%', True)}{_delta_par(d['daily'], d['daily_prev'])}")
         if d["durable"] is not None and d["daily"] is not None:
             durable_txt += ("：耐用品涨幅高于非耐用品，成本压力集中在可选消费。" if d["durable"] > d["daily"]
                             else "：非耐用品涨幅更高，压力偏必需消费。")
@@ -148,12 +157,12 @@ def judgements(d):
 def kpi_pairs(d):
     """卡片字段块与邮件 KPI 条共用：[(标签, 值)]。"""
     return [
-        ("制造业 · 新订单", f"{_fmt(d['order'])}（{_delta(d['order'], d['order_prev'])}）"),
-        ("制造业 · 新出口订单", f"{_fmt(d['export_order'])}（{_delta(d['export_order'], d['export_order_prev'])}）"),
-        ("非制造业 · 服务业新订单", f"{_fmt(d['svc'])}（{_delta(d['svc'], d['svc_prev'])}）"),
-        ("非制造业 · 建筑业新订单", f"{_fmt(d['cons'])}（{_delta(d['cons'], d['cons_prev'])}）"),
+        ("制造业 · 新订单", f"{_fmt(d['order'])}{_delta_par(d['order'], d['order_prev'])}"),
+        ("制造业 · 新出口订单", f"{_fmt(d['export_order'])}{_delta_par(d['export_order'], d['export_order_prev'])}"),
+        ("非制造业 · 服务业新订单", f"{_fmt(d['svc'])}{_delta_par(d['svc'], d['svc_prev'])}"),
+        ("非制造业 · 建筑业新订单", f"{_fmt(d['cons'])}{_delta_par(d['cons'], d['cons_prev'])}"),
         ("产出 · 出口同比", _fmt(d["export"], "%", True)),
-        ("产出 · PMI 生产", f"{_fmt(d['prod'])}（{_delta(d['prod'], d['prod_prev'])}）"),
+        ("产出 · PMI 生产", f"{_fmt(d['prod'])}{_delta_par(d['prod'], d['prod_prev'])}"),
         ("物价 · PPI 同比", f"{_fmt(d['ppi'], '%', True)}（环比 {_fmt(d['ppi_mom'], '%', True)}）"),
         ("物价 · 布伦特月均", f"{_fmt(d['brent'], ' 美元')}"),
         ("耐用品 · PPI 耐用消费品", f"{_fmt(d['durable'], '%', True)}"),
