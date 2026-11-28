@@ -34,8 +34,14 @@ cd "$DASH" || { echo "cd 失败" >> "$LOG"; exit 1; }
 # 1. 增量入库（新报告才解析；解析器升版会自动全量重解析）
 "$PY" ingest.py >> "$LOG" 2>&1
 RC1=$?
+if [ $RC1 -ne 0 ]; then
+    # ingest 明确失败（例如数据源目录不存在）：保留上次页面，不用空壳覆盖
+    echo "$(date '+%Y-%m-%d %H:%M:%S') 失败 ingest=$RC1（保留上次页面，不发布）" >> "$LOG"
+    exit $RC1
+fi
 
-# 1.5 事实库为空时明确告警（换机后 DASH_BASE 没指向报告目录时，页面会「成功生成但全空」）
+# 1.5 事实库为空时不覆盖页面：换机后 DASH_BASE 没指向报告目录时，
+# 旧行为是「成功生成空看板 + 照常 publish」，线上看起来像更新了、实际全空。
 FACTS=$("$PY" - <<'PYEOF' 2>/dev/null || echo 0
 import sqlite3
 try:
@@ -45,7 +51,8 @@ except Exception:
 PYEOF
 )
 if [ "${FACTS:-0}" -eq 0 ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [warn] facts 为 0：DASH_BASE 未指向报告目录或报告还没同步，本次生成的是空看板" >> "$LOG"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [warn] facts 为 0：DASH_BASE 未指向报告目录或报告还没同步；本次不渲染、不发布，保留上次页面" >> "$LOG"
+    exit 3
 fi
 
 # 2. 重新渲染看板

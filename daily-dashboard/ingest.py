@@ -14,10 +14,30 @@ ingest.py — 把「AI股票群」全部历史报告 + 期权库，统一落进�
 """
 import os, re, sys, glob, sqlite3, datetime
 
-# 数据源根目录（各任务产出的 md/报告都在这下面）。可用 DASH_BASE 覆盖。
-import os
-BASE = os.environ.get("DASH_BASE", "/Coze/Drive/蓁宝/所有对话/主对话")
+# 数据源根目录（各任务产出的 md/报告都在这下面）。
+# 解析顺序：① DASH_BASE 环境变量（换机显式指定）→ ② 旧布局云盘路径
+#           → ③ 本仓 case/_shared/reports（仓库内报告落点，自测/离线渲染用）
+# 三个都不存在时 main() 明确失败，不再静默生成空看板 —— 旧行为是 DASH_BASE
+# 没指对就走「解析 0 条 → 照样渲染 25 张空图 → 照常 publish」，线上看起来像更新了。
 HERE = os.path.dirname(os.path.abspath(__file__))
+_BASE_CANDS = (
+    "/Coze/Drive/蓁宝/所有对话/主对话",
+    os.path.join(os.path.dirname(HERE), "case", "_shared", "reports"),
+)
+
+
+def _resolve_base():
+    env = (os.environ.get("DASH_BASE") or "").strip()
+    if env:
+        return env
+    for cand in _BASE_CANDS:
+        if os.path.isdir(cand):
+            return cand
+    return _BASE_CANDS[0]
+
+
+BASE = _resolve_base()
+BASE_OK = os.path.isdir(BASE)
 
 # 解析器版本：改动任何 parse_* 逻辑后必须升版，否则增量模式会跳过已入库文件
 PARSER_VER = "2026-11-24a"
@@ -813,6 +833,12 @@ SOURCES = [
 
 
 def main():
+    # 数据源目录不存在就直接失败：静默跑成 0 条会让看板变成空壳（旧行为）。
+    if not BASE_OK:
+        print("[ingest] 数据源目录不存在：%s" % BASE)
+        print("[ingest] 设 DASH_BASE=<报告根目录> 指向真实报告落点；"
+              "本机自测可指仓库内 case/_shared/reports")
+        return 2
     rebuild = "--rebuild" in sys.argv
     if rebuild:
         for suf in ("", "-wal", "-shm"):
@@ -922,4 +948,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
