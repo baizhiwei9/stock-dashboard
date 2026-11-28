@@ -22,9 +22,23 @@ fi
 # 所以这里把它包一层，用专门的退出码把「休市」与「真实错误」区分开：
 #   0 = 交易日（照常出报告）  3 = 明确非交易日（跳过）
 #   2 = 导入失败/其它异常（stderr 原样透出，下面按失败 exit 1）
+#
+# trading_day_check 在 case/_lib（#173 已补），但只有经过 runner 时才被注入
+# PYTHONPATH；直接 `bash run.sh`（手工补跑、crontab 直跑旧入口、排障单跑）
+# 仍会 ModuleNotFoundError → rc=2 → exit 1。这里两层兜底：
+#   ① 把 case/_lib 挂进 PYTHONPATH，用仓库内实现（akshare → tushare → 工作日降级）；
+#   ② 用 hub_root.ensure_hub_on_path 按全仓统一口径（环境变量 → 仓库根
+#      datahub_path.py → 同级 checkout）把 DataHub 根插到 sys.path 最前，
+#      DataHub 里若有更新的实现就优先用它；找不到不阻断，①仍是兜底。
 rc=0
-python3 - <<'PY' || rc=$?
+PYTHONPATH="$HERE/../_lib${PYTHONPATH:+:$PYTHONPATH}" \
+python3 - "$HERE" <<'PY' || rc=$?
 import sys
+try:
+    from hub_root import ensure_hub_on_path
+    ensure_hub_on_path(sys.argv[1] if len(sys.argv) > 1 else ".")
+except Exception:                    # DataHub 未部署/未装：退仓库内实现
+    pass
 try:
     from trading_day_check import check_trading_day
 except Exception:
