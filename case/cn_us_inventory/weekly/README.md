@@ -47,12 +47,12 @@ python3 build_report.py    # 出 HTML（数据全部读上面两个 CSV，不再
 `python3 archive_macro.py` 把本模块用到的 70 条月度/日频序列 upsert 进 `archive/macro_archive.db`：
 
 - 表 `series_data(series_id, date, value, freq, unit, source, updated_at)`，主键 `(series_id, date)`，增量幂等，可反复跑；
-- **保留期 400 天**（月频另保底 36 期），不跟随 datahub 统一库的 60 天裁剪 —— 这也是为什么单独建库：
-  统一库的 60 天窗口会把月度序列裁到只剩 1 个点，算不了持续月数与连续同向；
+- **保留期 180 天（半年）**，硬上限 365 天 —— 口径是「最少 60 天、任何数据不得存一年以上」，这批宏观取半年。
+  单独建库的原因：datahub 统一库的 60 天窗口会把月度序列裁到只剩 1 个点，持续月数根本算不了；
 - 库文件随仓库提交（异地副本）；工作区本身挂在 CFS 网络盘上，换台机器 clone 下来直接可查；
 - 查询：`sqlite3 archive/macro_archive.db "select date,value from series_data where series_id='CN.PPI.YOY' order by date desc limit 12;"`
-- 体检：`python3 archive_macro.py --check`（打印每条序列的起止、行数、覆盖月数与保留策略）。
+- 体检：`python3 archive_macro.py --check`（打印每条序列的起止、行数、跨度与保留策略）。
 
-当前覆盖：70 条序列 / 5480 行 / 1.0 MB，64 条现有历史已满半年；6 条交易所库存（`CN.EXINV.*`）受接口
-只回约 3 个月所限起点是 2026-08-19，库内不删，随每期归档累积，2027-02 起自然满半年。
-`--rebuild` 可重建（清空重写），日常用默认增量模式。
+当前覆盖：70 条序列 / 2,450 行 / 1.0 MB，最早 2026-06-01，跨度 180 天（已按半年裁过一刀）。
+日频 123~130 个交易日；月度只留 2026-06 ~ 2026-10 共 5 期 —— **保留半年就做不了 12 个月同比**，
+需要同比时把 `RETENTION_DAYS` 放到 330 天左右（上限 365，不得更高）。`--rebuild` 重建，日常用默认增量模式。

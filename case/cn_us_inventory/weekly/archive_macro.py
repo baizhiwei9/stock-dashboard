@@ -31,10 +31,10 @@ DB = os.path.join(ARCH, "macro_archive.db")
 sys.path.insert(0, "/home/work/dumate/5eaa88f7d2d5403f9ae855f5fcfd7f34/workspace/projects/datahub-multi-tier")
 from data_hub.edb import api  # noqa: E402
 
-#: 归档保留期（自然日）。用户要求「至少存半年」，按 400 天留冗余。
-RETENTION_DAYS = 400
-#: 月频序列最少保留期数（36 期 = 3 年），防止按天裁剪把月频裁空。
-MIN_MONTH_ROWS = 36
+#: 归档保留期（自然日）。用户口径：最少 60 天、**任何数据不得存一年以上**，这批宏观取半年 = 180 天。
+RETENTION_DAYS = 180
+#: 硬上限（自然日）。超过一年的数据一律不许留在库里，prune 与 check 都按这条卡。
+MAX_RETENTION_DAYS = 365
 #: 日频回溯起点（保证半年以上、并给 13 周均线留预热）。
 DAY_START = "2024-06-01"
 
@@ -188,16 +188,11 @@ def extend_daily(c) -> dict:
 
 
 def prune(c) -> int:
-    """按 400 天裁剪；月频不足 36 期、日频不足 180 天的序列不裁（保底半年）。"""
+    """按 180 天裁剪，并强制「不留一年以上」：先按保留期删，再按 365 天硬上限兜一刀。"""
     cutoff = (dt.date.today() - dt.timedelta(days=RETENTION_DAYS)).isoformat()
-    n = 0
-    rows = c.execute("SELECT series_id, freq, COUNT(*), MIN(date) FROM series_data GROUP BY series_id").fetchall()
-    for sid, freq, cnt, d0 in rows:
-        if freq == "M" and cnt <= MIN_MONTH_ROWS:
-            continue
-        if d0 >= (dt.date.today() - dt.timedelta(days=180)).isoformat():
-            continue
-        n += c.execute("DELETE FROM series_data WHERE series_id=? AND date<?", (sid, cutoff)).rowcount
+    n = c.execute("DELETE FROM series_data WHERE date < ?", (cutoff,)).rowcount
+    hard = (dt.date.today() - dt.timedelta(days=MAX_RETENTION_DAYS)).isoformat()
+    n += c.execute("DELETE FROM series_data WHERE date < ?", (hard,)).rowcount
     c.commit()
     return n
 
@@ -208,22 +203,30 @@ def check(c) -> bool:
     print(f"{'series':32s}{'行数':>6s}{'起':>12s}{'止':>12s}{'月数':>7s}")
     bad = []
     for sid, n, d0, d1, freq in rows:
-        m = (pd.Timestamp(d1) - pd.Timestamp(d0)).days / 30.44
-        flag = "" if m >= 6 else "  ← 不足半年"
-        if m < 6:
+        days = (pd.Timestamp(d1) - pd.Timestamp(d0)).days
+        m = days / 30.44
+        # 月频天然只到最后一个发布月（5 期≈122 天），不能按「跨度 180 天」卡；
+        # 只对日频按跨度看，月频按期数看。
+        if freq == "M":
+            short = n < 5
+            flag = "" if not short else f"  ← 仅 {n} 期"
+        else:
+            short = days < RETENTION_DAYS - 60
+            flag = "" if not short else f"  ← 仅 {days} 天"
+        if short:
             bad.append(sid)
         print(f"{sid:32s}{n:6d}{d0:>12s}{d1:>12s}{m:7.1f}{flag}")
     total = c.execute("SELECT COUNT(*) FROM series_data").fetchone()[0]
-    print(f"\n序列 {len(rows)} 条 / {total} 行；现有历史≥半年 {len(rows)-len(bad)} 条，不足 {len(bad)} 条")
+    earliest = c.execute("SELECT MIN(date) FROM series_data").fetchone()[0]
+    span = (pd.Timestamp(dt.date.today()) - pd.Timestamp(earliest)).days
+    print(f"\n序列 {len(rows)} 条 / {total} 行；最早 {earliest}，跨度 {span} 天")
     print("库:", DB, f"{os.path.getsize(DB)/1024/1024:.1f} MB")
     if bad:
-        print("现有历史不足半年:", ", ".join(bad))
-        print("  → 属数据源历史长度所限（交易所库存接口只回约 3 个月）；库保留 400 天不回删，"
-              "随每期归档自然累积到半年以上")
-    # 判定看「保留策略」而不是「现有历史长度」：历史长度由数据源决定，保留承诺由这里保证
+        print("明显偏短的序列（月频<5 期 / 日频<120 天）:", ", ".join(bad) if bad else "无")
     ret = int(c.execute("SELECT value FROM meta WHERE key='retention_days'").fetchone()[0])
-    ok = ret >= 180
-    print(f"保留策略 {ret} 天（要求 ≥180 天）:", "通过" if ok else "未通过")
+    ok = 60 <= ret <= MAX_RETENTION_DAYS and span <= MAX_RETENTION_DAYS
+    print(f"保留策略 {ret} 天（允许区间 60~{MAX_RETENTION_DAYS} 天），实际跨度 {span} 天 ≤ 一年:",
+          "通过" if ok else "未通过")
     return ok
 
 
@@ -242,7 +245,7 @@ def main():
         print("== 4) 清理超期 ==", prune(c))
     ok = check(c)
     c.close()
-    print("\n半年覆盖:", "通过" if ok else "未通过")
+    print("\n保留与上限校验:", "通过" if ok else "未通过")
 
 
 if __name__ == "__main__":
