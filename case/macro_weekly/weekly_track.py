@@ -296,38 +296,23 @@ def push_card(card):
     return ok
 
 
-def send_email(subject, body, image=None):
-    """dws 主通道 → 163 SMTP 回退（与月度 case 同一套做法）。"""
+def _send_smtp163(subject, body, image=None):
+    """163 SMTP 主通道（用户 2026-11-28 指定）：需 email.username / email.password(授权码) / email.sender / email.recipients。"""
     import app_secrets
-    frm = app_secrets.get("email.sender", "")
+    frm = app_secrets.get("email.sender", "") or app_secrets.get("email.username", "")
     to = app_secrets.get("email.recipients", "")
-    if not (frm and to):
-        print("[邮件] 未配置 email.sender/email.recipients，跳过")
-        return False
-    cmd = [DWS_CLI, "mail", "message", "send", "--from", frm, "--to", to,
-           "--subject", subject, "--content", body, "--format", "json"]
-    if image and os.path.exists(image):
-        cmd += ["--inline-attachment", image]
-    try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        if re.search(r'"success"\s*:\s*(true|"true")', p.stdout, re.I):
-            print("[邮件] dws 通道发送成功 ->", to)
-            return True
-        print("[邮件] dws 返回异常:", (p.stderr or p.stdout)[:200])
-    except Exception as e:  # noqa: BLE001
-        print("[邮件] dws 调用失败:", str(e)[:150])
-
     code = app_secrets.get("email.password", "")
-    if not code:
-        print("[邮件] 无 163 授权码，回退通道不可用")
+    user = app_secrets.get("email.username", "") or frm
+    if not (frm and to and code):
+        print("[邮件] 163 通道缺配置（需 email.username/password/sender/recipients），跳过")
         return False
     try:
         from email.mime.image import MIMEImage
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
+        import smtplib
         host = app_secrets.get("email.smtp_host", "smtp.163.com")
         port = app_secrets.get_int("email.smtp_port", 465)
-        user = app_secrets.get("email.username", frm)
         msg = MIMEMultipart("related")
         msg["Subject"] = subject
         msg["From"] = frm
@@ -337,17 +322,47 @@ def send_email(subject, body, image=None):
             with open(image, "rb") as f:
                 img = MIMEImage(f.read())
             img.add_header("Content-ID", "<chart>")
+            img.add_header("Content-Disposition", "inline", filename=os.path.basename(image))
             msg.attach(img)
-        import smtplib
         s = smtplib.SMTP_SSL(host, port, timeout=60)
         s.login(user, code)
-        s.sendmail(user, [to], msg.as_string())
+        s.sendmail(user, [x.strip() for x in to.replace(";", ",").split(",") if x.strip()], msg.as_string())
         s.quit()
-        print("[邮件] 163 回退通道发送成功 ->", to)
+        print("[邮件] 163 通道发送成功 ->", to)
         return True
     except Exception as e:  # noqa: BLE001
-        print("[邮件] 163 回退失败:", str(e)[:150])
+        print("[邮件] 163 通道失败:", str(e)[:150])
         return False
+
+
+def _send_dws(subject, body, image=None):
+    """dws 兜底通道（只需 email.sender/recipients）。"""
+    import app_secrets
+    frm = app_secrets.get("email.sender", "")
+    to = app_secrets.get("email.recipients", "")
+    if not (frm and to):
+        print("[邮件] dws 通道缺 email.sender/recipients，跳过")
+        return False
+    cmd = [DWS_CLI, "mail", "message", "send", "--from", frm, "--to", to,
+           "--subject", subject, "--content", body, "--format", "json"]
+    if image and os.path.exists(image):
+        cmd += ["--inline-attachment", image]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if re.search(r'"success"\s*:\s*(true|"true")', p.stdout, re.I):
+            print("[邮件] dws 兜底通道发送成功 ->", to)
+            return True
+        print("[邮件] dws 返回异常:", (p.stderr or p.stdout)[:200])
+    except Exception as e:  # noqa: BLE001
+        print("[邮件] dws 调用失败:", str(e)[:150])
+    return False
+
+
+def send_email(subject, body, image=None):
+    """163 SMTP 为主、dws 兜底（用户 2026-11-28 选定 163）。"""
+    if _send_smtp163(subject, body, image):
+        return True
+    return _send_dws(subject, body, image)
 
 
 # ---------------- 切换检测 ----------------
