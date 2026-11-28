@@ -1,0 +1,125 @@
+# -*- coding: utf-8 -*-
+"""render 阶段：计算周期与情绪，生成两份 HTML 报告 + out/report.md 摘要
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS = os.path.join(HERE, "scripts")
+OUT = os.path.join(HERE, "out")
+SRC_DATA = os.path.join(HERE, "output", "data")
+SRC_REPORT = os.path.join(HERE, "output", "report")
+
+STEPS = [
+    ("计算出清周期", "calc_cycle.py"),
+    ("计算情绪周期", "calc_emotion.py"),
+    ("生成两份报告", "build_reports.py"),
+]
+
+
+def run(name, script):
+    print(f"--- [{name}] {script}", flush=True)
+    r = subprocess.run([sys.executable, "-u", script], cwd=SCRIPTS)
+    if r.returncode != 0:
+        raise SystemExit(f"{name} 失败，退出码 {r.returncode}")
+
+
+def load(name):
+    with open(os.path.join(SRC_DATA, name), encoding="utf-8") as f:
+        return json.load(f)
+
+
+def build_markdown(c, e):
+    ma, p, b = c["ma"], c["passive"], c["basis"]
+    bi = b["IF"]
+    m = e["metrics"]
+    mg = m.get("margin") or {}
+    qv = m.get("qvix") or {}
+
+    if ma["in_clearing"]:
+        head = f"出清中，第 {ma['days']} 个交易日（{ma['since']} 下穿起）"
+        action = "继续发送"
+    else:
+        head = f"出清已完成（{ma['since']} 上穿）"
+        action = "停止发送"
+
+    lines = [
+        f"# A股出清周期监控 · {c['as_of']}",
+        "",
+        f"**周期状态**：{head}　|　报告动作：{action}",
+        "",
+        "## 一、周期边界（沪深300 MA40 / MA80）",
+        "",
+        "| 项目 | 数值 |",
+        "| --- | --- |",
+        f"| 沪深300 收盘 | {ma['close']:,.2f} |",
+        f"| MA40 | {ma['ma_fast']:,.2f} |",
+        f"| MA80 | {ma['ma_slow']:,.2f} |",
+        f"| MA40 − MA80 | {ma['dif']:,.2f}（{ma['gap_pct']:.2f}%） |",
+        f"| 横盘收敛速度 | {ma['converge_speed']:.2f} 点/日 |",
+        f"| 修复测算 | 约 {ma['flat_days']} 个交易日 |" if ma.get("flat_days") else "| 修复测算 | — |",
+        "",
+        "## 二、进度指标",
+        "",
+        "| 指标 | 读数 | 状态 |",
+        "| --- | --- | --- |",
+        f"| 被动化率（Wind 分母） | {p['value_pct']:.2f}% | {'已过 7% 提醒线' if p['value_pct'] >= 7 else '计时中'} |",
+        f"| 被动化率（土狗刻度） | {p['value_pct_dog']:.2f}% | — |",
+        f"| {bi['contract']} 年化基差 | {bi['annual_pct']:.2f}% | {'正常带内' if bi['in_normal'] else '偏离正常带'} |",
+        f"| 距 5 日高点回落 | {bi['drop_pp']:.2f}pp（高 {bi['high5']:.2f}% @ {bi['high5_date']}） | {'修复到位' if bi['triggered'] else '未到位'} |",
+        "",
+        "## 三、情绪温度（独立模块）",
+        "",
+        f"**{e['heat']} / 100 → {e['stage']}**：{e['meaning']}",
+        "",
+        "| 维度 | 得分 |",
+        "| --- | --- |",
+    ]
+    for k, v in e["parts"].items():
+        lines.append(f"| {k} | {v:+d} |")
+    lines += [
+        "",
+        f"涨跌 {m['up']} / {m['down']}，涨停 {m['limit_up']} / 跌停 {m['limit_down']}，"
+        f"中位数 {m['median_chg']:+.2f}%，全A 成交 {(m['amount_yi_all'] or 0) / 1e4:.2f} 万亿；"
+        f"融资余额 {mg.get('fin_bal_yi', 0):,.0f} 亿（20日 {mg.get('chg20_pct', 0):+.2f}%）；"
+        f"QVIX {qv.get('value', 0):.2f}（{qv.get('rank_250')}% 分位）。",
+        "",
+        "## 四、触发规则",
+        "",
+        "| 事件 | 判定 | 动作 |",
+        "| --- | --- | --- |",
+        "| 出清开始 | MA40 下穿 MA80 | 开始发送 |",
+        "| 出清完成 | MA40 上穿 MA80 | 停止发送 |",
+        "| 被动化率 | 4.9% / 7.0% / 8.5% | 起计时 / 提醒 / 上沿 |",
+        "| 基差 | 距 5 日高回落 ≥5pp | 修复到位 |",
+        "",
+        "情绪温度是位置指标，不是择时信号；出清完成与否只看均线。",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def main():
+    for name, script in STEPS:
+        run(name, script)
+
+    os.makedirs(OUT, exist_ok=True)
+    n = 0
+    if os.path.isdir(SRC_REPORT):
+        for f in os.listdir(SRC_REPORT):
+            if f.endswith(".html"):
+                shutil.copy2(os.path.join(SRC_REPORT, f), os.path.join(OUT, f))
+                n += 1
+
+    c = load("cycle.json")
+    e = load("emotion.json")
+    md = build_markdown(c, e)
+    with open(os.path.join(OUT, "report.md"), "w", encoding="utf-8") as f:
+        f.write(md)
+    print(f"报告已生成：out/report.md + {n} 份 HTML")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,70 @@
+{
+  "key": "clearance_cycle",
+  "title": "A股出清周期监控",
+  "desc": "沪深300 MA40/MA80 定义出清周期边界；被动化率与年化基差衡量出清进度；情绪温度独立成表",
+  "section": "risk",
+  "visibility": "public",
+  "sched": {
+    "mode": "daily",
+    "at": "16:10",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "metrics": [],
+  "depends_on": [],
+  "enabled": true,
+  "timeout": 1800,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "pipeline": {
+    "on_fail": "stop",
+    "freshness_days": 5,
+    "min_ok_ratio": 0.5,
+    "require_data": true,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "data": [
+        "data/*.json",
+        "data/*.csv"
+      ],
+      "report": [
+        "out/report.md",
+        "out/*.html"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "cmd": "python3 -u fetch.py",
+        "timeout": 1200
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "render",
+        "cmd": "python3 -u render.py",
+        "timeout": 300
+      },
+      {
+        "name": "emit",
+        "cmd": "python3 -u emit.py"
+      },
+      {
+        "name": "dispatch",
+        "cmd": "python3 -u dispatch.py",
+        "optional": true
+      }
+    ]
+  },
+  "note": "出清完成（MA40 上穿 MA80）后 dispatch 自动静默，数据仍然照常落库"
+}
