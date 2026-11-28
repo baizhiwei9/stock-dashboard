@@ -394,10 +394,20 @@ def main():
     ap.add_argument("--no-feishu", action="store_true", help="不推飞书卡片")
     ap.add_argument("--no-email", action="store_true", help="不发切换邮件")
     ap.add_argument("--push-only", action="store_true", help="只推送/检测，不重新取数")
+    ap.add_argument("--test-email", action="store_true", help="只发一封邮件通道自检（不发卡片、不取数）")
     args = ap.parse_args()
 
     os.makedirs(DATA, exist_ok=True)
     os.makedirs(OUT, exist_ok=True)
+
+    if args.test_email:
+        ok = send_email("[库存周期监测] 邮件通道自检",
+                        "库存周期周频跟踪的邮件通道自检（163 SMTP 主通道、dws 兜底）。\n\n"
+                        "触发规则：库存周期阶段切换、或利润分布第一名变化（如上游第一→下游第一）时自动发信，"
+                        "邮件内嵌四联配图。\n\n署名：DuMate 库存周期周频跟踪",
+                        PNG if os.path.exists(PNG) else None)
+        print("[自检] 邮件通道:", "成功" if ok else "失败")
+        return
 
     if not args.push_only:
         import compute_edb  # noqa: F401  顶层执行：取数 + 算指标 + 落 CSV/key_numbers
