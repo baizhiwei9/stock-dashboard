@@ -1,0 +1,67 @@
+{
+  "key": "macro_weekly",
+  "title": "库存周期×上下游利润摆动 周频跟踪",
+  "desc": "库存周期位置、上下游利润摆动与 PMI 的周频跟踪：周中看代理动量，月度发布日校准象限与宽度",
+  "section": "macro",
+  "metrics": [],
+  "sched": {
+    "mode": "weekly",
+    "at": "09:00",
+    "weekdays": [
+      1
+    ]
+  },
+  "cmd": "PYTHONPATH=\"${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}.\" python3 -u weekly_track.py",
+  "cwd": ".",
+  "timeout": 1800,
+  "enabled": true,
+  "deliver": {
+    "report": true,
+    "email": false
+  },
+  "code_files": 5,
+  "requires": [
+    "pylibs"
+  ],
+  "entry": "weekly_track.py",
+  "needs_llm": false,
+  "root_note": "自包含：不设 root，产出与数据落在任务目录（out/、data/ 由 .gitignore 排除，不进仓库）",
+  "pipeline": {
+    "on_fail": "continue",
+    "freshness_days": 10,
+    "min_ok_ratio": 0.3,
+    "require_data": false,
+    "require_report": true,
+    "require_metrics": true,
+    "artifacts": {
+      "report": [
+        "out/*.html",
+        "out/*.png",
+        "out/*.json"
+      ]
+    },
+    "stages": [
+      {
+        "name": "fetch",
+        "hook": true,
+        "timeout": 1800
+      },
+      {
+        "name": "check",
+        "builtin": "artifacts"
+      },
+      {
+        "name": "emit",
+        "hook": true,
+        "builtin": "emit"
+      },
+      {
+        "name": "dispatch",
+        "hook": true,
+        "timeout": 900,
+        "optional": true
+      }
+    ]
+  },
+  "visibility": "public"
+}
