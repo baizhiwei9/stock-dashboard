@@ -26,5 +26,12 @@
   "original_cwd": "/Coze/Drive/蓁宝/所有对话/主对话",
   "original_entry": "/Coze/Drive/蓁宝/所有对话/主对话/板块筛选v4_fast.py",
   "imported_from": "case/_seed/tasks.json",
-  "import_note": "源码按上限截断：主对话"
+  "import_note": "源码按上限截断：主对话",
+  "pipeline": {
+    "artifacts": {
+      "data": [
+        "out/板块筛选v4_*.md"
+      ]
+    }
+  }
 }
