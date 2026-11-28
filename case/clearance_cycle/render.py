@@ -6,6 +6,8 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.join(HERE, "scripts")
@@ -45,16 +47,15 @@ def load(name, default=None):
 
 
 def build_markdown(c, e, a=None):
-    from datetime import datetime as _dt
-
     ma, p, b = c["ma"], c["passive"], c["basis"]
     bi = b["IF"]
     m = e["metrics"]
     mg = m.get("margin") or {}
     qv = m.get("qvix") or {}
 
-    # 14:50 跑：日线未收，盘中的 MA / 分位与收盘价会有差异，报告头部标注
-    _now = _dt.now()
+    # 14:50 跑：日线未收，盘中的 MA / 分位与收盘价会有差异，报告头部标注。
+    # 显式用北京时间判断，避免宿主机 TZ 不是 Asia/Shanghai 时误判。
+    _now = datetime.now(ZoneInfo("Asia/Shanghai"))
     intra = "　|　⚠️ 盘中数据，非收盘价" if _now.hour * 60 + _now.minute < 15 * 60 else ""
 
     if ma["in_clearing"]:
