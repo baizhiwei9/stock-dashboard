@@ -19,6 +19,7 @@ case/_lib 加进子进程 PYTHONPATH，放这里一次覆盖全部任务。
   3. tushare trade_cal —— 覆盖未来年份（需要 token，取不到则跳过）
   4. 工作日兜底 —— weekday()<5，节假日未校准，会打印警告
 """
+import os
 import sys
 from datetime import date
 
@@ -90,7 +91,14 @@ def is_trading_day(d=None):
 
 
 def check_trading_day():
-    """非交易日直接退出（exit 0），不执行后面的发送/出报告逻辑。"""
+    """非交易日直接退出（exit 0），不执行后面的发送/出报告逻辑。
+
+    CASE_FORCE_RUN=1 时忽略闸门强制跑：补跑/复盘历史交易日、周末验证
+    任务本身能否跑通时用，不改任务配置就绕过休市判断。
+    """
+    if os.environ.get("CASE_FORCE_RUN") == "1":
+        print("📅 CASE_FORCE_RUN=1，忽略交易日闸门（强制跑）")
+        return
     if not is_trading_day():
         print("📅 %s 非A股交易日，跳过" % date.today())
         sys.exit(0)

@@ -12,7 +12,7 @@ mkdir -p "$LOGDIR"
 TODAY=$(date +%Y-%m-%d)
 DOW=$(date +%u)  # 1=Mon ... 7=Sun
 
-if [ "$DOW" -gt 5 ]; then
+if [ "$DOW" -gt 5 ] && [ "${CASE_FORCE_RUN:-0}" != "1" ]; then
     echo "$TODAY 周末跳过" >> "$LOGDIR/skip.log"
     echo "$TODAY 周末跳过"          # 也走 stdout：runner 据此判 skipped，不再报 data 空
     exit 0
