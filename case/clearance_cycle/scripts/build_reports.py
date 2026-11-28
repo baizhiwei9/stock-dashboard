@@ -475,6 +475,15 @@ def build_emotion(e):
     as_of = e["as_of"]
     heat = e["heat"]
 
+    # 实时补数/日线兜底时成交额可能缺失：显示「—」而不是 0，避免读数被当成真实成交。
+    _amt = m.get("amount_yi")
+    amt_txt = f"{_amt:,.0f} 亿" if _amt is not None else "—"
+    if _amt is not None and m.get("amount_is_stale"):
+        amt_txt += "（T-1）"
+    rank_txt = f"{m['amount_rank_250']}%" if m.get("amount_rank_250") is not None else "—"
+    _chg = m.get("hs300_chg_pct")
+    chg_part = f"（{_chg:+.2f}%）" if _chg is not None else ""
+
     tone_color = {"red": "var(--red)", "yellow": "var(--yellow)", "blue": "var(--blue)", "green": "var(--green)"}.get(e["tone"], "var(--txt)")
 
     # 五维条
@@ -510,7 +519,7 @@ def build_emotion(e):
     <span>独立模块，不再作为出清完成信号</span>
     <span>情绪温度 <b>{heat} / 100</b></span>
     <span>阶段 <b>{esc(e['stage'])}</b></span>
-    <span>沪深300 <b>{m['hs300_close']:,.2f}</b>（{m['hs300_chg_pct']:+.2f}%）</span>
+    <span>沪深300 <b>{m['hs300_close']:,.2f}</b>{chg_part}</span>
     {_intra_badge()}
   </div>
 </header>
@@ -523,13 +532,13 @@ def build_emotion(e):
     <div class="chips">
       <span class="chip {'warn' if heat>=55 else 'on'}">涨停 {m['limit_up']}</span>
       <span class="chip {'warn' if (m['median_chg'] or 0)>=2 else 'on'}">中位数 {m['median_chg']:+.1f}%</span>
-      <span class="chip {'off' if (m['amount_rank_250'] or 0)<60 else 'warn'}">成交分位 {m['amount_rank_250']}%</span>
+      <span class="chip {'off' if (m['amount_rank_250'] or 0)<60 else 'warn'}">成交分位 {rank_txt}</span>
     </div>
   </div>
   <div class="kpis">
     <div class="kpi"><div class="k">涨跌家数</div><div class="v">{m['up']} <span style="font-size:15px;color:var(--dim)">/</span> {m['down']}</div><div class="s">上涨占比 {m['up_ratio']}%</div></div>
     <div class="kpi"><div class="k">涨停 / 跌停</div><div class="v" style="color:var(--red)">{m['limit_up']} <span style="font-size:15px;color:var(--dim)">/</span> {m['limit_down']}</div><div class="s">极端结构参考</div></div>
-    <div class="kpi"><div class="k">全A 成交</div><div class="v">{(m['amount_yi_all'] or 0)/1e4:.2f}<span style="font-size:14px;color:var(--dim)"> 万亿</span></div><div class="s">沪深300 {(m['amount_yi'] or 0):,.0f} 亿</div></div>
+    <div class="kpi"><div class="k">全A 成交</div><div class="v">{(m['amount_yi_all'] or 0)/1e4:.2f}<span style="font-size:14px;color:var(--dim)"> 万亿</span></div><div class="s">沪深300 {amt_txt}</div></div>
     <div class="kpi"><div class="k">融资余额</div><div class="v">{(mg.get('fin_bal_yi') or 0):,.0f}<span style="font-size:14px;color:var(--dim)"> 亿</span></div><div class="s">20日 {(mg.get('chg20_pct') or 0):+.2f}% · {esc(mg.get('date',''))}</div></div>
   </div>
 </div>
@@ -565,7 +574,7 @@ def build_emotion(e):
           <tr><td>宽度</td><td>涨跌家数</td><td class="num">{m['up']} / {m['down']}</td><td>上涨占比 {m['up_ratio']}%</td></tr>
           <tr><td>宽度</td><td>涨停 / 跌停</td><td class="num strong">{m['limit_up']} / {m['limit_down']}</td><td>极端偏多程度看涨跌停比</td></tr>
           <tr><td>涨幅</td><td>个股涨跌中位数</td><td class="num strong">{m['median_chg']:+.1f}%</td><td>赚钱效应扩散程度</td></tr>
-          <tr><td>量能</td><td>沪深300 成交额</td><td class="num">{(m['amount_yi'] or 0):,.0f} 亿</td><td>250 日分位 {m['amount_rank_250']}%</td></tr>
+          <tr><td>量能</td><td>沪深300 成交额</td><td class="num">{amt_txt}</td><td>250 日分位 {rank_txt}</td></tr>
           <tr><td>量能</td><td>全A 成交额</td><td class="num">{(m['amount_yi_all'] or 0)/1e4:.2f} 万亿</td><td>全市场资金参与度</td></tr>
           <tr><td>杠杆</td><td>融资余额（{esc(mg.get('date',''))}）</td><td class="num">{mg.get('fin_bal_yi',0):,.0f} 亿</td><td>20 日 {mg.get('chg20_pct',0):+.2f}%</td></tr>
           <tr><td>杠杆</td><td>维持担保比例</td><td class="num">{mg.get('maint_ratio',0):.1f}%</td><td>安全垫厚度</td></tr>
@@ -602,11 +611,12 @@ def main():
     os.makedirs(REPORT_DIR, exist_ok=True)
     c = load("cycle.json")
     e = load("emotion.json")
-    as_of = c["as_of"]
     outs = []
+    # 两份报告各有自己的 as_of：情绪取沪深300最后一根 bar，出清取基差，
+    # 盘中某一侧补数失败时两者可能差一天，文件名跟着各自的日期走，不要串。
     for name, html in [
-        (f"出清周期监控_{as_of}.html", build_cycle(c)),
-        (f"情绪周期监控_{as_of}.html", build_emotion(e)),
+        (f"出清周期监控_{c['as_of']}.html", build_cycle(c)),
+        (f"情绪周期监控_{e['as_of']}.html", build_emotion(e)),
     ]:
         p = os.path.join(REPORT_DIR, name)
         with open(p, "w", encoding="utf-8") as f:

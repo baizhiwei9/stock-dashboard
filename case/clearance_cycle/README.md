@@ -55,6 +55,7 @@ case/clearance_cycle/
   dispatch.py     两条推送规则：双分位邮件告警 + 报告摘要（出清完成时静默）
   scripts/        取数与计算实现
     fetch_basis.py   IF/IC/IM 合约日线（回看 15 个月）+ 现货 → 年化基差
+    realtime_fill.py 盘中实时补当日 bar（DataHub 快照，带交易日/报价日期校验）
     calc_clearing.py 被动化率 / 基差（含 250 日分位）/ 情绪低点
     calc_alert.py    双分位状态机 + 邮件文案
     mailer.py        邮件出口（data_hub.notify 三级降级 + 草稿兜底）
@@ -76,6 +77,8 @@ case/clearance_cycle/
 工作日 **14:50**（日频）。
 
 **盘中口径**：14:50 日线尚未收盘，MA40/MA80、成交额、QVIX、基差均取当时盘中价，与 15:00 收盘价会有差异。报告头部与邮件正文会自动标注「盘中数据，非收盘价」。若某天出现「盘中触发、收盘未触发」的抖动，把 `task.json` 的 `sched.at` 改到 `15:05` 即可，无需改代码。
+
+**数据源兜底**：中证指数官网 / 新浪期货日线取不到时自动退 DataHub 日线；日线仍缺当日，就用 DataHub 实时快照补一根 bar（`scripts/realtime_fill.py`）。补数有三道闸：北京时间的今天必须是交易日、快照报价日期必须等于今天、接口硬超时 40s——任何一道不过就沿用 T-1，绝不造数。成交额补不到时报告显示「—」或「（T-1）」，不按 0 参与分位。深交所 ETF 份额改用 `fund.szse.cn` 单次 xlsx 导出（requests 被 TLS 指纹拦截时退 curl），避免分页接口断连导致深市 ETF 静默缺失、被动化率偏低约 2pp。
 
 出清完成后 `dispatch` 的报告推送自动静默，指标与双分位告警照常运行。
 

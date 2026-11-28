@@ -17,6 +17,8 @@ import akshare as ak
 import pandas as pd
 import requests
 
+import realtime_fill
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "output", "data")
 os.makedirs(DATA, exist_ok=True)
@@ -51,23 +53,35 @@ def contract_expiry(symbol):
 
 
 def fetch_spot(index_code, start, end):
-    """中证指数官方行情（含成交额，亿元）"""
-    h = {"User-Agent": UA, "Referer": "https://www.csindex.com.cn/"}
-    url = "https://www.csindex.com.cn/csindex-home/perf/index-perf"
-    r = requests.get(url, params={"indexCode": index_code, "startDate": start, "endDate": end}, headers=h, timeout=25)
-    js = r.json()
-    if js.get("code") != "200":
-        raise RuntimeError(f"csindex {index_code} {js}")
-    df = pd.DataFrame(js["data"])
-    df["date"] = pd.to_datetime(df["tradeDate"], format="%Y%m%d").dt.strftime("%Y-%m-%d")
-    df["close"] = pd.to_numeric(df["close"], errors="coerce")
-    df["amount_yi"] = pd.to_numeric(df["tradingValue"], errors="coerce")
-    return df[["date", "close", "amount_yi"]].sort_values("date")
+    """中证指数官方行情（含成交额，亿元）；官网整体不可用时退 DataHub 日线。"""
+    try:
+        h = {"User-Agent": UA, "Referer": "https://www.csindex.com.cn/"}
+        url = "https://www.csindex.com.cn/csindex-home/perf/index-perf"
+        r = requests.get(url, params={"indexCode": index_code, "startDate": start, "endDate": end}, headers=h, timeout=25)
+        js = r.json()
+        if js.get("code") != "200":
+            raise RuntimeError(f"csindex {index_code} {js}")
+        df = pd.DataFrame(js["data"])
+        df["date"] = pd.to_datetime(df["tradeDate"], format="%Y%m%d").dt.strftime("%Y-%m-%d")
+        df["close"] = pd.to_numeric(df["close"], errors="coerce")
+        df["amount_yi"] = pd.to_numeric(df["tradingValue"], errors="coerce")
+        df = df[["date", "close", "amount_yi"]].sort_values("date")
+        if len(df):
+            return df
+        print(f"[basis] csindex {index_code} 返回空序列，改用 DataHub 日线", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[basis] csindex {index_code} 失败，改用 DataHub 日线: {e}", flush=True)
+
+    days = max(60, (datetime.strptime(end, "%Y%m%d") - datetime.strptime(start, "%Y%m%d")).days)
+    hub = realtime_fill.fetch_index_history(f"{index_code}.SH", lookback=days)
+    if hub is None or not len(hub):
+        raise RuntimeError(f"csindex 与 DataHub 都取不到 {index_code} 现货")
+    return hub[["date", "close", "amount_yi"]].sort_values("date")
 
 
 def _month_seq(back=BACK_MONTHS, fwd=FWD_MONTHS):
     """从 back 个月前到 fwd 个月后的合约月序列"""
-    today = date.today()
+    today = date.fromisoformat(realtime_fill.today_cn())
     y, m = today.year, today.month
     out = []
     for k in range(-back, fwd + 1):
@@ -86,8 +100,13 @@ def fetch_futures(variety, days=400):
         try:
             df = ak.futures_zh_daily_sina(symbol=sym)
         except Exception:  # noqa: BLE001
-            continue
+            df = None
         if df is None or not len(df):
+            # 新浪日线失败/空 → DataHub 合约日线兜底（含新上市合约）
+            df = realtime_fill.futures_daily_from_hub(sym)
+            if df is None:
+                continue
+            out[sym] = df.tail(days)
             continue
         df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
         df["close"] = pd.to_numeric(df["close"], errors="coerce")
@@ -97,14 +116,25 @@ def fetch_futures(variety, days=400):
 
 
 def build(days=HIST_DAYS):
-    start = (date.today() - timedelta(days=int(days * 1.7) + 60)).strftime("%Y%m%d")
-    end = date.today().strftime("%Y%m%d")
-    result = {"as_of": None, "varieties": {}, "spot": {}, "history": {}}
+    today = date.fromisoformat(realtime_fill.today_cn())
+    start = (today - timedelta(days=int(days * 1.7) + 60)).strftime("%Y%m%d")
+    end = today.strftime("%Y%m%d")
+    result = {"as_of": None, "varieties": {}, "spot": {}, "history": {}, "realtime_fill": {}}
 
     for v, idx in SPOT.items():
         spot = fetch_spot(idx, start, end)
+        # 14:50 盘中：现货日线通常还没有当日 → 用实时快照补一根确认是今天的 bar
+        if str(spot["date"].iloc[-1])[:10] < realtime_fill.today_cn():
+            bars = realtime_fill.fetch_index_today({v: f"{idx}.SH"})
+            if v in bars:
+                spot = realtime_fill.append_bar(spot, bars[v], ["close", "amount_yi"])
+                result["realtime_fill"][f"spot_{v}"] = bars[v]
         result["spot"][v] = spot.tail(days).to_dict("records")
         futs = fetch_futures(v)
+        # 期货同理：日线缺当日时补实时快照（报价日期必须等于今天）
+        fut_meta = realtime_fill.fill_futures_today(futs)
+        for sym, meta in fut_meta.items():
+            result["realtime_fill"][sym] = meta
         rows = []
         for sym, df in futs.items():
             exp = contract_expiry(sym)

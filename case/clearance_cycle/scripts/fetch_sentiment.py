@@ -9,15 +9,25 @@ import akshare as ak
 import pandas as pd
 import requests
 
+import realtime_fill
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "output", "data")
 os.makedirs(DATA, exist_ok=True)
 UA = "Mozilla/5.0"
 
+# 指数集合：key → (中证代码, 回看交易日, DataHub 兜底回看自然日)
+INDEX_SPECS = {
+    "hs300": ("000300", 320, 560),
+    "zz500": ("000905", 120, 300),
+    "zz1000": ("000852", 120, 300),
+}
+
 
 def csindex_hist(index_code, days=320):
-    start = (date.today() - timedelta(days=days * 1.6)).strftime("%Y%m%d")
-    end = date.today().strftime("%Y%m%d")
+    today = date.fromisoformat(realtime_fill.today_cn())
+    start = (today - timedelta(days=days * 1.6)).strftime("%Y%m%d")
+    end = today.strftime("%Y%m%d")
     h = {"User-Agent": UA, "Referer": "https://www.csindex.com.cn/"}
     r = requests.get(
         "https://www.csindex.com.cn/csindex-home/perf/index-perf",
@@ -71,9 +81,37 @@ def breadth_today():
 
 def build():
     out = {}
-    out["hs300"] = csindex_hist("000300").to_dict("records")
-    out["zz500"] = csindex_hist("000905", days=120).to_dict("records")
-    out["zz1000"] = csindex_hist("000852", days=120).to_dict("records")
+    today = realtime_fill.today_cn()
+
+    # 1) 历史序列：中证指数官网为主；整条不可用时退 DataHub 日线（含当日实时）。
+    frames = {}
+    for key, (code, days, hub_lookback) in INDEX_SPECS.items():
+        df = None
+        try:
+            df = csindex_hist(code, days=days)
+        except Exception as e:  # noqa: BLE001
+            print(f"[sentiment] csindex {code} 失败，改用 DataHub 日线: {e}", flush=True)
+        if df is None or not len(df):
+            df = realtime_fill.fetch_index_history(f"{code}.SH", lookback=hub_lookback)
+        if df is None or not len(df):
+            raise RuntimeError(f"指数 {code} 两条数据源都取不到")
+        frames[key] = df
+
+    # 2) 日线缺当日（14:50 盘中常态）→ 用实时快照补一根；只补确认是今天的。
+    missing = {
+        key: f"{INDEX_SPECS[key][0]}.SH"
+        for key, df in frames.items()
+        if str(df["date"].iloc[-1])[:10] < today
+    }
+    if missing:
+        bars = realtime_fill.fetch_index_today(missing)
+        for key, bar in bars.items():
+            frames[key] = realtime_fill.append_bar(
+                frames[key], bar, ["close", "amount_yi", "chg_pct"])
+        out["realtime_fill"] = bars
+    for key, df in frames.items():
+        out[key] = df.to_dict("records")
+
     try:
         out["margin"] = margin_hist().to_dict("records")
     except Exception as e:  # noqa: BLE001
