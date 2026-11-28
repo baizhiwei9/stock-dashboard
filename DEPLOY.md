@@ -25,22 +25,37 @@ cd stock-dashboard
 pip install -r requirements.txt
 ```
 
-**同级还需要 dataHub**（数据统一入口，本仓库不直连数据源）：
+### 2.1 装成员库（跨库 `import` 靠这一步，不靠目录位置）
+
+本仓库不 vendored 任何兄弟库代码：`data_hub`、`charts`、`calc`、`alert`、`multi_agent`
+全部来自同一大项目（AnchorStructor）下的成员仓库，**装进同一个解释器**之后直接 `import`。
 
 ```bash
-git clone https://github.com/baizhiwei9/datahub-multi-tier
-# 目录结构：
-#   <父目录>/stock-dashboard/
-#   <父目录>/datahub-multi-tier/
+cd <大项目根>/AnchorStructor          # 各子库并列在这一层
+./bootstrap.sh                        # 建 .venv 并装公开成员
+# 或装进系统 python（crontab 直跑 / 调度器用哪个就装哪个）：
+PYTHON=/usr/bin/python3 ./install-system.sh
+# 私有成员（precious-task 等）由本地 members.private.toml 列出，模板见 templates/
+
+# 自检：装完就能 import，不需要任何路径变量
+python3 -c "import data_hub, charts, calc, alert, multi_agent; print('ok')"
 ```
 
 `data_hub` 的定位顺序所有入口共用（见 `datahub_path.py`）：
 
-1. `DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO`，取第一个存在且含 `data_hub/` 的；
-2. 同级 checkout `<父目录>/datahub-multi-tier`；
-3. `/opt/coze/.fuse_drive/dataHub_三级体系` 兜底。
+1. **已安装的 `data_hub` 包** → 从包位置反推仓库根（上面装完就走这一条）；
+2. `DATA_HUB_PATH` → `DATAHUB_DIR` → `EDB_REPO`，取第一个存在且含 `data_hub/` 的；
+3. 同级 checkout `<父目录>/datahub-multi-tier`（**只在没装库时才需要**）。
 
-同级 checkout 最省事；放在别处就用环境变量指定（绝对路径）：
+确实没装、又想用同级 checkout 时，目录结构是：
+
+```bash
+git clone https://github.com/baizhiwei9/datahub-multi-tier
+#   <父目录>/stock-dashboard/
+#   <父目录>/datahub-multi-tier/
+```
+
+也可以显式指定（绝对路径）：
 
 ```bash
 export DATA_HUB_PATH=/path/to/datahub-multi-tier   # 或 EDB_REPO=/path/to/datahub-multi-tier

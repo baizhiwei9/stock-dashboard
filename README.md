@@ -46,7 +46,9 @@ python3 manager.py list     # 命令行运维：清单 / status / run / enable /
 `manager.py` 是**命令行工具**，不监听端口；HTTP 控制台和注册接口都由 `scheduler.py`
 提供（默认端口 `modules.json` 的 `api.port`，现为 `8767`）。
 
-`build.py` 依赖 `data_hub`：用 `DATA_HUB_PATH` / `DATAHUB_DIR` / `EDB_REPO` 指定根目录，未指定时按同级 `../datahub-multi-tier` 查找（见 `datahub_path.py`）。
+`build.py` 依赖 `data_hub`：**首选已安装的 `data_hub` 包**（`pip install -e` 之后直接可用，
+见 [`DEPLOY.md` §2.1](DEPLOY.md)）；没装时才回落到 `DATA_HUB_PATH` / `DATAHUB_DIR` / `EDB_REPO`
+或同级 `../datahub-multi-tier`（见 `datahub_path.py`）。
 
 ## 核心约定
 

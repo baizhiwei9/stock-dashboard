@@ -11,9 +11,11 @@ run_daily.sh / sd_watchdog.sh 直接 `python3 datahub_path.py` 取同一结果�
 1. 显式环境变量 DATA_HUB_PATH → DATAHUB_DIR → EDB_REPO，
    取第一个「目录存在且含 data_hub/」的。只存在、但没有 data_hub/ 的路径
    会跳过 —— 选了它后面 import 也必然失败，跳过才有机会落到可用路径。
-2. 同级 checkout：<本仓库>/../datahub-multi-tier；
-   再兼容 <本仓库>/datahub-multi-tier 的旧布局。
-3. 都没有时返回空串 —— 调用方必须显式报错。代码里不再保留云盘旧副本
+2. **已安装的 data_hub 包**：`pip install -e` 之后直接拿包的位置反推仓库根。
+   本项目约定成员库都装进同一个解释器，装了就不必再猜目录。
+3. 同级 checkout：<本仓库>/../datahub-multi-tier；
+   再兼容 <本仓库>/datahub-multi-tier 的旧布局（没装库时的兜底）。
+4. 都没有时返回空串 —— 调用方必须显式报错。代码里不再保留云盘旧副本
    （/opt/coze/.fuse_drive/...）兜底：那条路径已废弃，退过去只会静默连错库。
 
 只解析路径，不改 sys.path、不改环境变量。环境变量请给绝对路径。
@@ -35,6 +37,28 @@ def _is_hub_root(path):
     return bool(path) and os.path.isdir(os.path.join(path, "data_hub"))
 
 
+def _installed_hub_root():
+    """已安装的 data_hub 包反推出来的仓库根（`pip install -e` 时即源码目录）。
+
+    装了成员库就不该再猜同级目录：`import data_hub` 能成立，说明包已在解释器里，
+    把它的源码位置反推成根即可；反推失败返回空串，继续走后面的候选。
+    """
+    try:
+        import importlib.util as _iu
+        spec = _iu.find_spec("data_hub")
+    except Exception:
+        return ""
+    if spec is None:
+        return ""
+    origin = getattr(spec, "origin", None)
+    if origin and origin.endswith(".py"):
+        return os.path.dirname(os.path.dirname(os.path.abspath(origin)))
+    locs = list(getattr(spec, "submodule_search_locations", None) or [])
+    if locs:
+        return os.path.dirname(os.path.abspath(locs[0]))
+    return ""
+
+
 def candidates(project=None):
     """按优先级返回 [(来源, 路径), ...]，排障时可打印出来看为什么选了某条。"""
     project = project or _project_dir()
@@ -43,6 +67,7 @@ def candidates(project=None):
         val = os.environ.get(name)
         if val:
             out.append(("env:" + name, val))
+    out.append(("installed:data_hub", _installed_hub_root()))
     for rel in SIBLING_DIRS:
         out.append(("sibling", os.path.normpath(os.path.join(project, rel))))
     return out
