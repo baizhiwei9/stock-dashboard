@@ -241,9 +241,10 @@ def build_card(k, m=None, img_key="", changes=None):
         els.append({"tag": "div", "text": {"tag": "lark_md", "content": txt}})
 
     # ⑥ 页脚
-    els.append({"tag": "note", "elements": [{"tag": "plain_text", "content":
-        "周中读数只作方向预判，正式结论以月度工企效益数据为准｜报告：out/库存周期与利润转移周报.html"
-        + ("｜配图：out/库存周期与利润转移图表.png" if not img_key else "")}]})
+    tail = "周中读数只作方向预判，正式结论以月度工企效益数据为准｜报告与四联配图见管理端任务卡片"
+    if not img_key:
+        tail += "｜本期配图已随邮件内嵌发送（飞书卡片带图需应用凭据）"
+    els.append({"tag": "note", "elements": [{"tag": "plain_text", "content": tail}]})
 
     return {"config": {"wide_screen_mode": True},
             "header": {"template": TPL.get(quad.split("(")[0], "blue"),
