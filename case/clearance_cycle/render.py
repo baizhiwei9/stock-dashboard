@@ -53,6 +53,17 @@ def build_markdown(c, e, a=None):
     mg = m.get("margin") or {}
     qv = m.get("qvix") or {}
 
+    # 被动化率分子缺交易所时读数偏低约 2pp：明确标不可用，不给「已过线」的假信号。
+    _pv_ok = p.get("reliable", True)
+    _pv_miss = "/".join(p.get("missing_exchanges") or []) or "部分交易所"
+    pv_state = (f"数据不全（缺 {_pv_miss}），不做 7% 判定" if not _pv_ok
+                else ("已过 7% 提醒线（并入双分位邮件，不单独发信）"
+                      if p["value_pct"] >= 7 else "计时中"))
+    # 为空时正好顶替表格后那个空行；降级时插入警告块
+    pv_warn = "" if _pv_ok else (
+        f"\n> ⚠️ 被动化率分子缺 {_pv_miss} ETF 份额，读数偏低约 2pp，"
+        f"**不可用于 7% 判定**；均线、基差、情绪不受影响。\n")
+
     # 14:50 跑：日线未收，盘中的 MA / 分位与收盘价会有差异，报告头部标注。
     # 显式用北京时间判断，避免宿主机 TZ 不是 Asia/Shanghai 时误判。
     _now = datetime.now(ZoneInfo("Asia/Shanghai"))
@@ -85,11 +96,11 @@ def build_markdown(c, e, a=None):
         "",
         "| 指标 | 读数 | 状态 |",
         "| --- | --- | --- |",
-        f"| 被动化率（Wind 分母） | {p['value_pct']:.2f}% | {'已过 7% 提醒线（并入双分位邮件，不单独发信）' if p['value_pct'] >= 7 else '计时中'} |",
-        f"| 被动化率（土狗刻度） | {p['value_pct_dog']:.2f}% | — |",
+        f"| 被动化率（Wind 分母） | {p['value_pct']:.2f}% | {pv_state} |",
+        f"| 被动化率（土狗刻度） | {p['value_pct_dog']:.2f}% | {'同上，读数偏低' if not _pv_ok else '—'} |",
         f"| {bi['contract']} 年化基差 | {bi['annual_pct']:.2f}% | {'正常带内' if bi['in_normal'] else '偏离正常带'} |",
         f"| 距 5 日高点回落 | {bi['drop_pp']:.2f}pp（高 {bi['high5']:.2f}% @ {bi['high5_date']}） | {'修复到位' if bi['triggered'] else '未到位'} |",
-        "",
+        pv_warn,
         "## 三、情绪温度（独立模块）",
         "",
         f"**{e['heat']} / 100 → {e['stage']}**：{e['meaning']}",
