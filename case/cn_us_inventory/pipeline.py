@@ -20,12 +20,19 @@ for _p in (HERE, LIB):
 
 CMD_FETCH = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u inventory_monthly.py --no-feishu --no-email'
 CMD_SEND = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u inventory_monthly.py'
+CMD_ARCHIVE = 'PYTHONPATH="${PYLIBS_DIR:+$PYLIBS_DIR:}${PYTHONPATH:+$PYTHONPATH:}." python3 -u weekly/archive_macro.py'
 SEC = 'CN.MACRO'
 TIMEOUT = 1800
 
 
 def fetch(ctx):
     ctx.sh(CMD_FETCH, timeout=TIMEOUT, check=True)
+    # 数据刷新后立刻落一年期归档库（独立 SQLite，日频+月频全量 upsert）；
+    # 归档失败不阻断主报告，只告警 —— 不要因为归档把月度报告也拖挂。
+    try:
+        ctx.sh(CMD_ARCHIVE, timeout=900, check=True)
+    except Exception as e:  # noqa: BLE001
+        ctx.warn("归档失败，月度报告继续", [str(e)[:200]])
 
 
 def emit(ctx):
