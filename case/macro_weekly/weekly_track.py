@@ -252,17 +252,66 @@ def build_card(k, m=None, img_key="", changes=None):
 
 
 # ---------------- 推送与邮件 ----------------
-def _feishu_creds():
+_SECRET_ALIAS = {
+    # 环境变量风格名 -> case/_lib/app_secrets 的点号键
+    "SMTP_USER": "email.username", "MAIL_USER": "email.username",
+    "SMTP_PASSWORD": "email.password", "QQMAIL_AUTH_CODE": "email.password",
+    "EMAIL_AUTH_CODE": "email.password",
+    "SMTP_FROM": "email.sender", "SMTP_TO": "email.recipients",
+    "COZE_EMAIL_TO": "email.recipients",
+    "FEISHU_APP_ID": "feishu.app_id", "FEISHU_APP_SECRET": "feishu.app_secret",
+    "FEISHU_WEBHOOK": "feishu.webhook",
+}
+
+
+def _secret(name, default=""):
+    """凭据读取顺序与仓内其他任务一致：DataHub get_secret → app_secrets → 环境变量。
+
+    data_hub.get_secret 读的是部署机的私有凭据（private.py/.env/legacy），本机没有也没关系；
+    app_secrets 读 ~/.config/stock-dashboard/secrets.json（本机唯一生效文件）。
+    """
     try:
-        from feishu_creds import load_credentials
-    except Exception as e:  # noqa: BLE001
-        print("[飞书] 凭据模块不可用:", str(e)[:120])
-        return "", "", ""
-    c = load_credentials()
-    if isinstance(c, (tuple, list)):
-        c = c[0] or {}
-    c = c or {}
-    return (c.get("webhook_url") or "", c.get("app_id") or "", c.get("app_secret") or "")
+        from data_hub import get_secret as _gs
+        v = (_gs(name, default="") or "").strip()
+        if v:
+            return v
+    except Exception:  # noqa: BLE001
+        pass
+    dotted = _SECRET_ALIAS.get(name)
+    if dotted:
+        try:
+            import app_secrets
+            v = (app_secrets.get(dotted, "") or "").strip()
+            if v:
+                return v
+        except Exception:  # noqa: BLE001
+            pass
+    return (os.environ.get(name, "") or default).strip()
+
+
+def _mail_cfg():
+    """邮件凭据：QQ/163 两套自动识别（仓里 cycle_switch_alert 用 QQ，cn_us_inventory 用 163）。"""
+    user = _secret("SMTP_USER") or _secret("MAIL_USER")
+    code = _secret("SMTP_PASSWORD") or _secret("QQMAIL_AUTH_CODE")
+    to = _secret("SMTP_TO") or _secret("COZE_EMAIL_TO")
+    frm = _secret("SMTP_FROM") or user
+    host = _secret("SMTP_HOST") or ("smtp.qq.com" if "qq.com" in (user or "").lower() else "smtp.163.com")
+    return {"user": user, "code": code, "to": to, "frm": frm, "host": host, "port": 465}
+
+
+def _feishu_creds():
+    """(webhook, app_id, app_secret)：优先 DataHub，其次本机 secrets.json。"""
+    hook = _secret("FEISHU_WEBHOOK")
+    if not hook:
+        try:
+            from feishu_creds import load_credentials
+            c = load_credentials()
+            if isinstance(c, (tuple, list)):
+                c = c[0] or {}
+            hook = (c or {}).get("webhook_url") or ""
+        except Exception:  # noqa: BLE001
+            pass
+    return hook, _secret("FEISHU_APP_ID"), _secret("FEISHU_APP_SECRET")
 
 
 def _upload_image(png, app_id, app_secret):
@@ -297,26 +346,20 @@ def push_card(card):
 
 
 def _send_smtp163(subject, body, image=None):
-    """163 SMTP 主通道（用户 2026-11-28 指定）：需 email.username / email.password(授权码) / email.sender / email.recipients。"""
-    import app_secrets
-    frm = app_secrets.get("email.sender", "") or app_secrets.get("email.username", "")
-    to = app_secrets.get("email.recipients", "")
-    code = app_secrets.get("email.password", "")
-    user = app_secrets.get("email.username", "") or frm
-    if not (frm and to and code):
-        print("[邮件] 163 通道缺配置（需 email.username/password/sender/recipients），跳过")
+    """SMTP 主通道（默认 163；QQ 账号自动切 smtp.qq.com）。凭据按 _secret 三级读取。"""
+    cfg = _mail_cfg()
+    if not (cfg["frm"] and cfg["to"] and cfg["code"]):
+        print("[邮件] SMTP 缺配置：需 MAIL_USER/SMTP_USER + 授权码 + 收件人（DataHub 或 secrets.json）")
         return False
     try:
         from email.mime.image import MIMEImage
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         import smtplib
-        host = app_secrets.get("email.smtp_host", "smtp.163.com")
-        port = app_secrets.get_int("email.smtp_port", 465)
         msg = MIMEMultipart("related")
         msg["Subject"] = subject
-        msg["From"] = frm
-        msg["To"] = to
+        msg["From"] = cfg["frm"]
+        msg["To"] = cfg["to"]
         msg.attach(MIMEText(body, "plain", "utf-8"))
         if image and os.path.exists(image):
             with open(image, "rb") as f:
@@ -324,22 +367,23 @@ def _send_smtp163(subject, body, image=None):
             img.add_header("Content-ID", "<chart>")
             img.add_header("Content-Disposition", "inline", filename=os.path.basename(image))
             msg.attach(img)
-        s = smtplib.SMTP_SSL(host, port, timeout=60)
-        s.login(user, code)
-        s.sendmail(user, [x.strip() for x in to.replace(";", ",").split(",") if x.strip()], msg.as_string())
-        s.quit()
-        print("[邮件] 163 通道发送成功 ->", to)
+        s_ = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=60)
+        s_.login(cfg["user"] or cfg["frm"], cfg["code"])
+        s_.sendmail(cfg["user"] or cfg["frm"],
+                    [x.strip() for x in cfg["to"].replace(";", ",").split(",") if x.strip()],
+                    msg.as_string())
+        s_.quit()
+        print("[邮件] SMTP(%s) 发送成功 ->" % cfg["host"], cfg["to"])
         return True
     except Exception as e:  # noqa: BLE001
-        print("[邮件] 163 通道失败:", str(e)[:150])
+        print("[邮件] SMTP(%s) 失败:" % cfg["host"], str(e)[:150])
         return False
 
 
 def _send_dws(subject, body, image=None):
-    """dws 兜底通道（只需 email.sender/recipients）。"""
-    import app_secrets
-    frm = app_secrets.get("email.sender", "")
-    to = app_secrets.get("email.recipients", "")
+    """dws 兜底通道（只需发件人 + 收件人）。"""
+    cfg = _mail_cfg()
+    frm, to = cfg["frm"], cfg["to"]
     if not (frm and to):
         print("[邮件] dws 通道缺 email.sender/recipients，跳过")
         return False
