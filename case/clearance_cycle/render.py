@@ -9,7 +9,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.join(HERE, "scripts")
-OUT = os.path.join(HERE, "out")
+OUT = os.environ.get("CASE_OUT_DIR") or os.path.join(HERE, "out")
 SRC_DATA = os.path.join(HERE, "output", "data")
 SRC_REPORT = os.path.join(HERE, "output", "report")
 
@@ -27,8 +27,16 @@ def run(name, script):
         raise SystemExit(f"{name} 失败，退出码 {r.returncode}")
 
 
+def _src_data():
+    """取数产物优先读契约目录 data/，回退脚本原生目录 output/data/。"""
+    for p in (os.path.join(HERE, "data"), SRC_DATA):
+        if os.path.exists(os.path.join(p, "cycle.json")):
+            return p
+    return SRC_DATA
+
+
 def load(name):
-    with open(os.path.join(SRC_DATA, name), encoding="utf-8") as f:
+    with open(os.path.join(_src_data(), name), encoding="utf-8") as f:
         return json.load(f)
 
 

@@ -9,13 +9,21 @@ OUT = os.environ.get("CASE_OUT_DIR") or os.path.join(HERE, "out")
 SRC_DATA = os.path.join(HERE, "output", "data")
 
 
+def _src_data():
+    """取数产物优先读契约目录 data/，回退脚本原生目录 output/data/。"""
+    for p in (os.path.join(HERE, "data"), SRC_DATA):
+        if os.path.exists(os.path.join(p, "cycle.json")):
+            return p
+    return SRC_DATA
+
+
 def load(name):
-    with open(os.path.join(SRC_DATA, name), encoding="utf-8") as f:
+    with open(os.path.join(_src_data(), name), encoding="utf-8") as f:
         return json.load(f)
 
 
-def main():
-    os.makedirs(OUT, exist_ok=True)
+def build_points():
+    """构造 10 条指标 points；框架 pipeline.py 的 emit hook 复用同一份，避免两处口径漂移。"""
     c = load("cycle.json")
     e = load("emotion.json")
     ma, p, b = c["ma"], c["passive"], c["basis"]
@@ -54,6 +62,14 @@ def main():
         {"key": "emotion.stage", "sec": "000300.SH", "obs_date": e["as_of"],
          "value_text": e["stage"], "quality": "ok", "name": "情绪阶段"},
     ]
+
+    return points
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    as_of = load("cycle.json")["as_of"]
+    points = build_points()
 
     payload = {"as_of": as_of, "points": points}
     with open(os.path.join(OUT, "latest.json"), "w", encoding="utf-8") as f:
