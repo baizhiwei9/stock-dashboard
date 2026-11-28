@@ -181,6 +181,17 @@ class Ctx:
         e.setdefault("CASE_DATA_DIR", self.data_dir)
         e.setdefault("CASE_OUT_DIR", self.out_dir)
         e.setdefault("CASE_SHARED_DIR", SHARED_DIR)
+        # 子进程 import 路径：case/_lib 与 case/_shared 必须可 import。
+        # 否则任务脚本里 `from trading_day_check import ...` / `import report_stats`
+        # 这类共享模块在单独跑 runner 时直接 ModuleNotFoundError —— 只有整套
+        # run_daily.sh 一起跑才碰巧能过。任务自己拼 PYTHONPATH 的写法
+        # （如 "${PYTHONPATH:+$PYTHONPATH:}."）会原样保留这里注入的值。
+        _lib_dir = os.path.dirname(os.path.abspath(__file__))
+        _pp = [p for p in (SHARED_DIR, _lib_dir) if p]
+        _old_pp = e.get("PYTHONPATH") or ""
+        if _old_pp:
+            _pp.append(_old_pp)
+        e["PYTHONPATH"] = ":".join(_pp)
         e.update(env or {})
         self.log("$ %s" % cmd)
         os.makedirs(self.data_dir, exist_ok=True)

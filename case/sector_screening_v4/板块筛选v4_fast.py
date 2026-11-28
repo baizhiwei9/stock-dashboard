@@ -39,7 +39,29 @@ except:
     pass
 
 TODAY = datetime.now().strftime("%Y-%m-%d")
-OUTPUT = _cp(f"/Coze/Drive/蓁宝/所有对话/主对话/板块筛选v4_{TODAY}.md")
+
+
+def _pick_output(path):
+    """云盘目录不可用（未挂载 / 只读 / 换机器）时回落到任务自己的 out/。
+
+    原来 OUTPUT 写死云盘路径，新环境里 open(OUTPUT, "w") 直接 FileNotFoundError，
+    十几分钟筛完 1050 个板块的结果全丢（实测 2026-11-28 就挂在这一步）。
+    """
+    d = os.path.dirname(path)
+    try:
+        os.makedirs(d, exist_ok=True)
+        if os.access(d, os.W_OK):
+            return path
+    except OSError:
+        pass
+    out_dir = os.environ.get("CASE_OUT_DIR") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "out")
+    os.makedirs(out_dir, exist_ok=True)
+    print(f"[warn] 云盘输出目录不可写，改落本地：{out_dir}")
+    return os.path.join(out_dir, os.path.basename(path))
+
+
+OUTPUT = _pick_output(_cp(f"/Coze/Drive/蓁宝/所有对话/主对话/板块筛选v4_{TODAY}.md"))
 
 LIST_URL = "https://push2delay.eastmoney.com/api/qt/clist/get"
 KLINE_URL = "https://push2his.eastmoney.com/api/qt/stock/kline/get"

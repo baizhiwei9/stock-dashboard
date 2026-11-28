@@ -20,5 +20,12 @@
   "requires": [
     "data_hub"
   ],
-  "needs_llm": false
+  "needs_llm": false,
+  "pipeline": {
+    "artifacts": {
+      "data": [
+        "out/fetch.json"
+      ]
+    }
+  }
 }
