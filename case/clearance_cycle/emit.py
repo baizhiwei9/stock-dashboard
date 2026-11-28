@@ -37,6 +37,11 @@ def build_points():
     bi = b["IF"]
     as_of = c["as_of"]
 
+    # 被动化率分子缺交易所 → 读数偏低约 2pp。落库的 quality 必须降级，
+    # 否则看板/指标库会把这个偏低值当正常值用（正是本 PR 要消灭的错信号）。
+    pv_ok = p.get("reliable", True)
+    pv_miss = "/".join(p.get("missing_names") or p.get("missing_exchanges") or []) or "部分交易所"
+
     points = [
         {"key": "clearance.ma_state", "sec": "000300.SH", "obs_date": as_of,
          "value_text": ma["state"], "quality": "ok", "name": "出清周期状态",
@@ -50,13 +55,16 @@ def build_points():
          "value": ma["flat_days"], "dec": 0, "unit": "交易日", "quality": "ok" if ma.get("flat_days") else "missing",
          "name": "横盘修复测算（交易日）"},
         {"key": "clearance.passive_pct", "sec": "000300.SH", "obs_date": as_of,
-         "value": p["value_pct"], "dec": 2, "unit": "%", "quality": "ok",
+         "value": p["value_pct"], "dec": 2, "unit": "%",
+         "quality": "ok" if pv_ok else "estimated",
          "name": "被动化率（自由流通市值分母）",
-         "risk_level": "risk" if p["value_pct"] >= 7 else "none",
-         "risk_note": f"7% 提醒线，土狗刻度 {p['value_pct_dog']:.2f}%"},
+         "risk_level": "risk" if (pv_ok and p["value_pct"] >= 7) else "none",
+         "risk_note": (f"数据不全（缺 {pv_miss}），读数偏低，不做 7% 判定" if not pv_ok
+                       else f"7% 提醒线，土狗刻度 {p['value_pct_dog']:.2f}%")},
         {"key": "clearance.passive_pct_dog", "sec": "000300.SH", "obs_date": as_of,
          "value": p["value_pct_dog"], "dec": 2, "unit": "%", "quality": "estimated",
-         "name": "被动化率（土狗锚点刻度）"},
+         "name": "被动化率（土狗锚点刻度）",
+         **({"risk_note": f"数据不全（缺 {pv_miss}），读数偏低"} if not pv_ok else {})},
         {"key": "clearance.basis_annual_pct", "sec": "IF.CFFEX", "obs_date": as_of,
          "value": bi["annual_pct"], "dec": 2, "unit": "%", "quality": "ok",
          "name": f"{bi['contract']} 年化基差"},

@@ -80,7 +80,14 @@ case/clearance_cycle/
 
 **数据源兜底**：中证指数官网 / 新浪期货日线取不到时自动退 DataHub 日线；日线仍缺当日，就用 DataHub 实时快照补一根 bar（`scripts/realtime_fill.py`）。补数有三道闸：北京时间的今天必须是交易日、快照报价日期必须等于今天、接口硬超时 40s——任何一道不过就沿用 T-1，绝不造数。成交额补不到时报告显示「—」或「（T-1）」，不按 0 参与分位。深交所 ETF 份额改用 `fund.szse.cn` 单次 xlsx 导出（requests 被 TLS 指纹拦截时退 curl），避免分页接口断连导致深市 ETF 静默缺失、被动化率偏低约 2pp。
 
-**ETF 份额降级口径**：深交所 / 上交所其中一边最终仍取不到时，任务**不中断**——当天照常出报告（均线、基差、情绪都要看），但 `etf_scale.json` 会写 `degraded: true` + `missing_exchanges`，被动化率在报告与邮件里标「数据不全，不做 7% 判定」，`done_flags` 也不把它算成「未过线」。理由是偏低读数会漏报 7% 提醒线，属于错信号，比缺一行数字更危险。两边都取不到才真失败（真没数据，不编）。
+**ETF 份额降级口径**：深交所 / 上交所其中一边最终仍取不到时，任务**不中断**——当天照常出报告（均线、基差、情绪都要看），但 `etf_scale.json` 会写 `degraded: true` + `missing_exchanges`，`calc_clearing` 换算成 `reliable: false` + `missing_names`（中文名，直接进正文）向下游透传。四个产物面统一标注：
+
+- **Markdown 报告 / 邮件**：被动化率行标「数据不全（缺 深交所），不做 7% 判定」，并插警告块
+- **HTML 报告**：进度 chip、KPI 副标题、章节 badge（转红）、结论四条全部改文案
+- **指标库（`out/latest.json`）**：`clearance.passive_pct` 的 `quality` 降为 `estimated`，`risk_note` 写明数据不全；`risk_level` 不判 risk
+- **`done_flags` / `progress[].done`**：不算「未过线」，也不计入进度
+
+理由是偏低读数会漏报 7% 提醒线，属于错信号，比缺一行数字更危险。两边都取不到才真失败（真没数据，不编）。
 
 出清完成后 `dispatch` 的报告推送自动静默，指标与双分位告警照常运行。
 

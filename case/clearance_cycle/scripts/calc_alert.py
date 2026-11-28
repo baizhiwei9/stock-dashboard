@@ -163,7 +163,7 @@ def compose_mail(alert, cycle, emotion):
     pv = p.get("value_pct")
     pv_txt = f"{pv}%（土狗口径 {p.get('value_pct_dog')}%）"
     if p.get("reliable") is False:
-        _miss = "/".join(p.get("missing_exchanges") or []) or "部分交易所"
+        _miss = "/".join(p.get("missing_names") or p.get("missing_exchanges") or []) or "部分交易所"
         pv_txt += f"  ← 数据不全（缺 {_miss}），读数偏低，本次不做 7% 判定"
     elif pv is not None and pv >= 7.0:
         pv_txt += "  ← 已过 7% 提醒线"

@@ -24,6 +24,9 @@ PASSIVE_TOP = 8.5        # 历史区间上沿
 BASIS_NORMAL = (4.0, 5.0)
 BASIS_DROP = 5.0         # 距5日高点回落（百分点）
 
+# 交易所代码 → 中文名：降级说明会直接进邮件/报告正文，不能出现裸 sse/szse
+EX_NAME = {"sse": "上交所", "szse": "深交所"}
+
 
 def _load(name):
     p = os.path.join(DATA, name)
@@ -45,6 +48,7 @@ def calc_passive(etf, hs300_recs):
     # 告警与报告据此拒绝做 7% 判定，宁可显示「数据不全」也不给错信号。
     degraded = bool(etf.get("degraded"))
     missing_ex = list(etf.get("missing_exchanges") or [])
+    missing_names = [EX_NAME.get(k, k) for k in missing_ex]
     # 分母：沪深300自由流通市值（Wind 21.2334 万亿，2026-11-27）
     denom_yi = 212334.0
     cur = wide_yi / denom_yi * 100
@@ -73,7 +77,7 @@ def calc_passive(etf, hs300_recs):
 
     status = "未起计时"
     if degraded:
-        status = f"数据不全（缺 {'/'.join(missing_ex)}），不做 7% 判定"
+        status = f"数据不全（缺 {'/'.join(missing_names)}），不做 7% 判定"
     elif cur >= PASSIVE_ALERT:
         status = "已过提醒线（出清基本完成）"
     elif cur >= PASSIVE_START:
@@ -83,6 +87,7 @@ def calc_passive(etf, hs300_recs):
         "reliable": not degraded,
         "degraded": degraded,
         "missing_exchanges": missing_ex,
+        "missing_names": missing_names,
         "wide_scale_yi": wide_yi,
         "denom_yi": denom_yi,
         "denom_note": "沪深300自由流通市值（Wind 21.2334万亿，2026-11-27）",
