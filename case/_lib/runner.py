@@ -181,6 +181,17 @@ class Ctx:
         e.setdefault("CASE_DATA_DIR", self.data_dir)
         e.setdefault("CASE_OUT_DIR", self.out_dir)
         e.setdefault("CASE_SHARED_DIR", SHARED_DIR)
+        # 子进程 import 路径：case/_lib 与 case/_shared 必须可 import。
+        # 否则任务脚本里 `from trading_day_check import ...` / `import report_stats`
+        # 这类共享模块在单独跑 runner 时直接 ModuleNotFoundError —— 只有整套
+        # run_daily.sh 一起跑才碰巧能过。任务自己拼 PYTHONPATH 的写法
+        # （如 "${PYTHONPATH:+$PYTHONPATH:}."）会原样保留这里注入的值。
+        _lib_dir = os.path.dirname(os.path.abspath(__file__))
+        _pp = [p for p in (SHARED_DIR, _lib_dir) if p]
+        _old_pp = e.get("PYTHONPATH") or ""
+        if _old_pp:
+            _pp.append(_old_pp)
+        e["PYTHONPATH"] = ":".join(_pp)
         e.update(env or {})
         self.log("$ %s" % cmd)
         os.makedirs(self.data_dir, exist_ok=True)
@@ -259,6 +270,13 @@ def _stage_spec(task: Dict, name: str) -> Dict:
     for st in pipe.get("stages") or []:
         if isinstance(st, dict) and st.get("name") == name:
             return st
+    # legacy 任务：task.json 只有 cmd、没有 pipeline.stages（如 `bash run.sh`、
+    # `python3 -u run.py`）。这类任务的取数/计算/出报告全在那条 cmd 里，
+    # 旧逻辑会让五个阶段全「未配置，跳过」→ 任务空转，check 再报「data/ 空」，
+    # 看着像数据源坏了。把 cmd 挂到 fetch 阶段执行，让 runner 单跑 = 真跑一遍。
+    if name == "fetch" and task.get("cmd") and not (pipe.get("stages") or []):
+        return {"name": "fetch", "cmd": task["cmd"],
+                "timeout": int(task.get("timeout") or 0)}
     return {}
 
 
@@ -387,15 +405,45 @@ def run_stage(name: str, ctx: Ctx, hook, spec: Dict, verify: bool) -> Dict:
                 return {"name": name, "ok": False, "rc": rc,
                         "sec": round(time.time() - t0, 1), "detail": detail, "soft": True}
             raise RuntimeError("%s 阶段失败（退出码 %s）：%s" % (name, rc, spec["cmd"]))
+        # 非交易日跳过：任务自己判休市后正常退出，data/ 必然没有产物，后续 check
+        # 会报「data/ 下没有任何取数产物」→ 节假日天天误告警。日志里出现明确跳过
+        # 标记时把 fetch 记成 skipped，main 里不再跑后续阶段、整单判通过。
+        if name == "fetch" and rc == 0 and _skipped_today(ctx):
+            return {"name": name, "ok": True, "rc": 0,
+                    "sec": round(time.time() - t0, 1),
+                    "detail": "非交易日跳过（任务主动退出，未取数）", "skipped": True}
     else:
         if spec.get("hook"):
             raise RuntimeError("%s 阶段声明了 hook，但 pipeline.py 里没有 %s()" % (name, name))
         ctx.log("  未配置 %s 阶段，跳过" % name)
+        if name == "fetch":
+            ctx.log("    提示：该任务的取数不在 pipeline 里（通常在 modules.json 的 producer "
+                    "或 run_daily.sh 中执行），单独用 runner 跑必然是空 data/；"
+                    "排障请先跑 producer，再单独跑 runner")
         return {"name": name, "ok": True, "rc": 0, "sec": 0.0, "detail": "未配置，跳过",
                 "skipped": True}
 
     return {"name": name, "ok": True, "rc": rc, "sec": round(time.time() - t0, 1),
             "detail": detail}
+
+
+SKIP_MARKERS = ("非A股交易日", "非交易日跳过", "非交易日，跳过", "周末跳过")
+
+
+def _skipped_today(ctx) -> bool:
+    """本次运行日志里是否出现任务自己打的「非交易日跳过」标记。"""
+    try:
+        name = getattr(ctx.logf, "name", "")
+        if not name:
+            return False
+        ctx.logf.flush()
+        with open(name, "r", encoding="utf-8", errors="replace") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 6000))
+            tail = f.read()
+        return any(m in tail for m in SKIP_MARKERS)
+    except OSError:
+        return False
 
 
 def _task_uses_feishu(task: Dict) -> bool:
@@ -622,6 +670,9 @@ def main(argv: List[str]) -> int:
         results.append(r)
         if r.get("ok") and not r.get("skipped"):
             ctx.done.add(name)
+        if name == "fetch" and r.get("skipped") and "非交易日" in (r.get("detail") or ""):
+            ctx.log("非交易日跳过：后续阶段不再执行")
+            break
         if r.get("hard") and not r.get("ok"):
             failed = True
             if on_fail != "continue":
@@ -651,7 +702,9 @@ def main(argv: List[str]) -> int:
     # 也无 stages[].cmd），旧逻辑是五阶段全「未配置，跳过」并记 ok —— 任务空转还报成功。
     # 这里把它判成硬失败，宁可报错也不要静默通过（dry-run 只打印阶段，不参与）。
     ran_stage = any(r.get("name") in STAGES and not r.get("skipped") for r in results)
-    pipeline_idle = bool(pipe) and not ran_stage and not a.dry_run
+    fetch_skipped = any(r.get("name") == "fetch" and r.get("skipped")
+                        and "非交易日" in (r.get("detail") or "") for r in results)
+    pipeline_idle = bool(pipe) and not ran_stage and not a.dry_run and not fetch_skipped
     if pipeline_idle:
         ctx.warn("流水线空转", ["pipeline 已声明，但没有任何阶段真正执行",
                                 "要么补 pipeline.py 钩子 / stages[].cmd，"

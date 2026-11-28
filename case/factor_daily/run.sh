@@ -14,6 +14,7 @@ DOW=$(date +%u)  # 1=Mon ... 7=Sun
 
 if [ "$DOW" -gt 5 ]; then
     echo "$TODAY 周末跳过" >> "$LOGDIR/skip.log"
+    echo "$TODAY 周末跳过"          # 也走 stdout：runner 据此判 skipped，不再报 data 空
     exit 0
 fi
 # 交易日闸门：只有 check_trading_day() 明确判定「非交易日」才跳过。
@@ -39,7 +40,9 @@ except SystemExit as e:
 PY
 case "$rc" in
     0) : ;;
-    3) echo "$TODAY 非交易日跳过" >> "$LOGDIR/skip.log"; exit 0 ;;
+    3) echo "$TODAY 非交易日跳过" >> "$LOGDIR/skip.log"
+       echo "$TODAY 非交易日跳过"          # 也走 stdout：runner 据此判 skipped
+       exit 0 ;;
     *) echo "$TODAY 交易日判断失败 rc=$rc（不是休市，按失败处理）" >&2
        echo "$TODAY 交易日判断失败 rc=$rc" >> "$LOGDIR/skip.log"
        exit 1 ;;

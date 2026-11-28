@@ -41,6 +41,9 @@ import sys
 CLOUD_DEFAULT = "/opt/coze/.fuse_drive/dataHub_三级体系"
 ENV_NAMES = ("DATA_HUB_PATH", "DATAHUB_DIR", "EDB_REPO")
 
+# AnchorStructor 大项目根的结构标记：只认这些文件，不按目录名猜。
+_STRUCT_MARKERS = ("members.toml", "members.public.toml", "bootstrap.sh")
+
 
 def _is_hub(path):
     """DataHub 根的特征：目录下有 data_hub/。"""
@@ -69,13 +72,44 @@ def _bootstrap_hub_lib(start):
     return lib
 
 
+def _installed_hub_root():
+    """已安装的 data_hub 包反推出来的仓库根（`pip install -e` 时即源码目录）。
+
+    装了成员库就不该再猜目录：`import data_hub` 能成立，说明包已在解释器里，
+    把源码位置反推成根即可。与 `datahub_path.py` 的 `installed:data_hub` 同口径。
+    """
+    try:
+        import importlib.util as _iu
+        spec = _iu.find_spec("data_hub")
+    except Exception:                                      # noqa: BLE001
+        return ""
+    if spec is None:
+        return ""
+    origin = getattr(spec, "origin", None)
+    if origin and origin.endswith(".py"):
+        return os.path.dirname(os.path.dirname(os.path.abspath(origin)))
+    locs = list(getattr(spec, "submodule_search_locations", None) or [])
+    return os.path.dirname(os.path.abspath(locs[0])) if locs else ""
+
+
 def hub_candidates(start=None):
-    """按优先级返回 DataHub 根候选（已去重），排障时可直接打印。"""
-    out = []
+    """按优先级返回 DataHub 根候选（已去重），排障时可直接打印。
+
+    顺序：显式环境变量 → 本仓 `datahub_path.py` 的解析（含同级 checkout）
+    → 大项目根（带 `members.toml`/`bootstrap.sh` 的祖先）的同级 checkout
+    → 已安装的 `data_hub` 包 → 云盘兜底。
+
+    为什么还留「大项目根」这一条：私有任务在 `precious-task/case/<key>` 下，
+    向上碰不到 `datahub_path.py`，不加这条就只能落到不存在的云盘常量。
+    判据只认 AnchorStructor 的结构标记，**不按「上层有同名目录就认」**——
+    机器上残留的 `/tmp/datahub-multi-tier` 这类旧副本会让人静默连错库。
+    """
+    out = [(os.environ.get(n) or "") for n in ENV_NAMES]
     cur = os.path.abspath(start or os.path.dirname(os.path.abspath(__file__)))
+    local_done = False
     for _ in range(8):
         p = os.path.join(cur, "datahub_path.py")
-        if os.path.isfile(p):
+        if os.path.isfile(p) and not local_done:
             ns = {"__file__": p, "__name__": "datahub_path"}
             try:
                 with open(p, encoding="utf-8") as f:
@@ -86,12 +120,15 @@ def hub_candidates(start=None):
                 pass
             out.append(os.path.join(os.path.dirname(cur), "datahub-multi-tier"))
             out.append(os.path.join(cur, "datahub-multi-tier"))
-            break
+            local_done = True
+        elif not local_done and any(os.path.isfile(os.path.join(cur, m))
+                                    for m in _STRUCT_MARKERS):
+            out.append(os.path.join(cur, "datahub-multi-tier"))
         parent = os.path.dirname(cur)
         if parent == cur:
             break
         cur = parent
-    out += [(os.environ.get(n) or "") for n in ENV_NAMES]
+    out.append(_installed_hub_root())
     out.append(CLOUD_DEFAULT)
     seen, uniq = set(), []
     for p in out:
@@ -102,15 +139,19 @@ def hub_candidates(start=None):
 
 
 def hub_root(start=None):
-    """第一个真实可用的 DataHub 根；都没有时返回兜底常量（不保证存在）。"""
+    """第一个真实可用的 DataHub 根；都没有时返回空串。
+
+    不再直接返回不存在的云盘兜底常量：它只作为候选之一参与 `_is_hub` 检查，
+    不存在就跳过 —— 返回一个不存在的根比返回空更容易掩盖问题。
+    """
     for p in hub_candidates(start):
         if _is_hub(p):
             return p
-    return CLOUD_DEFAULT
+    return ""
 
 
 def ensure_hub_on_path(start=None):
-    """把 DataHub 根前置进 sys.path 并返回它。"""
+    """把存在的 DataHub 根前置进 sys.path 并返回它（找不到返回空串）。"""
     root = hub_root(start)
     if root and root not in sys.path:
         sys.path.insert(0, root)
@@ -118,8 +159,12 @@ def ensure_hub_on_path(start=None):
 
 
 def hub_side_dir(*rel, **kw):
-    """DataHub 仓库内的子目录，如 hub_side_dir('options','alert','notifier')。"""
-    return os.path.join(hub_root(kw.get("start")), *rel)
+    """DataHub 仓库内的子目录，如 hub_side_dir('options','alert','notifier')。
+
+    根找不到时返回空串 —— 别拼出一个相对路径让调用方误以为有货。
+    """
+    root = hub_root(kw.get("start"))
+    return os.path.join(root, *rel) if root else ""
 
 
 # ── 凭据 ─────────────────────────────────────────────────────────────────
