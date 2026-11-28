@@ -117,29 +117,53 @@ def main():
             ax2.axhline(0, color=GREEN, lw=0.7, alpha=0.5)
             ax2.set_ylabel("spread（中−上）", fontsize=9, color=GREEN)
             ax2.tick_params(axis="y", labelsize=8, colors=GREEN)
-            ax.set_title("③ 上下游代理指数（2026-06-01=100）", fontsize=12.5, loc="left")
+            ax.set_title("③ 上下游价格代理（期货，2026-06-01=100）｜看价格强弱，不是利润", fontsize=12.5, loc="left")
             h1, l1 = ax.get_legend_handles_labels()
             h2, l2 = ax2.get_legend_handles_labels()
             ax.legend(h1 + h2, l1 + l2, fontsize=8.5, loc="lower left", framealpha=0.9)
     ax.grid(alpha=0.25)
 
-    # 4) 利润份额
+    # 4) 利润：存量份额（线）+ 增量贡献（文字，谁拿走新增利润）
     ax = axes[1][1]
-    cols = [("CN.PROFIT.SHARE.UP", "上游", RED),
-            ("CN.PROFIT.SHARE.MID", "中游", BLUE),
-            ("CN.PROFIT.SHARE.DOWN", "下游", GREEN),
-            ("CN.PROFIT.SHARE.UTIL", "公用", GRAY)]
-    have = [(c, n, col) for c, n, col in cols if c in m.columns and m[c].notna().any()]
+    groups = [("CN.PROFIT.SHARE.UP", "上游", RED, "CN.PROFIT.AMT.UP"),
+              ("CN.PROFIT.SHARE.MID", "中游", BLUE, "CN.PROFIT.AMT.MID"),
+              ("CN.PROFIT.SHARE.DOWN", "下游", GREEN, "CN.PROFIT.AMT.DOWN"),
+              ("CN.PROFIT.SHARE.UTIL", "公用", GRAY, "CN.PROFIT.AMT.UTIL")]
+    tail = m.tail(12)
+    have = [(c, n, col, a) for c, n, col, a in groups if c in m.columns and m[c].notna().any()]
+    for c, n, col, _a in have:
+        v = tail[c].astype(float).dropna()
+        if v.empty:
+            continue
+        d_pp = v.iloc[-1] - v.iloc[0]
+        ax.plot(v.index, v.values, color=col, lw=2.0, marker="o", ms=3,
+                label="%s %.1f%%（12个月 %+.1fpp）" % (n, float(v.iloc[-1]), float(d_pp)))
+
+    # 增量贡献：今年同月累计额 − 去年同月累计额，占全部增量的比重
+    contrib = {}
+    if "CN.PROFIT.AMT" in m.columns and m["CN.PROFIT.AMT"].notna().any():
+        cur = m["CN.PROFIT.AMT"].dropna().index[-1]
+        base = [i for i in m.index if i.year == cur.year - 1 and i.month == cur.month]
+        if base:
+            b = base[0]
+            tot = float(m.loc[cur, "CN.PROFIT.AMT"]) - float(m.loc[b, "CN.PROFIT.AMT"])
+            if abs(tot) > 0:
+                for _c, n, _col, amt in groups:
+                    if amt in m.columns and pd.notna(m.loc[cur, amt]) and pd.notna(m.loc[b, amt]):
+                        contrib[n] = (float(m.loc[cur, amt]) - float(m.loc[b, amt])) / tot * 100.0
+
     if have:
-        tail = m.tail(12)
-        for c, n, col in have:
-            v = tail[c].astype(float)
-            ax.plot(v.index, v.values, color=col, lw=2.0, marker="o", ms=3,
-                    label="%s（%.1f%%）" % (n, float(v.dropna().iloc[-1])))
-        ax.set_title("④ 利润份额：谁拿走了增量（近 12 个月）", fontsize=12.5, loc="left")
-        ax.legend(fontsize=9, loc="best", framealpha=0.9)
+        ax.set_title("④ 利润：存量份额（线）+ 谁拿走新增（增量贡献）", fontsize=12.5, loc="left")
+        ax.legend(fontsize=8.5, loc="lower left", framealpha=0.9)
+        if contrib:
+            txt = "增量贡献（%s vs %s 累计）：%s" % (
+                cur.strftime("%Y-%m"), b.strftime("%Y-%m"),
+                "｜".join("%s %+.0f%%" % (n, v) for n, v in contrib.items()))
+            ax.text(0.015, 0.965, txt, transform=ax.transAxes, fontsize=8.6, color="#333",
+                    va="top", ha="left",
+                    bbox=dict(boxstyle="round,pad=0.35", fc="#f7f7f7", ec="#dddddd", lw=0.7))
     ax.grid(alpha=0.25)
-    ax.set_ylabel("%")
+    ax.set_ylabel("份额 %")
 
     fig.autofmt_xdate(rotation=20, ha="right")
     fig.tight_layout(rect=[0, 0, 1, 0.925])
