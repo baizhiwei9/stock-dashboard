@@ -34,6 +34,10 @@ def _isolate(monkeypatch, tmp_path, data):
     """把凭据来源钉到临时 secrets，并关掉部署侧 notify.json 与相关环境变量。"""
     monkeypatch.setenv("APP_SECRETS_FILE", _write_secrets(tmp_path, data))
     monkeypatch.setenv("NOTIFY_CONFIG", str(tmp_path / "no-such-notify.json"))
+    # 显式钉死凭据来源：同进程里别的测试（如 test_feishu_creds）可能设过
+    # COZE_SECRETS，它优先于 APP_SECRETS_FILE 且不回退；不清掉就会读到
+    # 别人的临时文件，导致本文件单独跑绿、全量跑红。
+    monkeypatch.delenv("COZE_SECRETS", raising=False)
     for name in (_ENV_BASE, _ENV_BASE + "_STOCKS",
                  _ENV_BASE + "_TUGOU", _ENV_BASE + "_TAGS"):
         monkeypatch.delenv(name, raising=False)
