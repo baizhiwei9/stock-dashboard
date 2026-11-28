@@ -15,8 +15,16 @@ OUT = os.environ.get("CASE_OUT_DIR") or os.path.join(HERE, "out")
 SRC_DATA = os.path.join(HERE, "output", "data")
 
 
+def _src_data():
+    """取数产物优先读契约目录 data/，回退脚本原生目录 output/data/。"""
+    for p in (os.path.join(HERE, "data"), SRC_DATA):
+        if os.path.exists(os.path.join(p, "cycle.json")):
+            return p
+    return SRC_DATA
+
+
 def load(name):
-    with open(os.path.join(SRC_DATA, name), encoding="utf-8") as f:
+    with open(os.path.join(_src_data(), name), encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -36,9 +44,10 @@ def main():
     with open(md_path, encoding="utf-8") as f:
         md = f.read()
 
-    # 推送通道接入点：有 lark-cli / webhook 时在这里发，当前只回显
+    # 推送通道接入点：有 lark-cli / webhook 时在这里发。
+    # 现状：通道未接入，只回显到 stdout（不假装已推送，避免"开始发送"名不副实）。
     print("=" * 60)
-    print(f"待推送：出清中第 {ma['days']} 个交易日，缺口 {ma['gap_pct']:.2f}%")
+    print(f"[未接入推送通道，仅回显] 出清中第 {ma['days']} 个交易日，缺口 {ma['gap_pct']:.2f}%")
     print("=" * 60)
     print(md[:1200])
 

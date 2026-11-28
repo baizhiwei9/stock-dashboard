@@ -28,8 +28,9 @@ case/clearance_cycle/
   task.json       调度与五阶段声明
   fetch.py        取数：ETF规模 / 期货基差 / 情绪 / 被动化率回溯
   render.py       计算 + 出两份 HTML + out/report.md
-  emit.py         写 out/latest.json（10 条指标）
-  dispatch.py     推送（出清完成时静默）
+  emit.py         写 out/latest.json（10 条指标；框架下由 pipeline.py 的 emit hook 交回，见下）
+  pipeline.py     五阶段钩子：只实现 emit（框架 emit 分支不执行 stages[].cmd）
+  dispatch.py     推送摘要（出清完成时静默；**当前通道未接入，只回显**）
   scripts/        取数与计算实现（与独立仓库 clearance-cycle-monitor 同源）
   data/           取数产物（框架 artifacts 默认位置，运行时同步）
   output/data/    脚本原生产物目录
@@ -46,3 +47,12 @@ case/clearance_cycle/
 ## 调度
 
 工作日 16:10（日频）。出清完成后 `dispatch` 自动静默，指标照常落库。
+
+## emit 为什么走 hook
+
+`case/_lib/runner.py` 的 `run_stage` 对 `emit` 单独分支处理，只认 `hook` 与 `builtin`，
+**不执行 `stages[].cmd`**。所以 `task.json` 里 emit 写 `{"hook": true}`，
+由 `pipeline.py::emit(ctx)` 调 `emit.build_points()` 把 10 条 points 交回框架，
+框架再写 `out/latest.json` 并落指标仓。`emit.py` 仍保留，供 `run_daily.sh` 之类无框架场景直跑。
+
+取数产物一律优先读契约目录 `data/`，`output/data/` 只作回退（脚本原生输出位，不入库、会被清）。

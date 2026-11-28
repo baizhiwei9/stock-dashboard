@@ -57,7 +57,7 @@
       },
       {
         "name": "emit",
-        "cmd": "python3 -u emit.py"
+        "hook": true
       },
       {
         "name": "dispatch",
