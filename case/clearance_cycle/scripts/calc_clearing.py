@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""出清周期监控：三口径合算
+
+A. 被动化率 = 宽基ETF总规模 / 沪深300自由流通市值（土狗口径）
+   4.9% 起计时 → 7.0% 发提醒（出清进度基本完成）→ 历史区间 4.9%~8.5%
+B. 基差年化率（现货-期货，按到期日年化）
+   正常区间 4%~5%；距 5 日高点回落 ≥5 个百分点 = 基差出清完成
+C. 情绪低点（原出清周期口径）：成交额分位 / 融资去杠杆 / 涨跌停结构 / 波动率分位
+"""
+import json
+import os
+from datetime import date, datetime
+
+import numpy as np
+import pandas as pd
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA = os.path.join(ROOT, "output", "data")
+
+PASSIVE_START = 4.9      # 起计时线
+PASSIVE_ALERT = 7.0      # 邮件提醒线
+PASSIVE_TOP = 8.5        # 历史区间上沿
+BASIS_NORMAL = (4.0, 5.0)
+BASIS_DROP = 5.0         # 距5日高点回落（百分点）
+
+
+def _load(name):
+    p = os.path.join(DATA, name)
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def pct_rank(series, value):
+    s = pd.Series(series).dropna()
+    if not len(s) or value is None:
+        return None
+    return round(float((s <= value).mean() * 100), 1)
+
+
+def calc_passive(etf, hs300_recs):
+    """被动化率：当前 + 沪市份额回溯近似历史"""
+    wide_yi = etf["wide_total_yi"]
+    # 分母：沪深300自由流通市值（Wind 21.2334 万亿，2026-11-27）
+    denom_yi = 212334.0
+    cur = wide_yi / denom_yi * 100
+
+    # 历史：用沪深300点位比例推算分母，用沪市份额比例推算分子（深市固定）
+    hs = pd.DataFrame(hs300_recs)
+    hs["date"] = hs["date"].astype(str)
+    hs = hs.sort_values("date")
+    cur_close = float(hs["close"].iloc[-1])
+    ratio_denom = lambda c: denom_yi * c / cur_close  # noqa: E731
+    # 土狗锚点校准：以其 11/27 读数 7.83% 反推其分母，便于与原文刻度对齐
+    denom_dog = wide_yi / 0.0783
+
+    hist_path = os.path.join(DATA, "passive_history.csv")
+    hist = []
+    if os.path.exists(hist_path):
+        h = pd.read_csv(hist_path)
+        for _, r in h.iterrows():
+            denom = ratio_denom(float(r["hs300_close"]))
+            hist.append({
+                "date": str(r["date"]),
+                "wide_yi": round(float(r["wide_yi"]), 1),
+                "pct": round(float(r["wide_yi"]) / denom * 100, 2),
+                "pct_dog": round(float(r["wide_yi"]) / denom_dog * 100, 2),
+            })
+
+    status = "未起计时"
+    if cur >= PASSIVE_ALERT:
+        status = "已过提醒线（出清基本完成）"
+    elif cur >= PASSIVE_START:
+        status = "计时中（出清进行中）"
+    return {
+        "value_pct": round(cur, 2),
+        "wide_scale_yi": wide_yi,
+        "denom_yi": denom_yi,
+        "denom_note": "沪深300自由流通市值（Wind 21.2334万亿，2026-11-27）",
+        "lines": {"start": PASSIVE_START, "alert": PASSIVE_ALERT, "top": PASSIVE_TOP},
+        "status": status,
+        "progress_pct": round(min(100, max(0, (cur - PASSIVE_START) / (PASSIVE_TOP - PASSIVE_START) * 100)), 1),
+        "gap_to_alert_pp": round(cur - PASSIVE_ALERT, 2),
+        "value_pct_dog": round(wide_yi / denom_dog * 100, 2),
+        "denom_dog_yi": round(denom_dog, 0),
+        "by_cat_yi": etf["by_cat_yi"],
+        "history": hist,
+        "tuogou_anchor": {"date": "2026-11-27", "pct": 7.83, "note": "土狗原文 Vol.261128 读数，其自由流通市值口径略小于 Wind"},
+    }
+
+
+def calc_basis(basis):
+    """基差：各品种当季合约年化 + 距5日高点回落"""
+    out = {}
+    for v, hist in basis.get("history", {}).items():
+        h = pd.DataFrame(hist)
+        if not len(h):
+            continue
+        q = h[h["is_quarter"]].copy()
+        if not len(q):
+            q = h.copy()
+        # 每日取「远季合约」（剩余 60~150 天，即土狗口径的 IF2703 类合约）；
+        # 年化基差在近月临近到期时会被天数分母放大失真，故不用当季
+        def pick_quarter(g):
+            g = g.sort_values("days_left")
+            mid = g[(g["days_left"] >= 60) & (g["days_left"] <= 150)]
+            if len(mid):
+                return mid.iloc[-1]
+            return g.iloc[-1]
+        daily = q.groupby("date").apply(pick_quarter, include_groups=False).reset_index()
+        daily = daily.sort_values("date").tail(40)
+        cur = daily.iloc[-1]
+        last5 = daily.tail(5)
+        hi5 = float(last5["annual_pct"].max())
+        hi5_date = str(last5.loc[last5["annual_pct"].idxmax(), "date"])
+        drop = hi5 - float(cur["annual_pct"])
+        all_hist = h["annual_pct"]
+        out[v] = {
+            "contract": cur["contract"],
+            "date": str(cur["date"]),
+            "spot": float(cur["spot"]),
+            "fut": float(cur["fut"]),
+            "basis": float(cur["basis"]),
+            "days_left": int(cur["days_left"]),
+            "annual_pct": round(float(cur["annual_pct"]), 2),
+            "high5": round(hi5, 2),
+            "high5_date": hi5_date,
+            "drop_pp": round(drop, 2),
+            "triggered": bool(drop >= BASIS_DROP),
+            "normal_range": list(BASIS_NORMAL),
+            "in_normal": bool(BASIS_NORMAL[0] <= float(cur["annual_pct"]) <= BASIS_NORMAL[1]),
+            "pct_rank_40d": pct_rank(daily["annual_pct"], float(cur["annual_pct"])),
+            "series": [{"date": str(r["date"]), "annual_pct": round(float(r["annual_pct"]), 2)} for _, r in daily.iterrows()],
+            "contracts_today": [
+                {k: c[k] for k in ["contract", "fut", "basis", "days_left", "annual_pct"]}
+                for c in basis["varieties"][v]["contracts"]
+            ],
+        }
+    return out
+
+
+def calc_sentiment(sent):
+    hs = pd.DataFrame(sent["hs300"]).sort_values("date")
+    hs["amount_yi"] = pd.to_numeric(hs["amount_yi"], errors="coerce")
+    cur_amount = float(hs["amount_yi"].iloc[-1])
+    amount_rank = pct_rank(hs["amount_yi"].tail(250), cur_amount)
+
+    close = pd.to_numeric(hs["close"], errors="coerce")
+    high250 = float(close.tail(250).max())
+    drawdown = (1 - float(close.iloc[-1]) / high250) * 100
+
+    mg = pd.DataFrame(sent.get("margin") or [])
+    mg_info = {}
+    if len(mg):
+        mg["fin_bal_yi"] = pd.to_numeric(mg["fin_bal_yi"], errors="coerce")
+        mg = mg.sort_values("date")
+        cur_fin = float(mg["fin_bal_yi"].iloc[-1])
+        chg20 = (cur_fin / float(mg["fin_bal_yi"].iloc[-21]) - 1) * 100 if len(mg) > 21 else None
+        mg_info = {
+            "date": str(mg["date"].iloc[-1]),
+            "fin_bal_yi": round(cur_fin, 0),
+            "chg20_pct": round(chg20, 2) if chg20 is not None else None,
+            "maint_ratio": round(float(mg["ratio"].iloc[-1]), 1) if "ratio" in mg else None,
+        }
+
+    qv = pd.DataFrame(sent.get("qvix") or [])
+    qv_info = {}
+    if len(qv):
+        qv["close"] = pd.to_numeric(qv["close"], errors="coerce")
+        qv_info = {
+            "date": str(qv["date"].iloc[-1]),
+            "value": round(float(qv["close"].iloc[-1]), 2),
+            "rank_250": pct_rank(qv["close"].tail(250), float(qv["close"].iloc[-1])),
+        }
+
+    br = sent.get("breadth") or {}
+    return {
+        "as_of": str(hs["date"].iloc[-1]),
+        "amount_yi": round(cur_amount, 1),
+        "amount_rank_250": amount_rank,
+        "drawdown_from_250d_high_pct": round(drawdown, 2),
+        "margin": mg_info,
+        "qvix": qv_info,
+        "breadth": br,
+        "hs300_close": round(float(close.iloc[-1]), 2),
+        "hs300_chg_pct": round(float(pd.to_numeric(hs["chg_pct"], errors="coerce").iloc[-1]), 2),
+    }
+
+
+def main():
+    etf = _load("etf_scale.json")
+    basis = _load("basis.json")
+    sent = _load("sentiment.json")
+
+    passive = calc_passive(etf, sent["hs300"])
+    basis_r = calc_basis(basis)
+    sentiment = calc_sentiment(sent)
+
+    done_flags = {
+        "被动化率≥7%": passive["value_pct"] >= PASSIVE_ALERT,
+        "基差回落≥5pp": any(v["triggered"] for v in basis_r.values()),
+        "情绪低点已过": (sentiment["breadth"].get("median_chg") or 0) > 0,
+    }
+    out = {
+        "as_of": basis.get("as_of"),
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "passive": passive,
+        "basis": basis_r,
+        "sentiment": sentiment,
+        "done_flags": done_flags,
+        "done_count": int(sum(done_flags.values())),
+    }
+    with open(os.path.join(DATA, "clearing.json"), "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2, default=str)
+    print(json.dumps({k: out[k] for k in ["as_of", "done_flags", "done_count"]}, ensure_ascii=False, indent=2))
+    print("被动化率", passive["value_pct"], "%", passive["status"])
+    for v, b in basis_r.items():
+        print(f"基差 {v} {b['contract']} 年化{b['annual_pct']}% 5日高{b['high5']}% 回落{b['drop_pp']}pp 触发={b['triggered']}")
+    return out
+
+
+if __name__ == "__main__":
+    main()
