@@ -221,10 +221,22 @@ python3 case/_tools/make_pipeline.py --only tech_consensus --force
 
 ### 私有仓库怎么接
 
-私有任务放**独立私有仓库**，不复制框架代码，只按契约写 `task.json` + 脚本：
+私有任务放**独立私有仓库**，不复制框架代码，只按契约写 `task.json` + 脚本。
+
+标准布局是三个仓平级，此时**不需要手工设任何变量**：
+
+```
+<父目录>/
+├── stock-dashboard/    # 本仓：调度器 + 公开任务
+├── precious-task/      # 私有任务（case/<key>/）
+└── datahub-multi-tier/ # 数据入口
+```
+
+`start_all.sh` / `sd_watchdog.sh` 会自动找同级 `../precious-task/case` 并追加进
+`CASE_EXTRA_DIRS`；只有目录名不是 `precious-task`、或要手动起调度器时才显式给：
 
 ```bash
-export CASE_EXTRA_DIRS=/srv/private-tasks/case
+export CASE_EXTRA_DIRS=/srv/private-tasks/case     # 或 SD_PRECIOUS_DIR / SD_CASE_EXTRA_DIRS
 python3 scheduler.py status          # 私有任务和 case/ 下的任务一起排期
 python3 case/_lib/runner.py --task tda_structure --dry-run
 ```

@@ -361,11 +361,45 @@ stock-dashboard/
 └── DEPLOY.md                  # 本文档
 ```
 
-**私仓扩展**：`precious-task` 仓的任务通过环境变量挂进来，主仓同名 key 优先：
+**私仓扩展**：私有任务放在独立仓 `precious-task/case/`，调度器只扫本仓 `case/`，
+所以要用 `CASE_EXTRA_DIRS` 把它追加进来（主仓同名 key 优先）。
+
+**三仓同父目录（推荐，也是本文假设的布局）时什么都不用设**：
+
+```
+<父目录>/
+├── stock-dashboard/        # 调度器 + 公开任务
+├── precious-task/          # 私有任务（case/<key>/）
+└── datahub-multi-tier/     # 数据入口
+```
+
+`start_all.sh`（`up`/`status`）与 `sd_watchdog.sh` 都会自己找同级 `../precious-task/case`，
+找到就追加进 `CASE_EXTRA_DIRS`，找不到就不设，不制造空路径 —— 不存在"必须手工 export"
+这一步。目录名不是 `precious-task`（例如 `precious_task`、`precious-task-main`）时才需要指定：
 
 ```bash
-export CASE_EXTRA_DIRS=/path/to/precious-task/case
+# start_all.sh 走这个
+export SD_PRECIOUS_DIR=/root/work/precious-task-main
+# 直接起 sd_watchdog.sh / scheduler.py 走这个（可多目录，冒号分隔）
+export SD_CASE_EXTRA_DIRS=/root/work/precious-task-main/case
+# 或者显式给调度器本身（最终生效的就是它）
+export CASE_EXTRA_DIRS=/root/work/precious-task-main/case
 ```
+
+`bash start_all.sh status` 会打印当前生效的 `CASE_EXTRA_DIRS`，私有仓没挂上时先看这一行。
+
+`CASE_` 前缀的环境变量一共这些，用途各不相同（**只有 `CASE_EXTRA_DIRS` 跟目录布局有关**）：
+
+| 变量 | 谁读 | 作用 | 同父目录时要不要设 |
+|---|---|---|---|
+| `CASE_EXTRA_DIRS` | `case/_lib/case_registry.py` | 额外任务根目录（冒号分隔），把私有仓的 `case/` 挂进调度 | **不用**，`start_all.sh`/`sd_watchdog.sh` 自动探测 |
+| `CASE_SHARED_DIR` | `case/_lib/runner.py` | 私有任务复用公开仓 `case/_shared/` 的模块路径 | 不用，任务自己按相对路径找；跨机部署才需要指 |
+| `CASE_DATA_SRC` | 任务 `pipeline.py` | 上游输入数据目录（周/月度任务的原始数据） | 按任务需要，与目录布局无关 |
+| `CASE_OUT_DIR` | `case/_lib/runner.py` | 覆盖产物落点（默认任务目录 `out/`），离线复算用 | 一般不用 |
+| `CASE_NO_PUBLISH` | `case/_lib/runner.py` | 置 1 只写 `out/latest.json`、不落 DataHub 指标仓（离线调试） | 调试时才用 |
+| `CASE_CJK_FONT` | `case/_lib/assets.py` | 指定中文字体文件，覆盖自动查找 | 一般不用 |
+| `CASE_ALERT_WEBHOOK` | `case/_lib/alert.py` | 报警外发地址（飞书/钉钉机器人），不配则只落盘 | 可选 |
+| `CASE_DIR` / `CASE_TASK` / `CASE_DATA_DIR` | `case/_lib/runner.py` | 运行时内部量（任务目录 / 任务 key / 数据目录），由 runner 导出给子进程 | **不要设**，设了会打乱任务定位 |
 
 ---
 
@@ -422,9 +456,11 @@ python3 scheduler.py health      # 0 = 健康
 curl -s -o /dev/null -w '%{time_total}\n' http://127.0.0.1:8767/api/state   # 应 < 0.1s
 ```
 
-> **重启必须带 `CASE_EXTRA_DIRS`**。裸 `python3 scheduler.py restart` 会把私有任务
-> （`precious-task/case` 下那 18 个）整个漏掉 —— `sd_watchdog.sh` 会自动导出这个变量，
-> 所以**统一走 `bash sd_watchdog.sh`**，别手敲 restart。
+> **别手敲 `python3 scheduler.py restart`**：它不探测私有仓，会把 `precious-task/case`
+> 下那 18 个任务整个漏掉。统一走 `bash sd_watchdog.sh` 或 `./start_all.sh up` —— 两者都会
+> 自动把同级 `../precious-task/case` 追加进 `CASE_EXTRA_DIRS`，**不需要人工设**；目录名不叫
+> `precious-task` 时按 §6 用 `SD_PRECIOUS_DIR` / `SD_CASE_EXTRA_DIRS` 指定。
+> 起来后用 `python3 scheduler.py status` 或 `./start_all.sh status` 确认私有任务在列。
 
 **定时把本机盘备份回云盘**（脚本：`scripts/sync_to_drive.sh`）：
 
