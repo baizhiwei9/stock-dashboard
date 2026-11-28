@@ -12,6 +12,8 @@
 分位方向：基差用「现货-期货」年化率（正=贴水），分位越高＝贴水越深＝基差越大，
 与 QVIX 同向，所以「双高」＝风险、「双低」＝出清。
 
+被动化率 7% 提醒线已并入本邮件正文，不单独发信（2026-11-28 用户指令）。
+
 边沿触发：只在状态切换时发邮件，避免每天重复轰炸。首跑只建基线不发信。
 """
 from __future__ import annotations
@@ -150,19 +152,29 @@ def compose_mail(alert, cycle, emotion):
         subject = f"【出清周期·出清】QVIX分位{qv:.0f}% + 基差分位{bp:.0f}%，双双回落"
         head = "波动率与基差同步回落到 70% 分位以下，出清信号成立。"
 
+    # 14:50 跑：日线未收，盘中价算出来的 MA / 分位收盘后可能有差异，必须在正文里标明
+    _now = datetime.now()
+    intraday = "（盘中数据，非收盘价，收盘后可能微调）" if _now.hour * 60 + _now.minute < 15 * 60 else ""
+
+    # 被动化率不再单独发信，7% 提醒线并入本邮件正文
+    pv = p.get("value_pct")
+    pv_txt = f"{pv}%（土狗口径 {p.get('value_pct_dog')}%）"
+    if pv is not None and pv >= 7.0:
+        pv_txt += "  ← 已过 7% 提醒线"
+
     lines = [
-        f"{as_of}  {head}",
+        f"{as_of}  {head}{intraday}",
         "",
         f"QVIX（300ETF期权隐波）  {qvv}   250日分位 {qv}%",
         f"{bc} 年化基差           {ba}%  250日分位 {bp}%（{alert.get('basis_hist_days')}个交易日样本）",
         f"距5日高点回落           {alert.get('basis_drop_pp')}pp（5日高 {alert.get('basis_high5')}%）",
         "",
-        f"被动化率                {p.get('value_pct')}%（土狗口径 {p.get('value_pct_dog')}%）",
+        f"被动化率                {pv_txt}",
         f"情绪温度                {em.get('heat')} / {em.get('stage')}",
         "",
         f"状态：{alert['state_label']}（自 {alert['since']}）",
         "规则：QVIX 与基差分位同时 ≥70% 发风险提醒；同时 <70% 发出清提醒；一高一低不动。",
-        "只在状态切换时发信，同状态不重复。",
+        "只在状态切换时发信，同状态不重复。被动化率只在本邮件内展示，不单独发信。",
     ]
     return subject, "\n".join(lines)
 

@@ -45,11 +45,17 @@ def load(name, default=None):
 
 
 def build_markdown(c, e, a=None):
+    from datetime import datetime as _dt
+
     ma, p, b = c["ma"], c["passive"], c["basis"]
     bi = b["IF"]
     m = e["metrics"]
     mg = m.get("margin") or {}
     qv = m.get("qvix") or {}
+
+    # 14:50 跑：日线未收，盘中的 MA / 分位与收盘价会有差异，报告头部标注
+    _now = _dt.now()
+    intra = "　|　⚠️ 盘中数据，非收盘价" if _now.hour * 60 + _now.minute < 15 * 60 else ""
 
     if ma["in_clearing"]:
         head = f"出清中，第 {ma['days']} 个交易日（{ma['since']} 下穿起）"
@@ -61,7 +67,7 @@ def build_markdown(c, e, a=None):
     lines = [
         f"# A股出清周期监控 · {c['as_of']}",
         "",
-        f"**周期状态**：{head}　|　报告动作：{action}",
+        f"**周期状态**：{head}{intra}　|　报告动作：{action}",
         "",
         "## 一、周期边界（沪深300 MA40 / MA80）",
         "",
@@ -78,7 +84,7 @@ def build_markdown(c, e, a=None):
         "",
         "| 指标 | 读数 | 状态 |",
         "| --- | --- | --- |",
-        f"| 被动化率（Wind 分母） | {p['value_pct']:.2f}% | {'已过 7% 提醒线' if p['value_pct'] >= 7 else '计时中'} |",
+        f"| 被动化率（Wind 分母） | {p['value_pct']:.2f}% | {'已过 7% 提醒线（并入双分位邮件，不单独发信）' if p['value_pct'] >= 7 else '计时中'} |",
         f"| 被动化率（土狗刻度） | {p['value_pct_dog']:.2f}% | — |",
         f"| {bi['contract']} 年化基差 | {bi['annual_pct']:.2f}% | {'正常带内' if bi['in_normal'] else '偏离正常带'} |",
         f"| 距 5 日高点回落 | {bi['drop_pp']:.2f}pp（高 {bi['high5']:.2f}% @ {bi['high5_date']}） | {'修复到位' if bi['triggered'] else '未到位'} |",
@@ -120,7 +126,7 @@ def build_markdown(c, e, a=None):
             "| 分化 | 一高一低 | 不动，维持上一状态 |",
             "",
             "基差用「现货−期货」年化率（正=贴水），分位越高＝贴水越深＝基差越大，与 QVIX 同向。",
-            "只在状态切换时发信，同状态不重复。",
+            "只在状态切换时发信，同状态不重复。被动化率 7% 提醒线已并入本邮件正文，不单独发信。",
             "",
         ]
 
@@ -131,7 +137,7 @@ def build_markdown(c, e, a=None):
         "| --- | --- | --- |",
         "| 出清开始 | MA40 下穿 MA80 | 开始发送 |",
         "| 出清完成 | MA40 上穿 MA80 | 停止发送 |",
-        "| 被动化率 | 4.9% / 7.0% / 8.5% | 起计时 / 提醒 / 上沿 |",
+        "| 被动化率 | 4.9% / 7.0% / 8.5% | 起计时 / 提醒（并入双分位邮件）/ 上沿 |",
         "| 基差 | 距 5 日高回落 ≥5pp | 修复到位 |",
         "| 双分位双高 | QVIX ≥70% 且 基差 ≥70% | 发风险邮件 |",
         "| 双分位双低 | 两者同时 <70% | 发出清邮件 |",
