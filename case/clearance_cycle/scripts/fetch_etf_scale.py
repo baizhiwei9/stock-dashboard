@@ -106,7 +106,7 @@ def fetch_sse(date_str=None):
     return df[["code", "name", "vol", "date"]]
 
 
-def fetch_szse():
+def _fetch_szse_strict():
     """深交所 ETF 份额（基金列表 xlsx，一次请求拿全 782 只）。
 
     为什么不再走 www.szse.cn 的分页 JSON：接口固定 10 条/页、共 79 页，
@@ -161,6 +161,20 @@ def fetch_szse():
     return out
 
 
+def fetch_szse():
+    """深交所 ETF 份额：严格取数 + 失败降级。
+
+    取不到返回空表、不抛异常，由 build() 决定「降级出报告」还是「真的没数据」。
+    半份数据比没有更危险（读数偏低、7% 告警漏报），所以 <100 只也按失败处理。
+    """
+    try:
+        return _fetch_szse_strict()
+    except Exception as e:  # noqa: BLE001
+        print(f"[etf_scale] 深交所 ETF 取数失败，本次按缺失处理: "
+              f"{type(e).__name__}: {e}", flush=True)
+        return pd.DataFrame(columns=["code", "name", "vol", "date"])
+
+
 def fetch_nav():
     """场内基金最新单位净值（东财 fund.eastmoney.com 源，可用）"""
     import akshare as ak
@@ -186,13 +200,28 @@ def classify(name):
 
 
 def build(date_str=None, save=True):
-    sse = fetch_sse(date_str)
+    try:
+        sse = fetch_sse(date_str)
+    except Exception as e:  # noqa: BLE001
+        print(f"[etf_scale] 上交所 ETF 取数失败: {type(e).__name__}: {e}", flush=True)
+        sse = pd.DataFrame(columns=["code", "name", "vol", "date"])
     szse = fetch_szse()
     print(f"[etf_scale] 上交所 {len(sse)} 行 / 深交所 {len(szse)} 行", flush=True)
-    # 少一边就会把被动化率算低 ~2pp，警报可能因此不发；宁可让 fetch 失败告警，
-    # 也不要静默发布一个偏低的读数。
-    if not len(sse) or not len(szse):
-        raise RuntimeError(f"ETF 份额缺交易所数据：上交所 {len(sse)} / 深交所 {len(szse)}")
+
+    missing = [k for k, df in (("sse", sse), ("szse", szse)) if not len(df)]
+    if len(missing) == 2:
+        # 两边都取不到 = 真的没有数据。不能编，直接失败让 fetch 阶段告警。
+        raise RuntimeError("ETF 份额两边交易所都取不到，被动化率无法计算")
+
+    # 少一边会把被动化率算低 ~2pp，7% 提醒线因此漏报 —— 这是「错信号」，比没有报告更糟；
+    # 但整条链一起停也不对，均线/基差/情绪当天照样要看。
+    # 折中：照常出报告，把「读数不可用」一路传到 calc_clearing / 告警 / 报告，
+    # 由它们明确标注并拒绝做 7% 判定；只有两边都缺才真的失败。
+    degraded = bool(missing)
+    if degraded:
+        print(f"[etf_scale] ⚠️ 缺 {'/'.join(missing)} ETF 份额，被动化率偏低，"
+              f"本次读数不可用于 7% 判定", flush=True)
+
     navmap, nav_date = fetch_nav()
     etf = pd.concat([sse, szse], ignore_index=True)
     etf = etf.dropna(subset=["code", "vol"])
@@ -216,6 +245,9 @@ def build(date_str=None, save=True):
         "by_cat_yi": {k: round(float(v), 1) for k, v in by_cat.items()},
         "top10": wide.nlargest(10, "scale")[["code", "name", "cat", "vol", "nav", "scale"]].round(2).to_dict("records"),
         "missing_nav": int(etf["nav"].isna().sum()),
+        # 降级标记：下游据此拒绝做 7% 判定，避免拿偏低读数给出错信号
+        "degraded": degraded,
+        "missing_exchanges": missing,
     }
     if save:
         with open(os.path.join(DATA, "etf_scale.json"), "w", encoding="utf-8") as f:
