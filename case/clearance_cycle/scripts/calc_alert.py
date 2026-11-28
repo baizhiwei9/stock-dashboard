@@ -158,10 +158,14 @@ def compose_mail(alert, cycle, emotion):
     _now = datetime.now(ZoneInfo("Asia/Shanghai"))
     intraday = "（盘中数据，非收盘价，收盘后可能微调）" if _now.hour * 60 + _now.minute < 15 * 60 else ""
 
-    # 被动化率不再单独发信，7% 提醒线并入本邮件正文
+    # 被动化率不再单独发信，7% 提醒线并入本邮件正文。
+    # 分子缺交易所时读数偏低，不能拿它判 7% —— 宁可写「不做判定」，也不给错信号。
     pv = p.get("value_pct")
     pv_txt = f"{pv}%（土狗口径 {p.get('value_pct_dog')}%）"
-    if pv is not None and pv >= 7.0:
+    if p.get("reliable") is False:
+        _miss = "/".join(p.get("missing_exchanges") or []) or "部分交易所"
+        pv_txt += f"  ← 数据不全（缺 {_miss}），读数偏低，本次不做 7% 判定"
+    elif pv is not None and pv >= 7.0:
         pv_txt += "  ← 已过 7% 提醒线"
 
     lines = [
